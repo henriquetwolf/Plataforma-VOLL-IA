@@ -3,19 +3,30 @@ import { StrategicPlan } from "../types";
 
 const getApiKey = (): string | undefined => {
   try {
+    // 1. Tenta ler do padrão Vite (Vercel/Local) - Prioridade Máxima
     // @ts-ignore
     if (typeof import.meta !== 'undefined' && import.meta.env) {
       // @ts-ignore
-      const value = import.meta.env.VITE_API_KEY || import.meta.env.API_KEY;
-      if (value) return value;
+      const viteKey = import.meta.env.VITE_API_KEY;
+      if (viteKey) return viteKey;
+      
+      // @ts-ignore
+      const standardKey = import.meta.env.API_KEY; // Alguns ambientes permitem, mas Vite bloqueia sem prefixo
+      if (standardKey) return standardKey;
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn("Erro ao ler env vars via import.meta");
+  }
 
   try {
-    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-      return process.env.API_KEY;
+    // 2. Fallback para process.env (Node ou configs específicas de build)
+    if (typeof process !== 'undefined' && process.env) {
+      if (process.env.VITE_API_KEY) return process.env.VITE_API_KEY;
+      if (process.env.API_KEY) return process.env.API_KEY;
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn("Erro ao ler env vars via process.env");
+  }
 
   return undefined;
 };
@@ -24,7 +35,7 @@ const getAiClient = () => {
   const apiKey = getApiKey();
 
   if (!apiKey) {
-    console.warn("API Key do Gemini não encontrada.");
+    console.error("CRÍTICO: API Key do Gemini não encontrada. Verifique se VITE_API_KEY está definida nas variáveis de ambiente do Vercel.");
     return null;
   }
   return new GoogleGenAI({ apiKey });
@@ -47,7 +58,7 @@ export const generateStudioDescription = async (
   specialties: string[]
 ): Promise<string> => {
   const ai = getAiClient();
-  if (!ai) return "Erro: Chave de API da IA não configurada.";
+  if (!ai) return "Erro: Chave de API da IA não configurada. Verifique VITE_API_KEY no Vercel.";
 
   const prompt = `
     Você é um redator especialista em marketing para negócios de bem-estar e fitness no Brasil.
@@ -70,7 +81,7 @@ export const generateStudioDescription = async (
     return response.text || "Não foi possível gerar a descrição.";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "Falha ao gerar descrição.";
+    return "Falha ao gerar descrição. Verifique a chave de API.";
   }
 };
 
@@ -78,7 +89,7 @@ export const generateStudioDescription = async (
 
 export const generateMissionOptions = async (studioName: string): Promise<string[]> => {
   const ai = getAiClient();
-  if (!ai) return ["Erro: API Key não configurada."];
+  if (!ai) return ["Erro: API Key não configurada. Verifique VITE_API_KEY."];
 
   const prompt = `
     Atue como um consultor de branding para Pilates. Crie 3 opções distintas de MISSÃO para o estúdio "${studioName}".
@@ -104,7 +115,7 @@ export const generateMissionOptions = async (studioName: string): Promise<string
 
 export const generateVisionOptions = async (studioName: string, year: string): Promise<string[]> => {
   const ai = getAiClient();
-  if (!ai) return ["Erro: API Key não configurada."];
+  if (!ai) return ["Erro: API Key não configurada. Verifique VITE_API_KEY."];
 
   const prompt = `
     Atue como um estrategista de negócios. Crie 3 opções de VISÃO de futuro para o estúdio "${studioName}" para o ano de ${year}.
@@ -224,7 +235,13 @@ export const generateActionsSmart = async (objectives: any[]): Promise<any[]> =>
 
 export const generateFullReport = async (data: StrategicPlan): Promise<string> => {
   const ai = getAiClient();
-  if (!ai) return "<p>Erro: Chave de API não configurada.</p>";
+  if (!ai) return `
+    <div class="bg-red-50 p-4 border border-red-200 rounded-lg text-red-700">
+      <h3 class="font-bold">Erro de Configuração</h3>
+      <p>Não foi possível encontrar a Chave de API do Gemini.</p>
+      <p class="text-sm mt-2">Se você está no Vercel, adicione a variável de ambiente <strong>VITE_API_KEY</strong> nas configurações do projeto.</p>
+    </div>
+  `;
 
   const swotText = `
     Forças: ${data.swot.strengths.join('; ')}
@@ -282,6 +299,6 @@ export const generateFullReport = async (data: StrategicPlan): Promise<string> =
     return response.text || "<p>Não foi possível gerar o relatório.</p>";
   } catch (error) {
     console.error("Gemini Full Report Error:", error);
-    return "<p>Erro ao gerar relatório completo. Tente novamente.</p>";
+    return "<p>Erro ao gerar relatório completo com a IA. Tente novamente mais tarde.</p>";
   }
 };

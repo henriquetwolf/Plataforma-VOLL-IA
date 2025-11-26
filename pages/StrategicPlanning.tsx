@@ -41,16 +41,30 @@ export const StrategicPlanning: React.FC = () => {
   const [showSavedList, setShowSavedList] = useState(false);
   const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
 
-  // Carregar dados iniciais
+  // Carregar dados iniciais (Perfil do Studio)
   useEffect(() => {
-    // Carregar perfil do Supabase para pré-preencher nome
-    if (user?.id && !planData.studioName) {
-      fetchProfile(user.id).then(profile => {
-        if (profile?.studioName) {
-          setPlanData(prev => ({ ...prev, studioName: profile.studioName }));
+    const loadStudioData = async () => {
+      if (user?.id) {
+        try {
+          // Busca o perfil no Supabase
+          const profile = await fetchProfile(user.id);
+          
+          if (profile?.studioName) {
+            // Só atualiza se o campo ainda estiver vazio no planejamento atual
+            setPlanData(prev => {
+              if (!prev.studioName) {
+                return { ...prev, studioName: profile.studioName };
+              }
+              return prev;
+            });
+          }
+        } catch (error) {
+          console.error("Erro ao carregar perfil para estratégia:", error);
         }
-      });
-    }
+      }
+    };
+
+    loadStudioData();
 
     // Carregar planos salvos do LocalStorage
     try {
@@ -59,7 +73,7 @@ export const StrategicPlanning: React.FC = () => {
     } catch (e) {
       console.error('Failed to load plans');
     }
-  }, [user]);
+  }, [user?.id]); // Dependência explícita no ID do usuário
 
   const updateLocalStorage = (plans: SavedPlan[]) => {
     localStorage.setItem('pilates_strategic_plans', JSON.stringify(plans));
@@ -128,15 +142,19 @@ export const StrategicPlanning: React.FC = () => {
   };
 
   const handleStartOver = () => {
-    setPlanData(initialPlanData);
-    // Recarregar nome do studio se possível
-    if (user?.id) {
+    // Reseta, mas tenta manter o nome do studio se disponível
+    const currentName = planData.studioName;
+    setPlanData({ ...initialPlanData, studioName: currentName });
+    
+    // Se por acaso estava vazio, tenta buscar de novo
+    if (!currentName && user?.id) {
        fetchProfile(user.id).then(profile => {
         if (profile?.studioName) {
           setPlanData(prev => ({ ...prev, studioName: profile.studioName }));
         }
       });
     }
+
     setGeneratedReport('');
     setCurrentPlanId(null);
     setCurrentStep(StrategyStep.Welcome);
