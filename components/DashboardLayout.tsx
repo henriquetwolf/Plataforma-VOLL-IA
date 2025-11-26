@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UserCircle, LogOut, Sparkles } from 'lucide-react';
+import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users } from 'lucide-react';
 import { AppRoute } from '../types';
 
 export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -10,6 +10,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
 
   const navItems = [
     { label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.DASHBOARD },
+    { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
     { label: 'Perfil do Studio', icon: UserCircle, path: AppRoute.PROFILE },
   ];
 

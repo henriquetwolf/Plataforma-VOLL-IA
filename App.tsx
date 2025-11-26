@@ -6,6 +6,7 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
 import { Profile } from './pages/Profile';
+import { Students } from './pages/Students';
 import { AppRoute } from './types';
 
 // Guard for protected routes
@@ -47,6 +48,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Profile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={AppRoute.STUDENTS}
+        element={
+          <ProtectedRoute>
+            <Students />
           </ProtectedRoute>
         }
       />

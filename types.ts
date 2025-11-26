@@ -18,6 +18,15 @@ export interface StudioProfile {
   specialties: string[];
 }
 
+export interface Student {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  phone: string;
+  createdAt?: string;
+}
+
 export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
@@ -29,5 +38,6 @@ export enum AppRoute {
   REGISTER = '/register',
   DASHBOARD = '/dashboard',
   PROFILE = '/profile',
+  STUDENTS = '/students',
   ROOT = '/'
 }
