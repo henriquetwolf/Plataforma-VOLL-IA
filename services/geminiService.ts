@@ -1,33 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
 import { StrategicPlan } from "../types";
 
-// Chave de fallback fornecida para garantir funcionamento imediato
-const FALLBACK_KEY = 'AIzaSyDDYobnlgxF7iYC-g7uYYc85ipJTA6hSis';
+// Chave fornecida diretamente para garantir funcionamento em produção
+const API_KEY = 'AIzaSyDDYobnlgxF7iYC-g7uYYc85ipJTA6hSis';
 
-const getApiKey = (): string => {
-  try {
-    // 1. Tenta ler do padrão Vite (Vercel/Local) - Prioridade
-    // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
-      // @ts-ignore
-      const viteKey = import.meta.env.VITE_API_KEY;
-      if (viteKey) return viteKey;
-    }
-  } catch (e) {
-    // Ignora erro de acesso
-  }
+// Inicialização direta do cliente
+const ai = new GoogleGenAI({ apiKey: API_KEY });
 
-  // 2. Retorna a chave hardcoded garantida
-  return FALLBACK_KEY;
-};
-
-const getAiClient = () => {
-  const apiKey = getApiKey();
-  // Não precisamos verificar se apiKey existe pois temos o fallback
-  return new GoogleGenAI({ apiKey });
-};
-
-// Helper para limpar JSON vindo da IA (remove markdown ```json ... ```)
+// Helper para limpar JSON vindo da IA
 const cleanAndParseJSON = (text: string) => {
   try {
     let cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -43,7 +23,6 @@ export const generateStudioDescription = async (
   ownerName: string,
   specialties: string[]
 ): Promise<string> => {
-  const ai = getAiClient();
   const prompt = `
     Você é um redator especialista em marketing para negócios de bem-estar e fitness no Brasil.
     Escreva uma descrição profissional, convidativa e concisa (máximo de 100 palavras) para um estúdio de Pilates.
@@ -72,7 +51,6 @@ export const generateStudioDescription = async (
 // --- GERAÇÃO DE OPÇÕES PARA MISSÃO E VISÃO ---
 
 export const generateMissionOptions = async (studioName: string): Promise<string[]> => {
-  const ai = getAiClient();
   const prompt = `
     Atue como um consultor de branding para Pilates. Crie 3 opções distintas de MISSÃO para o estúdio "${studioName}".
     
@@ -97,7 +75,6 @@ export const generateMissionOptions = async (studioName: string): Promise<string
 };
 
 export const generateVisionOptions = async (studioName: string, year: string): Promise<string[]> => {
-  const ai = getAiClient();
   const prompt = `
     Atue como um estrategista de negócios. Crie 3 opções de VISÃO de futuro para o estúdio "${studioName}" para o ano de ${year}.
     
@@ -124,7 +101,6 @@ export const generateVisionOptions = async (studioName: string, year: string): P
 // --- SUGESTÕES DE SWOT ---
 
 export const generateSwotSuggestions = async (category: string): Promise<string[]> => {
-  const ai = getAiClient();
   const prompt = `
     Liste 5 exemplos comuns de "${category}" para um Estúdio de Pilates no Brasil.
     Seja específico (ex: não diga apenas "Localização", diga "Localização com pouco estacionamento").
@@ -147,7 +123,6 @@ export const generateSwotSuggestions = async (category: string): Promise<string[
 // --- GERAÇÃO INTELIGENTE DE OBJETIVOS E AÇÕES ---
 
 export const generateObjectivesSmart = async (swotData: any): Promise<any[]> => {
-  const ai = getAiClient();
   const swotSummary = JSON.stringify(swotData);
 
   const prompt = `
@@ -178,7 +153,6 @@ export const generateObjectivesSmart = async (swotData: any): Promise<any[]> => 
 };
 
 export const generateActionsSmart = async (objectives: any[]): Promise<any[]> => {
-  const ai = getAiClient();
   const objsSummary = JSON.stringify(objectives);
 
   const prompt = `
@@ -211,8 +185,6 @@ export const generateActionsSmart = async (objectives: any[]): Promise<any[]> =>
 // --- RELATÓRIO FINAL ---
 
 export const generateFullReport = async (data: StrategicPlan): Promise<string> => {
-  const ai = getAiClient();
-  
   const swotText = `
     Forças: ${data.swot.strengths.join('; ')}
     Fraquezas: ${data.swot.weaknesses.join('; ')}
@@ -272,7 +244,7 @@ export const generateFullReport = async (data: StrategicPlan): Promise<string> =
     return `
       <div class="bg-red-50 p-6 rounded-lg border border-red-200 text-center">
         <h3 class="text-red-800 font-bold mb-2">Erro na Geração</h3>
-        <p class="text-red-600">Ocorreu um erro ao conectar com a IA. Por favor, tente novamente em alguns instantes.</p>
+        <p class="text-red-600">Ocorreu um erro ao conectar com a IA. Verifique sua chave de API ou tente novamente.</p>
         <p class="text-xs text-red-400 mt-2">Detalhes: ${error instanceof Error ? error.message : 'Erro desconhecido'}</p>
       </div>
     `;

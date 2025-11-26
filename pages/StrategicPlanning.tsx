@@ -46,33 +46,25 @@ export const StrategicPlanning: React.FC = () => {
     const loadStudioData = async () => {
       if (user?.id) {
         try {
-          // Busca o perfil no Supabase
           const profile = await fetchProfile(user.id);
-          
           if (profile?.studioName) {
-            // Atualiza o planData com o nome do studio se ele estiver vazio
-            setPlanData(prev => {
-              if (!prev.studioName || prev.studioName.trim() === '') {
-                return { ...prev, studioName: profile.studioName };
-              }
-              return prev;
-            });
+            setPlanData(prev => ({
+              ...prev,
+              studioName: (prev.studioName && prev.studioName !== '') ? prev.studioName : profile.studioName
+            }));
           }
         } catch (error) {
           console.error("Erro ao carregar perfil para estratégia:", error);
         }
       }
     };
-
     loadStudioData();
 
-    // Carregar planos salvos do LocalStorage
+    // Carregar planos salvos
     try {
       const stored = localStorage.getItem('pilates_strategic_plans');
       if (stored) setSavedPlans(JSON.parse(stored));
-    } catch (e) {
-      console.error('Failed to load plans');
-    }
+    } catch (e) { console.error(e); }
   }, [user]);
 
   const updateLocalStorage = (plans: SavedPlan[]) => {
@@ -142,11 +134,10 @@ export const StrategicPlanning: React.FC = () => {
   };
 
   const handleStartOver = () => {
-    // Reseta, mas tenta manter o nome do studio se disponível
     const currentName = planData.studioName;
     setPlanData({ ...initialPlanData, studioName: currentName });
     
-    // Se por acaso estava vazio, tenta buscar de novo do perfil
+    // Tenta buscar novamente caso esteja vazio
     if (!currentName && user?.id) {
        fetchProfile(user.id).then(profile => {
         if (profile?.studioName) {
@@ -160,12 +151,10 @@ export const StrategicPlanning: React.FC = () => {
     setCurrentStep(StrategyStep.Welcome);
   };
 
-  // Renderização Condicional dos Passos
   if (showSavedList) {
     return <SavedPlansList savedPlans={savedPlans} onLoad={handleLoadPlan} onDelete={handleDeletePlan} onBack={() => setShowSavedList(false)} />;
   }
 
-  // Tela de Boas-Vindas
   if (currentStep === StrategyStep.Welcome) {
     return (
       <div className="max-w-3xl mx-auto text-center py-12 animate-in fade-in zoom-in-95">
@@ -206,7 +195,6 @@ export const StrategicPlanning: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Progress Bar */}
       {currentStep !== StrategyStep.GeneratedPlan && (
         <div className="mb-8">
           <div className="flex justify-between text-xs font-medium text-slate-400 mb-2 uppercase tracking-wide">
@@ -226,7 +214,6 @@ export const StrategicPlanning: React.FC = () => {
         </div>
       )}
 
-      {/* Steps Rendering */}
       <div className="min-h-[400px]">
         {currentStep === StrategyStep.Vision && (
           <VisionStep planData={planData} updatePlanData={updatePlanData} onNext={handleNext} onBack={handleBack} />
