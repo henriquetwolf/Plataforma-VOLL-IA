@@ -66,27 +66,33 @@ export const Students: React.FC = () => {
 
     setIsSubmitting(true);
     
-    let success = false;
+    let result;
 
     if (editingId) {
       // Atualizar existente
-      success = await updateStudent(editingId, formData);
+      result = await updateStudent(editingId, formData);
     } else {
       // Criar novo
-      success = await addStudent(user.id, formData);
+      result = await addStudent(user.id, formData);
     }
     
-    if (success) {
+    if (result.success) {
       handleCancel(); // Limpa form e estado de edição
       await loadStudents();
+    } else {
+      alert(`Erro ao salvar: ${result.error}`);
     }
     setIsSubmitting(false);
   };
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja remover este aluno?')) {
-      await deleteStudent(id);
-      await loadStudents();
+      const result = await deleteStudent(id);
+      if (result.success) {
+        await loadStudents();
+      } else {
+        alert(`Erro ao deletar: ${result.error}`);
+      }
     }
   };
 
