@@ -24,6 +24,11 @@ export const Register: React.FC = () => {
       return;
     }
 
+    if (password.length < 6) {
+      setError('A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+
     const result = await register(email, name, password);
     
     if (result.success) {
@@ -51,6 +56,8 @@ export const Register: React.FC = () => {
       const msg = result.error || '';
       if (msg.includes('User already registered')) {
         setError('Este email já está cadastrado. Por favor, faça login ou use outro email.');
+      } else if (msg.includes('Password should be at least 6 characters')) {
+        setError('A senha deve ter pelo menos 6 caracteres.');
       } else {
         setError(msg || 'Não foi possível criar a conta. Verifique os dados e tente novamente.');
       }
@@ -86,7 +93,7 @@ export const Register: React.FC = () => {
           <Input
             label="Senha"
             type="password"
-            placeholder="Crie uma senha segura"
+            placeholder="Mínimo de 6 caracteres"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
