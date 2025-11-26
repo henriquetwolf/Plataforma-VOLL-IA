@@ -1,43 +1,29 @@
 import { GoogleGenAI } from "@google/genai";
 import { StrategicPlan } from "../types";
 
-const getApiKey = (): string | undefined => {
+// Chave de fallback fornecida para garantir funcionamento imediato
+const FALLBACK_KEY = 'AIzaSyDDYobnlgxF7iYC-g7uYYc85ipJTA6hSis';
+
+const getApiKey = (): string => {
   try {
-    // 1. Tenta ler do padrão Vite (Vercel/Local) - Prioridade Máxima
+    // 1. Tenta ler do padrão Vite (Vercel/Local) - Prioridade
     // @ts-ignore
     if (typeof import.meta !== 'undefined' && import.meta.env) {
       // @ts-ignore
       const viteKey = import.meta.env.VITE_API_KEY;
       if (viteKey) return viteKey;
-      
-      // @ts-ignore
-      const standardKey = import.meta.env.API_KEY; // Alguns ambientes permitem, mas Vite bloqueia sem prefixo
-      if (standardKey) return standardKey;
     }
   } catch (e) {
-    console.warn("Erro ao ler env vars via import.meta");
+    // Ignora erro de acesso
   }
 
-  try {
-    // 2. Fallback para process.env (Node ou configs específicas de build)
-    if (typeof process !== 'undefined' && process.env) {
-      if (process.env.VITE_API_KEY) return process.env.VITE_API_KEY;
-      if (process.env.API_KEY) return process.env.API_KEY;
-    }
-  } catch (e) {
-    console.warn("Erro ao ler env vars via process.env");
-  }
-
-  return undefined;
+  // 2. Retorna a chave hardcoded garantida
+  return FALLBACK_KEY;
 };
 
 const getAiClient = () => {
   const apiKey = getApiKey();
-
-  if (!apiKey) {
-    console.error("CRÍTICO: API Key do Gemini não encontrada. Verifique se VITE_API_KEY está definida nas variáveis de ambiente do Vercel.");
-    return null;
-  }
+  // Não precisamos verificar se apiKey existe pois temos o fallback
   return new GoogleGenAI({ apiKey });
 };
 
@@ -58,8 +44,6 @@ export const generateStudioDescription = async (
   specialties: string[]
 ): Promise<string> => {
   const ai = getAiClient();
-  if (!ai) return "Erro: Chave de API da IA não configurada. Verifique VITE_API_KEY no Vercel.";
-
   const prompt = `
     Você é um redator especialista em marketing para negócios de bem-estar e fitness no Brasil.
     Escreva uma descrição profissional, convidativa e concisa (máximo de 100 palavras) para um estúdio de Pilates.
@@ -81,7 +65,7 @@ export const generateStudioDescription = async (
     return response.text || "Não foi possível gerar a descrição.";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "Falha ao gerar descrição. Verifique a chave de API.";
+    return "Falha ao gerar descrição. Verifique a conexão.";
   }
 };
 
@@ -89,8 +73,6 @@ export const generateStudioDescription = async (
 
 export const generateMissionOptions = async (studioName: string): Promise<string[]> => {
   const ai = getAiClient();
-  if (!ai) return ["Erro: API Key não configurada. Verifique VITE_API_KEY."];
-
   const prompt = `
     Atue como um consultor de branding para Pilates. Crie 3 opções distintas de MISSÃO para o estúdio "${studioName}".
     
@@ -109,14 +91,13 @@ export const generateMissionOptions = async (studioName: string): Promise<string
     const parsed = cleanAndParseJSON(response.text || "");
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
+    console.error(error);
     return [];
   }
 };
 
 export const generateVisionOptions = async (studioName: string, year: string): Promise<string[]> => {
   const ai = getAiClient();
-  if (!ai) return ["Erro: API Key não configurada. Verifique VITE_API_KEY."];
-
   const prompt = `
     Atue como um estrategista de negócios. Crie 3 opções de VISÃO de futuro para o estúdio "${studioName}" para o ano de ${year}.
     
@@ -135,6 +116,7 @@ export const generateVisionOptions = async (studioName: string, year: string): P
     const parsed = cleanAndParseJSON(response.text || "");
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
+    console.error(error);
     return [];
   }
 };
@@ -143,8 +125,6 @@ export const generateVisionOptions = async (studioName: string, year: string): P
 
 export const generateSwotSuggestions = async (category: string): Promise<string[]> => {
   const ai = getAiClient();
-  if (!ai) return [];
-
   const prompt = `
     Liste 5 exemplos comuns de "${category}" para um Estúdio de Pilates no Brasil.
     Seja específico (ex: não diga apenas "Localização", diga "Localização com pouco estacionamento").
@@ -159,6 +139,7 @@ export const generateSwotSuggestions = async (category: string): Promise<string[
     const parsed = cleanAndParseJSON(response.text || "");
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
+    console.error(error);
     return [];
   }
 };
@@ -167,8 +148,6 @@ export const generateSwotSuggestions = async (category: string): Promise<string[
 
 export const generateObjectivesSmart = async (swotData: any): Promise<any[]> => {
   const ai = getAiClient();
-  if (!ai) return [];
-
   const swotSummary = JSON.stringify(swotData);
 
   const prompt = `
@@ -200,8 +179,6 @@ export const generateObjectivesSmart = async (swotData: any): Promise<any[]> => 
 
 export const generateActionsSmart = async (objectives: any[]): Promise<any[]> => {
   const ai = getAiClient();
-  if (!ai) return [];
-
   const objsSummary = JSON.stringify(objectives);
 
   const prompt = `
@@ -235,14 +212,7 @@ export const generateActionsSmart = async (objectives: any[]): Promise<any[]> =>
 
 export const generateFullReport = async (data: StrategicPlan): Promise<string> => {
   const ai = getAiClient();
-  if (!ai) return `
-    <div class="bg-red-50 p-4 border border-red-200 rounded-lg text-red-700">
-      <h3 class="font-bold">Erro de Configuração</h3>
-      <p>Não foi possível encontrar a Chave de API do Gemini.</p>
-      <p class="text-sm mt-2">Se você está no Vercel, adicione a variável de ambiente <strong>VITE_API_KEY</strong> nas configurações do projeto.</p>
-    </div>
-  `;
-
+  
   const swotText = `
     Forças: ${data.swot.strengths.join('; ')}
     Fraquezas: ${data.swot.weaknesses.join('; ')}
@@ -299,6 +269,12 @@ export const generateFullReport = async (data: StrategicPlan): Promise<string> =
     return response.text || "<p>Não foi possível gerar o relatório.</p>";
   } catch (error) {
     console.error("Gemini Full Report Error:", error);
-    return "<p>Erro ao gerar relatório completo com a IA. Tente novamente mais tarde.</p>";
+    return `
+      <div class="bg-red-50 p-6 rounded-lg border border-red-200 text-center">
+        <h3 class="text-red-800 font-bold mb-2">Erro na Geração</h3>
+        <p class="text-red-600">Ocorreu um erro ao conectar com a IA. Por favor, tente novamente em alguns instantes.</p>
+        <p class="text-xs text-red-400 mt-2">Detalhes: ${error instanceof Error ? error.message : 'Erro desconhecido'}</p>
+      </div>
+    `;
   }
 };

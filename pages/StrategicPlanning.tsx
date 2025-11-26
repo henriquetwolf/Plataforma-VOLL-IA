@@ -50,9 +50,9 @@ export const StrategicPlanning: React.FC = () => {
           const profile = await fetchProfile(user.id);
           
           if (profile?.studioName) {
-            // Só atualiza se o campo ainda estiver vazio no planejamento atual
+            // Atualiza o planData com o nome do studio se ele estiver vazio
             setPlanData(prev => {
-              if (!prev.studioName) {
+              if (!prev.studioName || prev.studioName.trim() === '') {
                 return { ...prev, studioName: profile.studioName };
               }
               return prev;
@@ -73,7 +73,7 @@ export const StrategicPlanning: React.FC = () => {
     } catch (e) {
       console.error('Failed to load plans');
     }
-  }, [user?.id]); // Dependência explícita no ID do usuário
+  }, [user]);
 
   const updateLocalStorage = (plans: SavedPlan[]) => {
     localStorage.setItem('pilates_strategic_plans', JSON.stringify(plans));
@@ -146,7 +146,7 @@ export const StrategicPlanning: React.FC = () => {
     const currentName = planData.studioName;
     setPlanData({ ...initialPlanData, studioName: currentName });
     
-    // Se por acaso estava vazio, tenta buscar de novo
+    // Se por acaso estava vazio, tenta buscar de novo do perfil
     if (!currentName && user?.id) {
        fetchProfile(user.id).then(profile => {
         if (profile?.studioName) {
