@@ -51,7 +51,7 @@ export const generateStudioDescription = async (
   }
 };
 
-// --- GERAÇÃO DE OPÇÕES PARA MISSÃO E VISÃO ---
+// --- GERAÇÃO DE OPÇÕES PARA MISSÃO E VISÃO (ESTRATÉGIA) ---
 
 export const generateMissionOptions = async (studioName: string): Promise<string[]> => {
   const prompt = `
@@ -95,6 +95,44 @@ export const generateVisionOptions = async (studioName: string, year: string): P
     return cleanAndParseJSON(response.text || "");
   } catch (error) {
     console.error(error);
+    return [];
+  }
+};
+
+// --- GERAÇÃO AVANÇADA DE MISSÃO (AGENTE ESPECÍFICO) ---
+
+export const generateTailoredMissions = async (
+  studioName: string,
+  specialties: string[],
+  focus: string,
+  tone: string
+): Promise<string[]> => {
+  const prompt = `
+    Atue como um especialista em Branding para Studios de Pilates.
+    Crie 4 opções de Declaração de Missão para o estúdio abaixo, seguindo estritamente o foco e o tom solicitados.
+
+    Dados do Studio:
+    - Nome: ${studioName}
+    - Especialidades: ${specialties.join(', ')}
+    
+    Parâmetros Criativos:
+    - Foco Principal: ${focus}
+    - Tom de Voz: ${tone}
+
+    As missões devem ser inspiradoras, claras e memoráveis (máximo 2 frases cada).
+    
+    Retorne ESTRITAMENTE um array JSON de strings. 
+    Exemplo: ["Missão opção 1...", "Missão opção 2...", "Missão opção 3...", "Missão opção 4..."]
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+    return cleanAndParseJSON(response.text || "");
+  } catch (error) {
+    console.error("Erro ao gerar missões personalizadas:", error);
     return [];
   }
 };

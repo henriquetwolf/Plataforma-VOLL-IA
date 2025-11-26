@@ -8,6 +8,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Profile } from './pages/Profile';
 import { Students } from './pages/Students';
 import { StrategicPlanning } from './pages/StrategicPlanning';
+import { MissionAgent } from './pages/MissionAgent';
 import { AppRoute } from './types';
 
 // Guard for protected routes
@@ -65,6 +66,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <StrategicPlanning />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={AppRoute.MISSION_AGENT}
+        element={
+          <ProtectedRoute>
+            <MissionAgent />
           </ProtectedRoute>
         }
       />
