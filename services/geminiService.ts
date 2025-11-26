@@ -1,25 +1,32 @@
 import { GoogleGenAI } from "@google/genai";
 
+const getApiKey = (): string | undefined => {
+  // 1. Tentar ler de import.meta.env (Padrão Vite) de forma segura
+  try {
+    // @ts-ignore
+    if (import.meta && import.meta.env) {
+      // @ts-ignore
+      if (import.meta.env.API_KEY) return import.meta.env.API_KEY;
+      // @ts-ignore
+      if (import.meta.env.VITE_API_KEY) return import.meta.env.VITE_API_KEY;
+    }
+  } catch (e) {}
+
+  // 2. Tentar ler de process.env (Fallback para Node/Alguns builds)
+  try {
+    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+      return process.env.API_KEY;
+    }
+  } catch (e) {}
+
+  return undefined;
+};
+
 const getAiClient = () => {
-  // Tenta pegar a chave de diferentes fontes de forma segura
-  let apiKey = '';
-  
-  // Se estivermos em um ambiente com process (ex: Vercel build)
-  // @ts-ignore
-  if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-    // @ts-ignore
-    apiKey = process.env.API_KEY;
-  }
-  
-  // Se estivermos no Vite (import.meta.env)
-  // @ts-ignore
-  if (!apiKey && typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.API_KEY) {
-    // @ts-ignore
-    apiKey = import.meta.env.API_KEY;
-  }
+  const apiKey = getApiKey();
 
   if (!apiKey) {
-    console.warn("API Key do Gemini não encontrada. Configure a variável de ambiente API_KEY.");
+    console.warn("API Key do Gemini não encontrada.");
     return null;
   }
   return new GoogleGenAI({ apiKey });
@@ -31,7 +38,7 @@ export const generateStudioDescription = async (
   specialties: string[]
 ): Promise<string> => {
   const ai = getAiClient();
-  if (!ai) return "Erro: Chave de API da IA não configurada. Verifique suas variáveis de ambiente na Vercel.";
+  if (!ai) return "Erro: Chave de API da IA não configurada corretamente.";
 
   const prompt = `
     Você é um redator especialista em marketing para negócios de bem-estar e fitness no Brasil.
