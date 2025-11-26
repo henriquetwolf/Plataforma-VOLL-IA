@@ -7,6 +7,7 @@ import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
 import { Profile } from './pages/Profile';
 import { Students } from './pages/Students';
+import { StrategicPlanning } from './pages/StrategicPlanning';
 import { AppRoute } from './types';
 
 // Guard for protected routes
@@ -56,6 +57,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Students />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={AppRoute.STRATEGY}
+        element={
+          <ProtectedRoute>
+            <StrategicPlanning />
           </ProtectedRoute>
         }
       />

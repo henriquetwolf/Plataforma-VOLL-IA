@@ -40,5 +40,39 @@ export enum AppRoute {
   DASHBOARD = '/dashboard',
   PROFILE = '/profile',
   STUDENTS = '/students',
+  STRATEGY = '/strategy',
   ROOT = '/'
+}
+
+// Estratégia
+export enum StrategyStep {
+  Welcome,
+  Vision,
+  SWOT,
+  Goals,
+  Actions,
+  Review,
+  GeneratedPlan
+}
+
+export interface StrategicPlan {
+  studioName: string;
+  planningYear: string;
+  vision: string;
+  mission: string;
+  swot: {
+    strengths: string[];
+    weaknesses: string[];
+    opportunities: string[];
+    threats: string[];
+  };
+  objectives: { title: string; keyResults: string[] }[];
+  quarterlyActions: { quarter: string; actions: string[] }[];
+}
+
+export interface SavedPlan {
+  id: string;
+  createdAt: string;
+  planData: StrategicPlan;
+  report: string;
 }
