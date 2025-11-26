@@ -48,10 +48,13 @@ export const StrategicPlanning: React.FC = () => {
         try {
           const profile = await fetchProfile(user.id);
           if (profile?.studioName) {
-            setPlanData(prev => ({
-              ...prev,
-              studioName: (prev.studioName && prev.studioName !== '') ? prev.studioName : profile.studioName
-            }));
+            setPlanData(prev => {
+              // Só atualiza se o nome atual estiver vazio para não sobrescrever o que o usuário digita
+              if (!prev.studioName) {
+                return { ...prev, studioName: profile.studioName };
+              }
+              return prev;
+            });
           }
         } catch (error) {
           console.error("Erro ao carregar perfil para estratégia:", error);
@@ -137,7 +140,7 @@ export const StrategicPlanning: React.FC = () => {
     const currentName = planData.studioName;
     setPlanData({ ...initialPlanData, studioName: currentName });
     
-    // Tenta buscar novamente caso esteja vazio
+    // Tenta buscar novamente caso esteja vazio e reseta o ID
     if (!currentName && user?.id) {
        fetchProfile(user.id).then(profile => {
         if (profile?.studioName) {

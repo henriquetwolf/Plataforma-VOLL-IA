@@ -1,8 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 import { StrategicPlan } from "../types";
 
-// Chave fornecida diretamente para garantir funcionamento em produção
+// Chave da API Hardcoded para garantir funcionamento no Vercel
 const API_KEY = 'AIzaSyDDYobnlgxF7iYC-g7uYYc85ipJTA6hSis';
+
+console.log("Iniciando serviço Gemini...");
 
 // Inicialização direta do cliente
 const ai = new GoogleGenAI({ apiKey: API_KEY });
@@ -10,11 +12,12 @@ const ai = new GoogleGenAI({ apiKey: API_KEY });
 // Helper para limpar JSON vindo da IA
 const cleanAndParseJSON = (text: string) => {
   try {
+    if (!text) return [];
     let cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
     return JSON.parse(cleanText);
   } catch (e) {
     console.error("Erro ao fazer parse do JSON da IA:", e);
-    return null;
+    return [];
   }
 };
 
@@ -44,7 +47,7 @@ export const generateStudioDescription = async (
     return response.text || "Não foi possível gerar a descrição.";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "Falha ao gerar descrição. Verifique a conexão.";
+    return "Falha ao gerar descrição. Verifique se a chave de API é válida para este domínio.";
   }
 };
 
@@ -66,8 +69,7 @@ export const generateMissionOptions = async (studioName: string): Promise<string
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
-    const parsed = cleanAndParseJSON(response.text || "");
-    return Array.isArray(parsed) ? parsed : [];
+    return cleanAndParseJSON(response.text || "");
   } catch (error) {
     console.error(error);
     return [];
@@ -90,8 +92,7 @@ export const generateVisionOptions = async (studioName: string, year: string): P
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
-    const parsed = cleanAndParseJSON(response.text || "");
-    return Array.isArray(parsed) ? parsed : [];
+    return cleanAndParseJSON(response.text || "");
   } catch (error) {
     console.error(error);
     return [];
@@ -112,8 +113,7 @@ export const generateSwotSuggestions = async (category: string): Promise<string[
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
-    const parsed = cleanAndParseJSON(response.text || "");
-    return Array.isArray(parsed) ? parsed : [];
+    return cleanAndParseJSON(response.text || "");
   } catch (error) {
     console.error(error);
     return [];
@@ -144,8 +144,7 @@ export const generateObjectivesSmart = async (swotData: any): Promise<any[]> => 
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
-    const parsed = cleanAndParseJSON(response.text || "");
-    return Array.isArray(parsed) ? parsed : [];
+    return cleanAndParseJSON(response.text || "");
   } catch (error) {
     console.error(error);
     return [];
@@ -174,8 +173,7 @@ export const generateActionsSmart = async (objectives: any[]): Promise<any[]> =>
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
-    const parsed = cleanAndParseJSON(response.text || "");
-    return Array.isArray(parsed) ? parsed : [];
+    return cleanAndParseJSON(response.text || "");
   } catch (error) {
     console.error(error);
     return [];
@@ -244,7 +242,7 @@ export const generateFullReport = async (data: StrategicPlan): Promise<string> =
     return `
       <div class="bg-red-50 p-6 rounded-lg border border-red-200 text-center">
         <h3 class="text-red-800 font-bold mb-2">Erro na Geração</h3>
-        <p class="text-red-600">Ocorreu um erro ao conectar com a IA. Verifique sua chave de API ou tente novamente.</p>
+        <p class="text-red-600">Ocorreu um erro ao conectar com a IA. Verifique se o domínio do Vercel está autorizado no Google Cloud Console ou se a chave de API está correta.</p>
         <p class="text-xs text-red-400 mt-2">Detalhes: ${error instanceof Error ? error.message : 'Erro desconhecido'}</p>
       </div>
     `;
