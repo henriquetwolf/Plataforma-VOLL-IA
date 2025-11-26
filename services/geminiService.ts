@@ -1,19 +1,18 @@
 import { GoogleGenAI } from "@google/genai";
 
 const getApiKey = (): string | undefined => {
-  // 1. Tentar ler de import.meta.env (Padrão Vite) de forma segura
   try {
+    // Tentativa 1: Vite import.meta.env
     // @ts-ignore
-    if (import.meta && import.meta.env) {
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
       // @ts-ignore
-      if (import.meta.env.API_KEY) return import.meta.env.API_KEY;
-      // @ts-ignore
-      if (import.meta.env.VITE_API_KEY) return import.meta.env.VITE_API_KEY;
+      const viteKey = import.meta.env.API_KEY || import.meta.env.VITE_API_KEY;
+      if (viteKey) return viteKey;
     }
   } catch (e) {}
 
-  // 2. Tentar ler de process.env (Fallback para Node/Alguns builds)
   try {
+    // Tentativa 2: process.env (Node/Webpack fallback)
     if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
       return process.env.API_KEY;
     }
@@ -27,6 +26,7 @@ const getAiClient = () => {
 
   if (!apiKey) {
     console.warn("API Key do Gemini não encontrada.");
+    // Retornamos null para lidar com o erro graciosamente na UI
     return null;
   }
   return new GoogleGenAI({ apiKey });
@@ -38,7 +38,7 @@ export const generateStudioDescription = async (
   specialties: string[]
 ): Promise<string> => {
   const ai = getAiClient();
-  if (!ai) return "Erro: Chave de API da IA não configurada corretamente.";
+  if (!ai) return "Erro: Chave de API da IA não configurada. Verifique suas configurações na Vercel.";
 
   const prompt = `
     Você é um redator especialista em marketing para negócios de bem-estar e fitness no Brasil.
@@ -61,6 +61,6 @@ export const generateStudioDescription = async (
     return response.text || "Não foi possível gerar a descrição.";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "Falha ao gerar descrição devido a um erro de conexão com a IA.";
+    return "Falha ao gerar descrição. Verifique se sua API Key é válida e tem cota disponível.";
   }
 };

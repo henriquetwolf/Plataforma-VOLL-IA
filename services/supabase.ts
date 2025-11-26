@@ -1,22 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Função segura para ler variáveis de ambiente sem quebrar a aplicação
-const getEnv = (key: string, fallback: string): string => {
+// Chaves de fallback fornecidas (Segurança para evitar que o app trave se as env vars falharem)
+const FALLBACK_URL = 'https://bhyhqzwqhipaxlzbuvtw.supabase.co';
+const FALLBACK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJoeWhxendxaGlwYXhsemJ1dnR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxNTk5MjEsImV4cCI6MjA3OTczNTkyMX0.wjeIpkWVwPIlePh5b4bJUCGelhwtUaGFiPhIYTmzhZU';
+
+// Função segura para obter variáveis de ambiente sem quebrar a aplicação
+const getEnvVar = (key: string, fallback: string): string => {
   try {
-    // Tenta ler do import.meta.env (Vite)
     // @ts-ignore
-    if (import.meta && import.meta.env && import.meta.env[key]) {
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
       // @ts-ignore
-      return import.meta.env[key];
+      const value = import.meta.env[key];
+      if (value) return value;
     }
   } catch (e) {
-    // Silencia erros de acesso
+    // Ignora erros de acesso e retorna fallback
   }
   return fallback;
 };
 
-// Usa a função segura com seus dados como fallback garantido
-const supabaseUrl = getEnv('VITE_SUPABASE_URL', 'https://bhyhqzwqhipaxlzbuvtw.supabase.co');
-const supabaseKey = getEnv('VITE_SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJoeWhxendxaGlwYXhsemJ1dnR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxNTk5MjEsImV4cCI6MjA3OTczNTkyMX0.wjeIpkWVwPIlePh5b4bJUCGelhwtUaGFiPhIYTmzhZU');
+const supabaseUrl = getEnvVar('VITE_SUPABASE_URL', FALLBACK_URL);
+const supabaseKey = getEnvVar('VITE_SUPABASE_ANON_KEY', FALLBACK_KEY);
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
