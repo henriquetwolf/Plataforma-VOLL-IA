@@ -44,6 +44,7 @@ export enum AppRoute {
   STUDENTS = '/students',
   STRATEGY = '/strategy',
   FINANCE = '/finance',
+  MENTOR = '/mentor',
   ROOT = '/'
 }
 
@@ -133,4 +134,26 @@ export interface CompensationResult {
     contributionMargin: number;
     
     isViable: boolean;
+}
+
+export interface SavedFinancialSimulation {
+  id: string;
+  createdAt: string;
+  title: string; // Ex: Simulação Instrutor Manhã
+  inputs: CalculatorInputs;
+  financialModel: FinancialModel;
+  results: CompensationResult[];
+  metrics: {
+    targetRevenue: number;
+    potentialRevenue: number;
+    maxCapacity: number;
+    professionalRevenue: number;
+  };
+  aiAnalysis: string;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'model';
+  content: string;
+  timestamp: Date;
 }

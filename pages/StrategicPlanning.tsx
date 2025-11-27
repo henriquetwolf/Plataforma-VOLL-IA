@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchProfile } from '../services/storage';
@@ -54,14 +55,9 @@ export const StrategicPlanning: React.FC = () => {
       if (user?.id) {
         try {
           const profile = await fetchProfile(user.id);
+          // Força a atualização se tivermos o nome do studio, mesmo que o usuário já tenha aberto o form antes
           if (profile?.studioName) {
-            setPlanData(prev => {
-              // Só atualiza se o campo estiver vazio para respeitar o que o usuário digitar
-              if (!prev.studioName) {
-                return { ...prev, studioName: profile.studioName };
-              }
-              return prev;
-            });
+            setPlanData(prev => ({ ...prev, studioName: profile.studioName }));
           }
         } catch (error) {
           console.error("Erro ao carregar perfil para estratégia:", error);
@@ -143,8 +139,8 @@ export const StrategicPlanning: React.FC = () => {
     const currentName = planData.studioName;
     setPlanData({ ...initialPlanData, studioName: currentName });
     
-    // Se por acaso estiver vazio (ex: usuário apagou), tenta buscar do perfil novamente
-    if (!currentName && user?.id) {
+    // Recarrega do perfil para garantir
+    if (user?.id) {
        fetchProfile(user.id).then(profile => {
         if (profile?.studioName) {
           setPlanData(prev => ({ ...prev, studioName: profile.studioName }));

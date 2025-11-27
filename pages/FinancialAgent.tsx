@@ -1,12 +1,18 @@
+
 import React, { useState, useEffect } from 'react';
-import { CalculatorInputs, FinancialModel, CompensationResult } from '../types';
-import { calculateStudioRevenue, calculateProfessionalRevenue, calculateProposedSalary, calculateCompensation } from '../services/calculatorService';
+import { useAuth } from '../context/AuthContext';
+import { CalculatorInputs, FinancialModel, CompensationResult, SavedFinancialSimulation } from '../types';
+import { calculateStudioRevenue, calculateProfessionalRevenue, calculateCompensation } from '../services/calculatorService';
 import { generateFinancialAnalysis } from '../services/geminiService';
+import { fetchSimulations, saveSimulation, deleteSimulation } from '../services/financialService'; // Novo serviço
 import { CalculatorForm } from '../components/calculator/CalculatorForm';
 import { ResultsTable } from '../components/calculator/ResultsTable';
 import { ResultsChart } from '../components/calculator/ResultsChart';
+import { SavedFinancialList } from '../components/calculator/SavedFinancialList';
 import { Button } from '../components/ui/Button';
-import { Calculator, TrendingUp, Sparkles, Loader2 } from 'lucide-react';
+import { Calculator, TrendingUp, Sparkles, Loader2, Download, Save, History } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 const initialInputs: CalculatorInputs = {
     hoursPerDay: 8,
@@ -34,6 +40,9 @@ const initialFinancialModel: FinancialModel = {
 };
 
 export const FinancialAgent: React.FC = () => {
+    const { user } = useAuth();
+    
+    // Estado Principal
     const [inputs, setInputs] = useState<CalculatorInputs>(initialInputs);
     const [financialModel, setFinancialModel] = useState<FinancialModel>(initialFinancialModel);
     const [results, setResults] = useState<CompensationResult[]>([]);
@@ -50,11 +59,24 @@ export const FinancialAgent: React.FC = () => {
     const [aiAnalysis, setAiAnalysis] = useState<string>('');
     const [isAiLoading, setIsAiLoading] = useState(false);
 
+    // Histórico e UI
+    const [savedSimulations, setSavedSimulations] = useState<SavedFinancialSimulation[]>([]);
+    const [showHistory, setShowHistory] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Carregar histórico do Supabase ao iniciar
     useEffect(() => {
-        // 1. Calcular Receita do Estúdio
+        loadHistory();
+    }, []);
+
+    const loadHistory = async () => {
+        const data = await fetchSimulations();
+        setSavedSimulations(data);
+    };
+
+    // Recalcular quando inputs mudam
+    useEffect(() => {
         const studioRev = calculateStudioRevenue(inputs);
-        
-        // 2. Calcular Receita do Profissional
         const profRev = calculateProfessionalRevenue(inputs);
         
         setMetrics({
@@ -64,7 +86,6 @@ export const FinancialAgent: React.FC = () => {
             professionalRevenue: profRev
         });
 
-        // 3. Calcular Cenários de Contratação
         if (profRev > 0) {
             const calculatedResults = calculateCompensation({
                 professionalRevenue: profRev,
@@ -81,9 +102,6 @@ export const FinancialAgent: React.FC = () => {
         } else {
             setResults([]);
         }
-
-        // Limpar análise antiga se mudar inputs
-        setAiAnalysis('');
     }, [inputs, financialModel]);
 
     const handleGenerateAnalysis = async () => {
@@ -101,8 +119,109 @@ export const FinancialAgent: React.FC = () => {
         setIsAiLoading(false);
     };
 
+    const handleSaveSimulation = async () => {
+        if (!user?.id) return;
+        
+        const title = prompt("Dê um nome para esta simulação (ex: Contratação Manhã):", `Simulação ${new Date().toLocaleDateString()}`);
+        if (!title) return;
+
+        setIsSaving(true);
+        
+        const simulationData = {
+            inputs,
+            financialModel,
+            results,
+            metrics,
+            aiAnalysis
+        };
+
+        const result = await saveSimulation(user.id, title, simulationData);
+
+        if (result.success) {
+            alert("Simulação salva com sucesso!");
+            loadHistory(); // Recarrega a lista
+        } else {
+            alert(`Erro ao salvar: ${result.error}`);
+        }
+        setIsSaving(false);
+    };
+
+    const handleLoadSimulation = (sim: SavedFinancialSimulation) => {
+        setInputs(sim.inputs);
+        setFinancialModel(sim.financialModel);
+        setAiAnalysis(sim.aiAnalysis || '');
+        setShowHistory(false);
+        // Scroll para o topo
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleDeleteSimulation = async (id: string) => {
+        if (confirm("Tem certeza que deseja excluir esta simulação?")) {
+            const result = await deleteSimulation(id);
+            if (result.success) {
+                loadHistory();
+            } else {
+                alert("Erro ao excluir simulação.");
+            }
+        }
+    };
+
+    const handleDownloadPDF = async () => {
+        const element = document.getElementById('financial-report-content');
+        if (!element) return;
+        
+        // Esconder botões temporariamente
+        element.classList.add('printing-pdf');
+
+        try {
+            const canvas = await html2canvas(element, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#ffffff'
+            });
+            
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = pdfWidth;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            
+            let heightLeft = imgHeight;
+            let position = 0;
+
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pdfHeight;
+
+            while (heightLeft >= 0) {
+                position = heightLeft - imgHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pdfHeight;
+            }
+
+            pdf.save(`Relatorio_Financeiro_${new Date().toISOString().split('T')[0]}.pdf`);
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao gerar PDF");
+        } finally {
+            element.classList.remove('printing-pdf');
+        }
+    };
+
+    if (showHistory) {
+        return (
+            <SavedFinancialList 
+                savedSimulations={savedSimulations}
+                onLoad={handleLoadSimulation}
+                onDelete={handleDeleteSimulation}
+                onBack={() => setShowHistory(false)}
+            />
+        );
+    }
+
     return (
-        <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4">
+        <div id="financial-report-content" className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 bg-slate-50 dark:bg-slate-950 p-2 md:p-6">
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -110,9 +229,14 @@ export const FinancialAgent: React.FC = () => {
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">Simule custos de contratação e viabilidade econômica.</p>
                 </div>
-                <div className="bg-brand-50 dark:bg-brand-900/20 px-4 py-2 rounded-lg border border-brand-100 dark:border-brand-800">
-                    <p className="text-xs text-brand-600 dark:text-brand-400 font-bold uppercase">Faturamento Projetado (Estúdio)</p>
-                    <p className="text-xl font-bold text-brand-700 dark:text-brand-300">R$ {metrics.targetRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                <div className="flex gap-2">
+                     <Button variant="outline" onClick={() => setShowHistory(true)}>
+                        <History className="h-4 w-4 mr-2" /> Histórico
+                     </Button>
+                    <div className="bg-brand-50 dark:bg-brand-900/20 px-4 py-2 rounded-lg border border-brand-100 dark:border-brand-800">
+                        <p className="text-xs text-brand-600 dark:text-brand-400 font-bold uppercase">Faturamento Projetado</p>
+                        <p className="text-xl font-bold text-brand-700 dark:text-brand-300">R$ {metrics.targetRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    </div>
                 </div>
             </header>
 
@@ -155,22 +279,32 @@ export const FinancialAgent: React.FC = () => {
                     </div>
 
                     {/* Análise IA */}
-                    <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                        <div className="flex items-center justify-between mb-4">
+                    <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm border-l-4 border-l-purple-500">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
                             <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
                                 <Sparkles className="h-5 w-5 text-purple-500" /> Análise Inteligente
                             </h3>
-                            <Button onClick={handleGenerateAnalysis} disabled={isAiLoading || results.length === 0} className="bg-purple-600 hover:bg-purple-700 text-white">
+                            <Button onClick={handleGenerateAnalysis} disabled={isAiLoading || results.length === 0} className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto">
                                 {isAiLoading ? <Loader2 className="animate-spin h-4 w-4 mr-2"/> : <Sparkles className="h-4 w-4 mr-2"/>}
                                 {isAiLoading ? 'Analisando...' : 'Gerar Parecer'}
                             </Button>
                         </div>
                         
                         {aiAnalysis ? (
-                            <div 
-                                className="prose prose-sm prose-slate dark:prose-invert max-w-none bg-slate-50 dark:bg-slate-800/50 p-6 rounded-lg border border-slate-100 dark:border-slate-700"
-                                dangerouslySetInnerHTML={{ __html: aiAnalysis }}
-                            />
+                            <div className="space-y-4">
+                                <div 
+                                    className="prose prose-sm prose-slate dark:prose-invert max-w-none bg-slate-50 dark:bg-slate-800/50 p-6 rounded-lg border border-slate-100 dark:border-slate-700"
+                                    dangerouslySetInnerHTML={{ __html: aiAnalysis }}
+                                />
+                                <div className="flex gap-2 pt-2 justify-end print:hidden">
+                                     <Button variant="outline" onClick={handleSaveSimulation} isLoading={isSaving}>
+                                        <Save className="h-4 w-4 mr-2" /> Salvar Análise
+                                     </Button>
+                                     <Button variant="secondary" onClick={handleDownloadPDF}>
+                                        <Download className="h-4 w-4 mr-2" /> Baixar PDF
+                                     </Button>
+                                </div>
+                            </div>
                         ) : (
                             <div className="text-center py-8 text-slate-400 bg-slate-50 dark:bg-slate-800/30 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">
                                 <p>Clique em "Gerar Parecer" para receber uma consultoria financeira da IA sobre os cenários acima.</p>
