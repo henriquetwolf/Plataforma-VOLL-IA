@@ -25,7 +25,7 @@ const cleanAndParseJSON = (text: string) => {
   }
 };
 
-const handleGeminiError = (error: any): string => {
+export const handleGeminiError = (error: any): string => {
   const errStr = error.toString();
   const errMsg = error.message || '';
   
@@ -222,7 +222,7 @@ export const generateFinancialAnalysis = async (
 // --- FUNÇÕES DE REABILITAÇÃO (Pilates Rehab) ---
 
 export const fetchPathologyData = async (query: string, equipment: string[], history?: ChatMessage[]): Promise<PathologyResponse | null> => {
-  if (!apiKey) return null;
+  if (!apiKey) throw new Error("API Key missing");
 
   const historyText = history 
     ? history.map(m => `${m.role === 'ai' ? 'Pergunta' : 'Resposta'}: ${m.text}`).join('\n')
@@ -253,15 +253,16 @@ export const fetchPathologyData = async (query: string, equipment: string[], his
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
-    return cleanAndParseJSON(response.text || "");
+    const result = cleanAndParseJSON(response.text || "");
+    if (!result) throw new Error("Falha ao interpretar resposta da IA");
+    return result;
   } catch (error) {
-    console.error("Erro ao buscar patologia:", error);
-    return null;
+    throw error; // Propagar erro para ser tratado na UI
   }
 };
 
 export const fetchTriageQuestion = async (query: string, history: ChatMessage[]): Promise<TriageStep> => {
-  if (!apiKey) return { status: TriageStatus.FINISH, reasoning: "Erro API" };
+  if (!apiKey) throw new Error("API Key missing");
 
   const prompt = `
     Você é um Fisioterapeuta realizando uma triagem para Pilates.
@@ -284,12 +285,12 @@ export const fetchTriageQuestion = async (query: string, history: ChatMessage[])
     });
     return cleanAndParseJSON(response.text || "") || { status: TriageStatus.FINISH };
   } catch (error) {
-    return { status: TriageStatus.FINISH };
+    throw error;
   }
 };
 
 export const fetchLessonPlan = async (query: string, equipment: string[], history?: ChatMessage[]): Promise<LessonPlanResponse | null> => {
-  if (!apiKey) return null;
+  if (!apiKey) throw new Error("API Key missing");
 
   const historyText = history 
     ? history.map(m => `${m.role === 'ai' ? 'Pergunta' : 'Resposta'}: ${m.text}`).join('\n')
@@ -323,7 +324,7 @@ export const fetchLessonPlan = async (query: string, equipment: string[], histor
     });
     return cleanAndParseJSON(response.text || "");
   } catch (error) {
-    return null;
+    throw error;
   }
 };
 
