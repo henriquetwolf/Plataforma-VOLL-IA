@@ -5,6 +5,7 @@ import { Card, InputField, SliderField, TextInputField, DaySelector } from '../c
 import { PricingResults } from '../components/pricing/PricingResults';
 import { FixedCostsChart } from '../components/pricing/PricingCharts';
 import { savePricingAnalysis, fetchPricingAnalyses, deletePricingAnalysis } from '../services/pricingService';
+import { SaveAnalysisModal } from '../components/pricing/SaveAnalysisModal';
 import { Button } from '../components/ui/Button';
 import { Calculator, Save, RotateCcw, ChevronLeft, ChevronRight, History, Trash2, ArrowLeft } from 'lucide-react';
 
@@ -67,7 +68,7 @@ export const PricingAgent: React.FC = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [isWizardMode, setIsWizardMode] = useState(true);
   const [currentStep, setCurrentStep] = useState(0);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
 
   useEffect(() => {
     loadHistory();
@@ -78,12 +79,8 @@ export const PricingAgent: React.FC = () => {
     setHistory(data);
   };
 
-  const handleSave = async () => {
+  const handleConfirmSave = async (name: string) => {
     if (!user?.id) return;
-    const name = prompt('Nome da Análise:', `${inputs.studioInfo.name} - ${inputs.studioInfo.date}`);
-    if (!name) return;
-
-    setIsSaving(true);
     const result = await savePricingAnalysis(user.id, name, inputs);
     if (result.success) {
       alert('Análise salva com sucesso!');
@@ -91,7 +88,6 @@ export const PricingAgent: React.FC = () => {
     } else {
       alert('Erro ao salvar.');
     }
-    setIsSaving(false);
   };
 
   const handleLoad = (analysis: SavedPricingAnalysis) => {
@@ -364,7 +360,7 @@ export const PricingAgent: React.FC = () => {
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShowHistory(true)}><History className="w-4 h-4 mr-2"/> Histórico</Button>
           <Button variant="secondary" onClick={() => setInputs(initialInputs)}><RotateCcw className="w-4 h-4 mr-2"/> Limpar</Button>
-          <Button onClick={handleSave} isLoading={isSaving}><Save className="w-4 h-4 mr-2"/> Salvar</Button>
+          <Button onClick={() => setIsSaveModalOpen(true)}><Save className="w-4 h-4 mr-2"/> Salvar</Button>
         </div>
       </header>
 
@@ -415,6 +411,13 @@ export const PricingAgent: React.FC = () => {
           />
         </div>
       </div>
+
+      <SaveAnalysisModal 
+        isOpen={isSaveModalOpen} 
+        onClose={() => setIsSaveModalOpen(false)} 
+        onSave={handleConfirmSave} 
+        suggestedName={`${inputs.studioInfo.name} - ${new Date().toLocaleDateString()}`}
+      />
     </div>
   );
 };
