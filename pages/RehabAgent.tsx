@@ -7,7 +7,7 @@ import { PathologyResponse, LessonPlanResponse, LoadingState, SavedRehabLesson, 
 import { AssessmentModal } from '../components/rehab/AssessmentModal';
 import { ResultCard, LessonPlanView } from '../components/rehab/RehabResults';
 import { Button } from '../components/ui/Button';
-import { Search, History, BookOpen, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Search, History, BookOpen, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2 } from 'lucide-react';
 
 const COMMON_SUGGESTIONS = [
   "Hérnia de Disco L5-S1",
