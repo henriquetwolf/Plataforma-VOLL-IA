@@ -16,6 +16,8 @@ export interface StudioProfile {
   phone: string;
   website: string;
   specialties: string[];
+  logoUrl?: string;
+  brandColor?: string;
 }
 
 export interface Student {

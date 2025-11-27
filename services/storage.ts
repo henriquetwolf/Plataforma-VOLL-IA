@@ -12,6 +12,8 @@ interface DBProfile {
   phone?: string;
   website?: string;
   specialties?: string[];
+  logo_url?: string;
+  brand_color?: string;
 }
 
 // Converter do formato do App (camelCase) para o DB (snake_case)
@@ -24,6 +26,8 @@ const toDBProfile = (profile: Partial<StudioProfile>): Partial<DBProfile> => {
     phone: profile.phone,
     website: profile.website,
     specialties: profile.specialties,
+    logo_url: profile.logoUrl,
+    brand_color: profile.brandColor,
   };
 };
 
@@ -39,6 +43,8 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
     phone: dbProfile.phone || '',
     website: dbProfile.website || '',
     specialties: dbProfile.specialties || [],
+    logoUrl: dbProfile.logo_url || '',
+    brandColor: dbProfile.brand_color || '#14b8a6', // Cor padrão (Teal-500)
   };
 };
 
@@ -51,7 +57,7 @@ export const fetchProfile = async (userId: string): Promise<StudioProfile | null
       .maybeSingle();
 
     if (error) {
-      console.error('Error fetching profile:', error);
+      console.error('Error fetching profile:', JSON.stringify(error));
       return null;
     }
 
@@ -64,7 +70,7 @@ export const fetchProfile = async (userId: string): Promise<StudioProfile | null
   }
 };
 
-export const upsertProfile = async (userId: string, profile: Partial<StudioProfile>): Promise<boolean> => {
+export const upsertProfile = async (userId: string, profile: Partial<StudioProfile>): Promise<{ success: boolean; error?: string }> => {
   try {
     const dbPayload = toDBProfile(profile);
     
@@ -80,12 +86,39 @@ export const upsertProfile = async (userId: string, profile: Partial<StudioProfi
       );
 
     if (error) {
-      console.error('Error saving profile:', error);
-      return false;
+      console.error('Error saving profile:', JSON.stringify(error));
+      return { success: false, error: error.message };
     }
-    return true;
-  } catch (err) {
+    return { success: true };
+  } catch (err: any) {
     console.error('Unexpected error saving profile:', err);
-    return false;
+    return { success: false, error: err.message || 'Erro inesperado' };
+  }
+};
+
+export const uploadLogo = async (userId: string, file: File): Promise<string | null> => {
+  try {
+    // Cria um nome único para o arquivo: userId + timestamp + extensão
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}-${Date.now()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('studio-logos')
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      console.error('Error uploading logo:', JSON.stringify(uploadError));
+      return null;
+    }
+
+    const { data } = supabase.storage
+      .from('studio-logos')
+      .getPublicUrl(filePath);
+
+    return data.publicUrl;
+  } catch (err) {
+    console.error('Unexpected error uploading logo:', err);
+    return null;
   }
 };

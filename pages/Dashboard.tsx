@@ -33,15 +33,20 @@ export const Dashboard: React.FC = () => {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
       {/* Cabeçalho */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-            Olá, {user?.name.split(' ')[0]}!
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">
-            {profile?.studioName 
-              ? `Gerenciando ${profile.studioName}` 
-              : 'Bem-vindo ao PilatesFlow.'}
-          </p>
+        <div className="flex items-center gap-4">
+           {profile?.logoUrl && (
+             <img src={profile.logoUrl} alt="Logo Studio" className="h-16 w-16 object-contain rounded-lg bg-white p-1 border border-slate-100 shadow-sm" />
+           )}
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+              Olá, {user?.name.split(' ')[0]}!
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-1">
+              {profile?.studioName 
+                ? `Gerenciando ${profile.studioName}` 
+                : 'Bem-vindo ao PilatesFlow.'}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -52,16 +57,16 @@ export const Dashboard: React.FC = () => {
           {/* Card Alunos */}
           <Link 
             to={AppRoute.STUDENTS} 
-            className="group bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all flex items-center gap-5"
+            className="group bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md hover:border-brand-200 dark:hover:border-brand-800 transition-all flex items-center gap-5"
           >
             <div className="h-14 w-14 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
               <Users className="h-7 w-7" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">Meus Alunos</h3>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">Meus Alunos</h3>
               <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Gerencie matrículas, fichas e contatos.</p>
             </div>
-            <ArrowRight className="ml-auto h-5 w-5 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
+            <ArrowRight className="ml-auto h-5 w-5 text-slate-300 dark:text-slate-600 group-hover:text-brand-500 group-hover:translate-x-1 transition-all" />
           </Link>
 
           {/* Card Perfil */}
@@ -74,7 +79,7 @@ export const Dashboard: React.FC = () => {
             </div>
             <div>
               <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-purple-700 dark:group-hover:text-purple-400 transition-colors">Perfil do Studio</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Dados comerciais, serviços e biografia.</p>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Personalização e dados comerciais.</p>
             </div>
             <ArrowRight className="ml-auto h-5 w-5 text-slate-300 dark:text-slate-600 group-hover:text-purple-500 group-hover:translate-x-1 transition-all" />
           </Link>

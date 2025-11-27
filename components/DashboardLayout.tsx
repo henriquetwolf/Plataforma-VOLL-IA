@@ -1,14 +1,30 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon } from 'lucide-react';
 import { AppRoute } from '../types';
+import { fetchProfile } from '../services/storage';
 
 export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { logout, user } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, setBrandColor } = useTheme();
   const location = useLocation();
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  // Carrega perfil para exibir logo e aplicar cor
+  useEffect(() => {
+    const loadBrand = async () => {
+      if (user?.id) {
+        const profile = await fetchProfile(user.id);
+        if (profile) {
+          if (profile.logoUrl) setLogoUrl(profile.logoUrl);
+          if (profile.brandColor) setBrandColor(profile.brandColor);
+        }
+      }
+    };
+    loadBrand();
+  }, [user, setBrandColor]);
 
   const navItems = [
     { label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.DASHBOARD },
@@ -22,9 +38,15 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
       {/* Sidebar */}
       <aside className="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 hidden md:flex flex-col fixed h-full z-10 transition-colors duration-300">
         <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
-            <Sparkles className="h-6 w-6" />
-            <span className="font-bold text-xl tracking-tight">PilatesFlow</span>
+          <div className="flex items-center gap-3">
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="h-8 object-contain max-w-[150px]" />
+            ) : (
+              <div className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
+                <Sparkles className="h-6 w-6" />
+                <span className="font-bold text-xl tracking-tight">PilatesFlow</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -57,7 +79,6 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
             </div>
             <div className="overflow-hidden">
               <p className="text-sm font-medium text-slate-900 dark:text-slate-200 truncate">{user?.name}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-500 truncate">{user?.email}</p>
             </div>
           </div>
           
@@ -87,8 +108,14 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
       <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
         <header className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
-             <Sparkles className="h-6 w-6" />
-             <span className="font-bold text-lg">PilatesFlow</span>
+             {logoUrl ? (
+                <img src={logoUrl} alt="Logo" className="h-8 object-contain" />
+              ) : (
+                <>
+                  <Sparkles className="h-6 w-6" />
+                  <span className="font-bold text-lg">PilatesFlow</span>
+                </>
+              )}
           </div>
           <div className="flex items-center gap-2">
             <button onClick={toggleTheme} className="p-2 text-slate-500 dark:text-slate-400">
