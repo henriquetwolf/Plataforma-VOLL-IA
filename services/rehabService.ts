@@ -6,17 +6,25 @@ export const saveRehabLesson = async (
   userId: string,
   patientName: string,
   pathologyName: string,
-  lessonData: LessonPlanResponse
+  lessonData: LessonPlanResponse,
+  studentId?: string // Novo parâmetro opcional
 ): Promise<{ success: boolean; error?: string; id?: string }> => {
   try {
+    const payload: any = {
+      user_id: userId,
+      patient_name: patientName,
+      pathology_name: pathologyName,
+      data: lessonData
+    };
+
+    // Se tiver ID de aluno, adiciona ao payload
+    if (studentId) {
+      payload.student_id = studentId;
+    }
+
     const { data, error } = await supabase
       .from('rehab_lessons')
-      .insert({
-        user_id: userId,
-        patient_name: patientName,
-        pathology_name: pathologyName,
-        data: lessonData
-      })
+      .insert(payload)
       .select()
       .single();
 

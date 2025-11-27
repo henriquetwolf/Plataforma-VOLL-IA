@@ -1,8 +1,9 @@
 
-import React from 'react';
-import { PathologyResponse, LessonPlanResponse, LessonExercise } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { PathologyResponse, LessonPlanResponse, LessonExercise, Student } from '../../types';
 import { Button } from '../ui/Button';
-import { CheckCircle, AlertOctagon, Info, Save, RefreshCw, Printer } from 'lucide-react';
+import { CheckCircle, AlertOctagon, Info, Save, RefreshCw, Printer, User } from 'lucide-react';
+import { fetchStudents } from '../../services/studentService';
 
 // --- REFERENCE CARD ---
 interface ResultCardProps {
@@ -29,7 +30,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ title, type, items }) =>
           <div key={idx} className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700">
             <div className="flex justify-between items-start">
               <h4 className="font-bold text-slate-800 dark:text-white">{item.name}</h4>
-              <span className="text-xs bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded text-slate-500">
+              <span className="text-xs bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 px-2 py-1 rounded text-slate-600 dark:text-slate-300 font-medium">
                 {item.apparatus}
               </span>
             </div>
@@ -49,21 +50,42 @@ export const ResultCard: React.FC<ResultCardProps> = ({ title, type, items }) =>
 // --- LESSON PLAN VIEW ---
 interface LessonPlanProps {
   plan: LessonPlanResponse;
-  onSaveLesson: (name: string, patient: string, exercises: LessonExercise[]) => void;
+  onSaveLesson: (name: string, patient: string, exercises: LessonExercise[], studentId?: string) => void;
   onRegenerateExercise: (index: number, exercise: LessonExercise) => void;
 }
 
 export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, onSaveLesson, onRegenerateExercise }) => {
   const [exercises, setExercises] = useState(plan.exercises);
-  const [patientName, setPatientName] = useState('');
   const [customTitle, setCustomTitle] = useState(`${plan.pathologyName} - Aula 1`);
+  
+  // Estado para seleção de aluno
+  const [students, setStudents] = useState<Student[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [patientName, setPatientName] = useState('');
+
+  // Carregar alunos ao montar
+  useEffect(() => {
+    fetchStudents().then(data => setStudents(data));
+  }, []);
+
+  // Atualizar nome quando selecionar aluno
+  const handleStudentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const id = e.target.value;
+    setSelectedStudentId(id);
+    if (id) {
+      const student = students.find(s => s.id === id);
+      if (student) setPatientName(student.name);
+    } else {
+      setPatientName('');
+    }
+  };
 
   const handleSave = () => {
     if (!patientName.trim()) {
-      alert("Digite o nome do paciente para salvar.");
+      alert("Por favor, selecione um aluno para salvar o plano.");
       return;
     }
-    onSaveLesson(customTitle, patientName, exercises);
+    onSaveLesson(customTitle, patientName, exercises, selectedStudentId);
   };
 
   return (
@@ -72,13 +94,24 @@ export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, onSaveLesson, 
       <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm print:shadow-none print:border-none">
         <div className="flex flex-col md:flex-row justify-between gap-4 mb-6 print:hidden">
           <div className="flex-1 space-y-2">
-            <label className="text-xs font-bold text-slate-500 uppercase">Nome do Paciente</label>
-            <input 
+            <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
+              <User className="w-3 h-3" /> Nome do Aluno
+            </label>
+            <select
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none"
-              placeholder="Ex: João Silva"
-              value={patientName}
-              onChange={(e) => setPatientName(e.target.value)}
-            />
+              value={selectedStudentId}
+              onChange={handleStudentChange}
+            >
+              <option value="">Selecione um aluno cadastrado...</option>
+              {students.map(student => (
+                <option key={student.id} value={student.id}>
+                  {student.name}
+                </option>
+              ))}
+            </select>
+            {students.length === 0 && (
+              <p className="text-xs text-orange-500">Nenhum aluno encontrado. Cadastre em "Meus Alunos".</p>
+            )}
           </div>
           <div className="flex-1 space-y-2">
             <label className="text-xs font-bold text-slate-500 uppercase">Título da Aula</label>
@@ -89,7 +122,7 @@ export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, onSaveLesson, 
             />
           </div>
           <div className="flex items-end gap-2">
-             <Button onClick={handleSave} className="h-[38px]">
+             <Button onClick={handleSave} className="h-[38px]" disabled={!selectedStudentId}>
                <Save className="h-4 w-4 mr-2" /> Salvar
              </Button>
              <Button variant="outline" onClick={() => window.print()} className="h-[38px]">
@@ -104,7 +137,7 @@ export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, onSaveLesson, 
           <div className="mt-2 text-sm text-slate-600 dark:text-slate-400 grid grid-cols-2 gap-4">
             <p><strong>Objetivo:</strong> {plan.goal}</p>
             <p><strong>Duração:</strong> {plan.duration}</p>
-            {patientName && <p className="print:block hidden"><strong>Paciente:</strong> {patientName}</p>}
+            {patientName && <p className="print:block hidden"><strong>Aluno:</strong> {patientName}</p>}
           </div>
         </div>
 
@@ -154,5 +187,3 @@ export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, onSaveLesson, 
     </div>
   );
 };
-
-import { useState } from 'react';

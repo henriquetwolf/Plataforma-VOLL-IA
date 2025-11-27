@@ -125,14 +125,14 @@ export const RehabAgent: React.FC = () => {
     }
   };
 
-  const handleSaveLesson = async (customName: string, patientName: string, updatedExercises: LessonExercise[]) => {
+  const handleSaveLesson = async (customName: string, patientName: string, updatedExercises: LessonExercise[], studentId?: string) => {
     if (!user?.id || !lessonData) return;
     
     const finalData = { ...lessonData, exercises: updatedExercises };
-    const result = await saveRehabLesson(user.id, patientName, lessonData.pathologyName, finalData);
+    const result = await saveRehabLesson(user.id, patientName, lessonData.pathologyName, finalData, studentId);
     
     if (result.success) {
-      alert("Aula salva com sucesso!");
+      alert("Aula salva com sucesso e associada ao aluno!");
       loadHistory();
     } else {
       alert("Erro ao salvar.");
