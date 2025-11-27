@@ -10,15 +10,14 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
   const { logout, user } = useAuth();
   const { theme, toggleTheme, setBrandColor } = useTheme();
   const location = useLocation();
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  // Não precisamos mais do logoUrl aqui para o layout, pois sempre mostraremos o nome da plataforma
+  // Mas mantemos a busca do perfil para definir a cor da marca (brandColor)
 
-  // Carrega perfil para exibir logo e aplicar cor
   useEffect(() => {
     const loadBrand = async () => {
       if (user?.id) {
         const profile = await fetchProfile(user.id);
         if (profile) {
-          if (profile.logoUrl) setLogoUrl(profile.logoUrl);
           if (profile.brandColor) setBrandColor(profile.brandColor);
         }
       }
@@ -40,14 +39,10 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
       <aside className="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 hidden md:flex flex-col fixed h-full z-10 transition-colors duration-300">
         <div className="p-6 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-3">
-            {logoUrl ? (
-              <img src={logoUrl} alt="Logo" className="h-8 object-contain max-w-[150px]" />
-            ) : (
-              <div className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
-                <Sparkles className="h-6 w-6" />
-                <span className="font-bold text-xl tracking-tight">Plataforma VOLL IA</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
+              <Sparkles className="h-6 w-6" />
+              <span className="font-bold text-xl tracking-tight">Plataforma VOLL IA</span>
+            </div>
           </div>
         </div>
 
@@ -109,14 +104,8 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
       <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
         <header className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
-             {logoUrl ? (
-                <img src={logoUrl} alt="Logo" className="h-8 object-contain" />
-              ) : (
-                <>
-                  <Sparkles className="h-6 w-6" />
-                  <span className="font-bold text-lg">Plataforma VOLL IA</span>
-                </>
-              )}
+            <Sparkles className="h-6 w-6" />
+            <span className="font-bold text-lg">Plataforma VOLL IA</span>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={toggleTheme} className="p-2 text-slate-500 dark:text-slate-400">
