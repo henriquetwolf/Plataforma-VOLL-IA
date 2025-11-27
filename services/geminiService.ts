@@ -31,14 +31,42 @@ const handleGeminiError = (error: any): string => {
   console.error("Gemini API Error:", error);
 
   if (errStr.includes("403") || errMsg.includes("leaked") || errMsg.includes("PERMISSION_DENIED")) {
-    return "⛔ A chave de API foi bloqueada pelo Google. Gere uma nova chave no AI Studio e atualize as Variáveis de Ambiente no Vercel (API_KEY).";
+    return `
+      <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-6 rounded-r-lg mb-4 text-left" role="alert">
+        <p class="font-bold text-lg mb-2">⛔ Erro de Segurança (Google)</p>
+        <p class="mb-2">A chave de API configurada foi <strong>bloqueada por vazamento</strong>.</p>
+        <p class="text-sm text-red-600 mb-4">Isso ocorre automaticamente quando a chave é exposta em locais públicos (como chats ou repositórios).</p>
+        
+        <div class="bg-white p-4 rounded border border-red-200">
+          <p class="text-sm font-bold text-slate-700 mb-2">Como resolver:</p>
+          <ol class="list-decimal ml-5 text-sm text-slate-600 space-y-1">
+            <li>Gere uma nova chave no <a href="https://aistudio.google.com/" target="_blank" class="text-blue-600 underline hover:text-blue-800">Google AI Studio</a>.</li>
+            <li>Vá no painel da <strong>Vercel</strong> > Settings > Environment Variables.</li>
+            <li>Atualize o valor da variável <code>API_KEY</code>.</li>
+            <li><strong>IMPORTANTE:</strong> Não cole a chave nova em chats públicos.</li>
+            <li>Faça um <strong>Redeploy</strong> na Vercel para aplicar.</li>
+          </ol>
+        </div>
+      </div>
+    `;
   }
   
   if (!apiKey) {
-    return "⚠️ Chave de API não configurada. Adicione 'API_KEY' nas configurações do Vercel.";
+    return `
+      <div class="bg-yellow-50 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert">
+        <p class="font-bold">⚠️ Chave de API não configurada</p>
+        <p>Adicione a variável <code>API_KEY</code> nas configurações de Environment Variables do Vercel.</p>
+      </div>
+    `;
   }
 
-  return "Ocorreu um erro na comunicação com a IA. Tente novamente mais tarde.";
+  return `
+    <div class="bg-orange-50 border-l-4 border-orange-500 text-orange-700 p-4" role="alert">
+      <p class="font-bold">Erro na IA</p>
+      <p>Ocorreu um erro na comunicação. Tente novamente mais tarde.</p>
+      <p class="text-xs mt-1 opacity-75">Detalhe: ${errMsg}</p>
+    </div>
+  `;
 };
 
 export const generateStudioDescription = async (
@@ -68,7 +96,9 @@ export const generateStudioDescription = async (
     });
     return response.text || "Não foi possível gerar a descrição.";
   } catch (error: any) {
-    return handleGeminiError(error);
+    // Retorna mensagem de erro simples para campos de texto curtos
+    if (error.message?.includes("leaked")) return "Erro: Chave API bloqueada. Verifique Vercel.";
+    return "Erro ao gerar descrição.";
   }
 };
 
@@ -159,8 +189,8 @@ export const generateTailoredMissions = async (
     });
     return cleanAndParseJSON(response.text || "");
   } catch (error: any) {
-    const friendlyError = handleGeminiError(error);
-    return [friendlyError];
+    console.error(error);
+    return ["Erro ao gerar missões. Verifique a chave de API."];
   }
 };
 
@@ -311,14 +341,6 @@ export const generateFullReport = async (data: StrategicPlan): Promise<string> =
     });
     return response.text || "<p>Não foi possível gerar o relatório.</p>";
   } catch (error: any) {
-    const errorMsg = handleGeminiError(error);
-
-    return `
-      <div class="bg-red-50 p-6 rounded-lg border border-red-200 text-center">
-        <h3 class="text-red-800 font-bold mb-2">Erro na Geração</h3>
-        <p class="text-red-600">${errorMsg}</p>
-        <p class="text-xs text-red-400 mt-2">Detalhes técnicos: ${error instanceof Error ? error.message : String(error)}</p>
-      </div>
-    `;
+    return handleGeminiError(error);
   }
 };

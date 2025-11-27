@@ -41,7 +41,6 @@ export enum AppRoute {
   PROFILE = '/profile',
   STUDENTS = '/students',
   STRATEGY = '/strategy',
-  MISSION_AGENT = '/mission-agent',
   ROOT = '/'
 }
 

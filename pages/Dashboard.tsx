@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { AppRoute, StudioProfile } from '../types';
-import { UserCircle, Users, Sparkles, Compass, ArrowRight, Building2, Target } from 'lucide-react';
+import { Users, Sparkles, Compass, ArrowRight, Building2 } from 'lucide-react';
 import { fetchProfile } from '../services/storage';
 
 export const Dashboard: React.FC = () => {
@@ -111,31 +111,6 @@ export const Dashboard: React.FC = () => {
               </p>
               
               <span className="inline-flex items-center text-sm font-bold text-brand-700 dark:text-brand-400 group-hover:gap-2 transition-all">
-                Acessar Agente <ArrowRight className="h-4 w-4 ml-1" />
-              </span>
-            </div>
-          </Link>
-
-          {/* Agente: Criador de Missão */}
-          <Link 
-            to={AppRoute.MISSION_AGENT} 
-            className="group relative overflow-hidden bg-gradient-to-br from-white to-purple-50/30 dark:from-slate-900 dark:to-purple-900/10 p-6 rounded-xl shadow-sm border border-purple-100 dark:border-purple-900/50 hover:border-purple-400 dark:hover:border-purple-700 hover:shadow-lg transition-all"
-          >
-            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-              <Target size={120} />
-            </div>
-            
-            <div className="relative z-10">
-              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <Target className="h-6 w-6" />
-              </div>
-              
-              <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Criador de Missão</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
-                Especialista em branding. Gera opções de missão personalizadas com base no foco do seu estúdio.
-              </p>
-              
-              <span className="inline-flex items-center text-sm font-bold text-purple-700 dark:text-purple-400 group-hover:gap-2 transition-all">
                 Acessar Agente <ArrowRight className="h-4 w-4 ml-1" />
               </span>
             </div>
