@@ -1,8 +1,9 @@
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote } from 'lucide-react';
+import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity } from 'lucide-react';
 import { AppRoute } from '../types';
 import { fetchProfile } from '../services/storage';
 
@@ -29,6 +30,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
     { label: 'Planejamento IA', icon: Compass, path: AppRoute.STRATEGY },
     { label: 'Calculadora Financeira', icon: Calculator, path: AppRoute.FINANCE },
     { label: 'Preço Inteligente', icon: Banknote, path: AppRoute.PRICING },
+    { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
     { label: 'Perfil do Studio', icon: UserCircle, path: AppRoute.PROFILE },
   ];
 

@@ -1,8 +1,9 @@
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { AppRoute, StudioProfile } from '../types';
-import { Users, Sparkles, Compass, ArrowRight, Building2, Calculator, Banknote } from 'lucide-react';
+import { Users, Sparkles, Compass, ArrowRight, Building2, Calculator, Banknote, Activity } from 'lucide-react';
 import { fetchProfile } from '../services/storage';
 
 export const Dashboard: React.FC = () => {
@@ -95,7 +96,7 @@ export const Dashboard: React.FC = () => {
           <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-300">Agentes de Inteligência</h2>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {/* Agente: Planejamento Estratégico */}
           <Link 
             to={AppRoute.STRATEGY} 
@@ -163,6 +164,31 @@ export const Dashboard: React.FC = () => {
               <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Preço Certo (PCI)</h3>
               <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
                 Calcule o preço ideal, ponto de equilíbrio e margem de lucro com base nos seus custos reais.
+              </p>
+              
+              <span className="inline-flex items-center text-sm font-bold text-brand-700 dark:text-brand-400 group-hover:gap-2 transition-all">
+                Acessar Agente <ArrowRight className="h-4 w-4 ml-1" />
+              </span>
+            </div>
+          </Link>
+
+          {/* Agente: Pilates Rehab */}
+          <Link 
+            to={AppRoute.REHAB} 
+            className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
+          >
+            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+              <Activity size={120} />
+            </div>
+            
+            <div className="relative z-10">
+              <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Activity className="h-6 w-6" />
+              </div>
+              
+              <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Pilates Rehab</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
+                Guia de patologias e gerador de aulas com triagem clínica inteligente.
               </p>
               
               <span className="inline-flex items-center text-sm font-bold text-brand-700 dark:text-brand-400 group-hover:gap-2 transition-all">

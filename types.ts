@@ -46,6 +46,7 @@ export enum AppRoute {
   FINANCE = '/finance',
   MENTOR = '/mentor',
   PRICING = '/pricing',
+  REHAB = '/rehab',
   ROOT = '/'
 }
 
@@ -85,25 +86,18 @@ export interface SavedPlan {
 // --- Tipos da Calculadora Financeira ---
 
 export interface CalculatorInputs {
-    // Studio Capacity
     hoursPerDay: number;
     clientsPerHour: number;
     sessionsPerWeekPerClient: number;
     workingDaysPerMonth: number;
     occupancyRate: number;
     monthlyPricePerClient: number;
-    
-    // Professional Analysis
     professionalHoursPerWeek: number;
     professionalClientsPerHour: number;
     professionalOccupancyRate: number;
-
-    // Salary Definition
     salaryRevenuePercentage: number;
     baseSalary: number;
     useProposedSalary: boolean;
-
-    // Taxes
     issPercentage: number;
     pjSimplesPercentage: number;
     otherChargesPercentage: number;
@@ -121,26 +115,19 @@ export interface CompensationResult {
     grossRevenue: number;
     taxDeduction: number;
     netRevenue: number;
-    
-    // Costs
-    professionalCost: number; // O custo que sai do caixa do estúdio
-    
-    // Professional perspective
+    professionalCost: number;
     grossForProfessional: number;
     taxesProfessional: number;
     netForProfessional: number;
-    
-    // Studio perspective
     costToStudio: number;
     contributionMargin: number;
-    
     isViable: boolean;
 }
 
 export interface SavedFinancialSimulation {
   id: string;
   createdAt: string;
-  title: string; // Ex: Simulação Instrutor Manhã
+  title: string;
   inputs: CalculatorInputs;
   financialModel: FinancialModel;
   results: CompensationResult[];
@@ -154,9 +141,10 @@ export interface SavedFinancialSimulation {
 }
 
 export interface ChatMessage {
-  role: 'user' | 'model';
-  content: string;
-  timestamp: Date;
+  role: 'user' | 'model' | 'ai';
+  text?: string;
+  content?: string; // Compatibilidade com Mentor
+  timestamp?: Date;
 }
 
 // --- Tipos do Agente de Precificação ---
@@ -263,4 +251,62 @@ export interface PriceCompositionData {
     reserve: number;
     profit: number;
     total: number;
+}
+
+// --- Tipos do Agente de Reabilitação (Pilates Rehab) ---
+
+export interface ExerciseRecommendation {
+  name: string;
+  reason: string;
+  details: string;
+  apparatus: string; 
+}
+
+export interface PathologyResponse {
+  pathologyName: string;
+  summary: string;
+  objectives: string[];
+  indicated: ExerciseRecommendation[];
+  contraindicated: ExerciseRecommendation[];
+}
+
+export interface LessonExercise {
+  name: string;
+  reps: string;
+  apparatus: string;
+  instructions: string;
+  focus: string;
+  userNotes?: string;
+}
+
+export interface LessonPlanResponse {
+  pathologyName: string;
+  goal: string;
+  duration: string;
+  exercises: LessonExercise[]; 
+}
+
+export interface SavedRehabLesson extends LessonPlanResponse {
+  id: string;
+  patientName: string;
+  customName: string;
+  createdAt: string;
+}
+
+export enum TriageStatus {
+  CONTINUE = 'CONTINUE',
+  FINISH = 'FINISH'
+}
+
+export interface TriageStep {
+  status: TriageStatus;
+  question?: string;
+  reasoning?: string;
+}
+
+export enum LoadingState {
+  IDLE = 'IDLE',
+  LOADING = 'LOADING',
+  SUCCESS = 'SUCCESS',
+  ERROR = 'ERROR'
 }

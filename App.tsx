@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -11,6 +12,7 @@ import { Students } from './pages/Students';
 import { StrategicPlanning } from './pages/StrategicPlanning';
 import { FinancialAgent } from './pages/FinancialAgent';
 import { PricingAgent } from './pages/PricingAgent';
+import { RehabAgent } from './pages/RehabAgent';
 import { AppRoute } from './types';
 
 // Guard for protected routes
@@ -84,6 +86,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <PricingAgent />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={AppRoute.REHAB}
+        element={
+          <ProtectedRoute>
+            <RehabAgent />
           </ProtectedRoute>
         }
       />
