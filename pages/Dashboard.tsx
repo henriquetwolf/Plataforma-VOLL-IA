@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { AppRoute, StudioProfile } from '../types';
-import { Users, Sparkles, Compass, ArrowRight, Building2, Calculator } from 'lucide-react';
+import { Users, Sparkles, Compass, ArrowRight, Building2, Calculator, Banknote } from 'lucide-react';
 import { fetchProfile } from '../services/storage';
 
 export const Dashboard: React.FC = () => {
@@ -146,16 +146,30 @@ export const Dashboard: React.FC = () => {
             </div>
           </Link>
 
-          {/* Placeholder para Futuros Agentes */}
-          <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-6 flex flex-col items-center justify-center text-center opacity-60 hover:opacity-100 transition-opacity cursor-not-allowed bg-slate-50 dark:bg-slate-900/50">
-            <div className="w-12 h-12 bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 rounded-lg flex items-center justify-center mb-4">
-              <Sparkles className="h-6 w-6" />
+          {/* Agente: Preço Certo Inteligente */}
+          <Link 
+            to={AppRoute.PRICING} 
+            className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
+          >
+            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+              <Banknote size={120} />
             </div>
-            <h3 className="font-bold text-slate-500 dark:text-slate-400">Novo Agente em Breve</h3>
-            <p className="text-xs text-slate-400 dark:text-slate-600 mt-2">
-              Gerador de Posts, Criador de Aulas e muito mais.
-            </p>
-          </div>
+            
+            <div className="relative z-10">
+              <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Banknote className="h-6 w-6" />
+              </div>
+              
+              <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Preço Certo (PCI)</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
+                Calcule o preço ideal, ponto de equilíbrio e margem de lucro com base nos seus custos reais.
+              </p>
+              
+              <span className="inline-flex items-center text-sm font-bold text-brand-700 dark:text-brand-400 group-hover:gap-2 transition-all">
+                Acessar Agente <ArrowRight className="h-4 w-4 ml-1" />
+              </span>
+            </div>
+          </Link>
         </div>
       </div>
     </div>

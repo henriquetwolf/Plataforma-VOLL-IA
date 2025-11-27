@@ -45,6 +45,7 @@ export enum AppRoute {
   STRATEGY = '/strategy',
   FINANCE = '/finance',
   MENTOR = '/mentor',
+  PRICING = '/pricing',
   ROOT = '/'
 }
 
@@ -156,4 +157,110 @@ export interface ChatMessage {
   role: 'user' | 'model';
   content: string;
   timestamp: Date;
+}
+
+// --- Tipos do Agente de Precificação ---
+
+export interface Competitor {
+  id: string;
+  name: string;
+  distance: number;
+  price2x: number;
+  valuePerception: 'higher' | 'similar' | 'lower';
+}
+
+export interface PricingInputs {
+  studioInfo: {
+    name: string;
+    owner: string;
+    date: string;
+    address: string;
+  };
+  fixedCosts: {
+    rent: number;
+    utilities: number;
+    accounting: number;
+    ownerSalary: number;
+    staffSalary: number;
+    consumables: number;
+    marketing: number;
+    other: number;
+  };
+  variableCosts: {
+    creditCardFee: number;
+    taxes: number;
+    depreciation: number;
+    emergencyReserveContribution: number;
+  };
+  profitMargin: number;
+  capacity: {
+    clientsPerHour: number;
+    hoursPerDay: number;
+    workingDays: {
+      mon: boolean;
+      tue: boolean;
+      wed: boolean;
+      thu: boolean;
+      fri: boolean;
+      sat: boolean;
+    };
+    occupancyRate: number;
+  };
+  marketAnalysis: {
+    competitors: Competitor[];
+  };
+}
+
+export interface CalculatedResultsPricing {
+  totalFixedCosts: number;
+  targetRevenue: number;
+  realSessionsPerMonth: number;
+  equivalentClients2x: number;
+  pricePerSession: number;
+  packages: {
+    '1x': number;
+    '2x': number;
+    '3x': number;
+  };
+  financialPlanning: {
+    payroll: number;
+    operational: number;
+    reserve: number;
+    workingCapital: number;
+  };
+  breakEven: {
+    sessionsPerMonth: number;
+    monthlyRevenue: number;
+  };
+  emergencyReserve: {
+    totalNeeded: number;
+    monthlySaving12Months: number;
+    monthlySaving24Months: number;
+    monthsToBuildAtBreakEven: number;
+  };
+  isValid: boolean;
+}
+
+export interface SimulationResultsPricing {
+    newRevenue: number;
+    newProfitValue: number;
+    newProfitMargin: number;
+    isSimulating: boolean;
+    simulatedSessionsPerMonth: number;
+}
+
+export interface SavedPricingAnalysis {
+  id: string;
+  name: string;
+  date: string;
+  inputs: PricingInputs;
+  createdAt: string;
+}
+
+export interface PriceCompositionData {
+    fixedCost: number;
+    variableCost: number;
+    reserve: number;
+    profit: number;
+    total: number;
 }

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator } from 'lucide-react';
+import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote } from 'lucide-react';
 import { AppRoute } from '../types';
 import { fetchProfile } from '../services/storage';
 
@@ -10,8 +10,6 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
   const { logout, user } = useAuth();
   const { theme, toggleTheme, setBrandColor } = useTheme();
   const location = useLocation();
-  // Não precisamos mais do logoUrl aqui para o layout, pois sempre mostraremos o nome da plataforma
-  // Mas mantemos a busca do perfil para definir a cor da marca (brandColor)
 
   useEffect(() => {
     const loadBrand = async () => {
@@ -30,6 +28,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
     { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
     { label: 'Planejamento IA', icon: Compass, path: AppRoute.STRATEGY },
     { label: 'Calculadora Financeira', icon: Calculator, path: AppRoute.FINANCE },
+    { label: 'Preço Inteligente', icon: Banknote, path: AppRoute.PRICING },
     { label: 'Perfil do Studio', icon: UserCircle, path: AppRoute.PROFILE },
   ];
 
