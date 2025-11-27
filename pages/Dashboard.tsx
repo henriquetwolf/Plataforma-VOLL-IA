@@ -59,7 +59,7 @@ export const Dashboard: React.FC = () => {
             to={AppRoute.STUDENTS} 
             className="group bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md hover:border-brand-200 dark:hover:border-brand-800 transition-all flex items-center gap-5"
           >
-            <div className="h-14 w-14 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+            <div className="h-14 w-14 rounded-full bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 flex items-center justify-center group-hover:bg-brand-600 group-hover:text-white transition-colors">
               <Users className="h-7 w-7" />
             </div>
             <div>
@@ -72,16 +72,16 @@ export const Dashboard: React.FC = () => {
           {/* Card Perfil */}
           <Link 
             to={AppRoute.PROFILE} 
-            className="group bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md hover:border-purple-200 dark:hover:border-purple-800 transition-all flex items-center gap-5"
+            className="group bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md hover:border-brand-200 dark:hover:border-brand-800 transition-all flex items-center gap-5"
           >
-            <div className="h-14 w-14 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors">
+            <div className="h-14 w-14 rounded-full bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 flex items-center justify-center group-hover:bg-brand-600 group-hover:text-white transition-colors">
               <Building2 className="h-7 w-7" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-purple-700 dark:group-hover:text-purple-400 transition-colors">Perfil do Studio</h3>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-brand-700 dark:group-hover:text-brand-400 transition-colors">Perfil do Studio</h3>
               <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Personalização e dados comerciais.</p>
             </div>
-            <ArrowRight className="ml-auto h-5 w-5 text-slate-300 dark:text-slate-600 group-hover:text-purple-500 group-hover:translate-x-1 transition-all" />
+            <ArrowRight className="ml-auto h-5 w-5 text-slate-300 dark:text-slate-600 group-hover:text-brand-500 group-hover:translate-x-1 transition-all" />
           </Link>
         </div>
       </div>
@@ -124,14 +124,14 @@ export const Dashboard: React.FC = () => {
           {/* Agente: Calculadora Financeira */}
           <Link 
             to={AppRoute.FINANCE} 
-            className="group relative overflow-hidden bg-gradient-to-br from-white to-green-50/30 dark:from-slate-900 dark:to-green-900/10 p-6 rounded-xl shadow-sm border border-green-100 dark:border-green-900/50 hover:border-green-400 dark:hover:border-green-700 hover:shadow-lg transition-all"
+            className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
           >
             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
               <Calculator size={120} />
             </div>
             
             <div className="relative z-10">
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Calculator className="h-6 w-6" />
               </div>
               
@@ -140,7 +140,7 @@ export const Dashboard: React.FC = () => {
                 Simule custos de contratação (CLT vs PJ), impostos e viabilidade para novas vagas.
               </p>
               
-              <span className="inline-flex items-center text-sm font-bold text-green-700 dark:text-green-400 group-hover:gap-2 transition-all">
+              <span className="inline-flex items-center text-sm font-bold text-brand-700 dark:text-brand-400 group-hover:gap-2 transition-all">
                 Acessar Agente <ArrowRight className="h-4 w-4 ml-1" />
               </span>
             </div>

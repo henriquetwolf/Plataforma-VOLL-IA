@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -16,6 +15,7 @@ export const Profile: React.FC = () => {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   const [formData, setFormData] = useState<StudioProfile>({
     id: '',
@@ -35,28 +35,30 @@ export const Profile: React.FC = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      if (user?.id) {
-        const existingProfile = await fetchProfile(user.id);
-        if (existingProfile) {
-          setFormData(existingProfile);
-          setSpecialtiesInput(existingProfile.specialties.join(', '));
-          // Sincroniza a cor do contexto com a do perfil carregado
-          if (existingProfile.brandColor) {
-            setBrandColor(existingProfile.brandColor);
-          }
-        } else {
-          setFormData(prev => ({ 
-            ...prev, 
-            userId: user.id,
-            ownerName: user.name 
-          }));
+      // Se já carregou os dados para este usuário, não carrega de novo para evitar resetar inputs enquanto digita
+      if (dataLoaded || !user?.id) return;
+
+      const existingProfile = await fetchProfile(user.id);
+      if (existingProfile) {
+        setFormData(existingProfile);
+        setSpecialtiesInput(existingProfile.specialties.join(', '));
+        // Sincroniza a cor do contexto com a do perfil carregado
+        if (existingProfile.brandColor) {
+          setBrandColor(existingProfile.brandColor);
         }
+      } else {
+        setFormData(prev => ({ 
+          ...prev, 
+          userId: user.id,
+          ownerName: user.name 
+        }));
       }
+      setDataLoaded(true);
     };
     loadData();
-    // REMOVIDO setBrandColor das dependências para evitar loop de reset
+    // REMOVIDO setBrandColor e formData das dependências
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user?.id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
