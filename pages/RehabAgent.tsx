@@ -241,6 +241,11 @@ export const RehabAgent: React.FC = () => {
       {(!refData && !lessonData) && (
         <div className="max-w-3xl mx-auto space-y-6">
           
+          {/* Display de Erro Amigável se houver */}
+          {errorHtml && (
+             <div dangerouslySetInnerHTML={{ __html: errorHtml }} />
+          )}
+
           {/* Barra de Busca Grande */}
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
@@ -318,8 +323,8 @@ export const RehabAgent: React.FC = () => {
         </div>
       )}
 
-      {/* Error Display */}
-      {refStatus === LoadingState.ERROR && errorHtml && (
+      {/* Error Display (para quando já estava navegando) */}
+      {(refStatus === LoadingState.ERROR || lessonStatus === LoadingState.ERROR) && errorHtml && (refData || lessonData) && (
         <div className="max-w-3xl mx-auto" dangerouslySetInnerHTML={{ __html: errorHtml }} />
       )}
 
@@ -388,7 +393,8 @@ export const RehabAgent: React.FC = () => {
                   <p>Criando plano de aula personalizado baseado na triagem...</p>
                 </div>
               ) : lessonStatus === LoadingState.ERROR ? (
-                 <div className="max-w-3xl mx-auto" dangerouslySetInnerHTML={{ __html: errorHtml || '<p>Erro ao carregar aula.</p>' }} />
+                 // Erro já tratado acima, mas mantemos placeholder se necessário
+                 <div className="text-center text-slate-400 py-8">Não foi possível carregar o plano.</div>
               ) : lessonData ? (
                 <LessonPlanView 
                   plan={lessonData} 

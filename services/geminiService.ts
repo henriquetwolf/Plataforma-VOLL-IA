@@ -31,21 +31,25 @@ export const handleGeminiError = (error: any): string => {
   
   console.error("Gemini API Error:", error);
 
+  // Detecção específica para chave vazada ou permissão negada (bloqueio do Google)
   if (errStr.includes("403") || errMsg.includes("leaked") || errMsg.includes("PERMISSION_DENIED")) {
     return `
-      <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-6 rounded-r-lg mb-4 text-left" role="alert">
-        <p class="font-bold text-lg mb-2">⛔ Erro de Segurança (Google)</p>
-        <p class="mb-2">A chave de API configurada foi <strong>bloqueada por vazamento</strong>.</p>
-        <p class="text-sm text-red-600 mb-4">Isso ocorre automaticamente quando a chave é exposta em locais públicos (como chats ou repositórios).</p>
+      <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-6 rounded-r-lg mb-6 text-left shadow-sm" role="alert">
+        <div class="flex items-center gap-2 mb-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <p class="font-bold text-lg">Erro de Segurança (Chave Bloqueada)</p>
+        </div>
+        <p class="mb-3">A chave de API configurada foi <strong>bloqueada pelo Google</strong> por ter sido exposta publicamente.</p>
         
         <div class="bg-white p-4 rounded border border-red-200">
-          <p class="text-sm font-bold text-slate-700 mb-2">Como resolver:</p>
-          <ol class="list-decimal ml-5 text-sm text-slate-600 space-y-1">
-            <li>Gere uma nova chave no <a href="https://aistudio.google.com/" target="_blank" class="text-blue-600 underline hover:text-blue-800">Google AI Studio</a>.</li>
-            <li>Vá no painel da <strong>Vercel</strong> > Settings > Environment Variables.</li>
-            <li>Atualize o valor da variável <code>API_KEY</code>.</li>
-            <li><strong>IMPORTANTE:</strong> Não cole a chave nova em chats públicos.</li>
-            <li>Faça um <strong>Redeploy</strong> na Vercel para aplicar.</li>
+          <p class="text-sm font-bold text-slate-700 mb-2">Como resolver (Ação Necessária):</p>
+          <ol class="list-decimal ml-5 text-sm text-slate-600 space-y-2">
+            <li>Gere uma <strong>nova chave</strong> no <a href="https://aistudio.google.com/" target="_blank" class="text-blue-600 underline hover:text-blue-800 font-medium">Google AI Studio</a>.</li>
+            <li>No painel da Vercel, vá em <strong>Settings > Environment Variables</strong>.</li>
+            <li>Edite a variável <code>API_KEY</code> com a nova chave.</li>
+            <li>Faça um <strong>Redeploy</strong> da aplicação na Vercel para aplicar a mudança.</li>
           </ol>
         </div>
       </div>
@@ -54,7 +58,7 @@ export const handleGeminiError = (error: any): string => {
   
   if (!apiKey) {
     return `
-      <div class="bg-yellow-50 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert">
+      <div class="bg-yellow-50 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-r-lg mb-4" role="alert">
         <p class="font-bold">⚠️ Chave de API não configurada</p>
         <p>Adicione a variável <code>API_KEY</code> nas configurações de Environment Variables do Vercel.</p>
       </div>
@@ -62,10 +66,10 @@ export const handleGeminiError = (error: any): string => {
   }
 
   return `
-    <div class="bg-orange-50 border-l-4 border-orange-500 text-orange-700 p-4" role="alert">
+    <div class="bg-orange-50 border-l-4 border-orange-500 text-orange-700 p-4 rounded-r-lg mb-4" role="alert">
       <p class="font-bold">Erro na IA</p>
       <p>Ocorreu um erro na comunicação. Tente novamente mais tarde.</p>
-      <p class="text-xs mt-1 opacity-75">Detalhe: ${errMsg}</p>
+      <p class="text-xs mt-1 opacity-75">Detalhe: ${errMsg.substring(0, 100)}...</p>
     </div>
   `;
 };
