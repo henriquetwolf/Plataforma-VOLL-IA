@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Sparkles, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { AppRoute } from '../types';
 
 export const Login: React.FC = () => {
@@ -43,9 +43,6 @@ export const Login: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-xl shadow-slate-200/50">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-100 text-brand-600 mb-4">
-            <Sparkles className="h-6 w-6" />
-          </div>
           <h1 className="text-2xl font-bold text-slate-900">Bem-vindo(a)</h1>
           <p className="text-slate-500 mt-2">Faça login para gerenciar seu Studio</p>
         </div>
