@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -5,7 +6,7 @@ import { fetchProfile, upsertProfile, uploadLogo } from '../services/storage';
 import { generateStudioDescription } from '../services/geminiService';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Save, Wand2, Building2, MapPin, Palette, Upload, Loader2, X } from 'lucide-react';
+import { Save, Wand2, Building2, MapPin, Palette, Upload, Loader2, X, AlertTriangle } from 'lucide-react';
 import { StudioProfile } from '../types';
 
 export const Profile: React.FC = () => {
@@ -53,7 +54,9 @@ export const Profile: React.FC = () => {
       }
     };
     loadData();
-  }, [user, setBrandColor]);
+    // REMOVIDO setBrandColor das dependências para evitar loop de reset
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -64,6 +67,15 @@ export const Profile: React.FC = () => {
     const color = e.target.value;
     setFormData(prev => ({ ...prev, brandColor: color }));
     setBrandColor(color); // Preview instantâneo
+  };
+
+  const handleHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const color = e.target.value;
+    setFormData(prev => ({ ...prev, brandColor: color }));
+    // Apenas aplica se for hex válido para não quebrar o tema
+    if (/^#[0-9A-F]{6}$/i.test(color)) {
+      setBrandColor(color);
+    }
   };
 
   const handleSpecialtiesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -112,10 +124,18 @@ export const Profile: React.FC = () => {
         setMessage({ text: 'Perfil salvo com sucesso!', type: 'success' });
         // Garante que a cor fique salva no contexto
         if (formData.brandColor) setBrandColor(formData.brandColor);
+        setTimeout(() => setMessage({ text: '', type: '' }), 5000);
       } else {
-        setMessage({ text: `Erro ao salvar: ${result.error}`, type: 'error' });
+        // Verifica se o erro é sobre coluna faltando
+        if (result.error && (result.error.includes('brand_color') || result.error.includes('logo_url'))) {
+           setMessage({ 
+             text: 'Erro de Banco de Dados: Colunas de personalização não encontradas. Por favor, rode o script SQL de atualização no Supabase.', 
+             type: 'error' 
+           });
+        } else {
+           setMessage({ text: `Erro ao salvar: ${result.error}`, type: 'error' });
+        }
       }
-      setTimeout(() => setMessage({ text: '', type: '' }), 5000);
     } catch (err) {
       setMessage({ text: 'Falha crítica ao salvar perfil.', type: 'error' });
     } finally {
@@ -150,8 +170,9 @@ export const Profile: React.FC = () => {
       </div>
 
       {message.text && (
-        <div className={`p-4 rounded-lg ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-          {message.text}
+        <div className={`p-4 rounded-lg flex items-start gap-3 ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+          {message.type === 'error' && <AlertTriangle className="h-5 w-5 flex-shrink-0" />}
+          <p>{message.text}</p>
         </div>
       )}
 
@@ -257,17 +278,22 @@ export const Profile: React.FC = () => {
               <div>
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">Cor Principal do Studio</label>
                 <div className="flex items-center gap-3">
-                  <div className="relative overflow-hidden w-12 h-12 rounded-lg shadow-sm ring-1 ring-slate-200">
+                  <div className="relative overflow-hidden w-12 h-12 rounded-lg shadow-sm ring-1 ring-slate-200 dark:ring-slate-700 shrink-0">
                     <input
                       type="color"
                       value={formData.brandColor || '#14b8a6'}
                       onChange={handleColorChange}
-                      className="absolute -top-2 -left-2 w-20 h-20 cursor-pointer p-0 border-0"
+                      className="absolute -top-2 -left-2 w-24 h-24 cursor-pointer p-0 border-0"
                     />
                   </div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-2 rounded-lg font-mono border border-slate-200 dark:border-slate-700">
-                    {formData.brandColor || '#14b8a6'}
-                  </div>
+                  <input
+                    type="text"
+                    value={formData.brandColor || ''}
+                    onChange={handleHexChange}
+                    placeholder="#14B8A6"
+                    maxLength={7}
+                    className="text-sm text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 px-3 py-2 rounded-lg font-mono border border-slate-200 dark:border-slate-700 w-36 focus:outline-none focus:ring-2 focus:ring-brand-500 uppercase transition-all"
+                  />
                 </div>
                 <p className="text-xs text-slate-400 mt-2">Escolha a cor da sua marca para personalizar o sistema.</p>
               </div>

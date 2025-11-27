@@ -11,29 +11,45 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-// Função auxiliar para clarear/escurecer cores (gerar paleta)
+// Função segura para ajustar brilho da cor (Lighten/Darken)
 const adjustColor = (color: string, amount: number) => {
-  return '#' + color.replace(/^#/, '').replace(/../g, (color) => 
-    ('0' + Math.min(255, Math.max(0, parseInt(color, 16) + amount)).toString(16)).substr(-2)
-  );
+  // Validação básica de Hex
+  if (!color || !/^#[0-9A-F]{6}$/i.test(color)) return color;
+
+  const num = parseInt(color.slice(1), 16);
+  
+  let r = (num >> 16) + amount;
+  if (r > 255) r = 255;
+  else if (r < 0) r = 0;
+  
+  let g = ((num >> 8) & 0x00FF) + amount;
+  if (g > 255) g = 255;
+  else if (g < 0) g = 0;
+  
+  let b = (num & 0x0000FF) + amount;
+  if (b > 255) b = 255;
+  else if (b < 0) b = 0;
+  
+  return '#' + (g | (b << 8) | (r << 16)).toString(16).padStart(6, '0');
 };
 
-// Gera uma paleta aproximada baseada na cor principal
+// Gera uma paleta monocromática baseada na cor principal
 const generatePalette = (hex: string) => {
-  // Conversão simples para gerar tons
-  // Nota: Em uma app real, usaríamos bibliotecas como chroma-js ou tinycolor
+  // Garante que temos uma cor válida, senão usa o Teal padrão
+  const base = /^#[0-9A-F]{6}$/i.test(hex) ? hex : '#14b8a6';
+
   return {
-    50: adjustColor(hex, 180),
-    100: adjustColor(hex, 160),
-    200: adjustColor(hex, 120),
-    300: adjustColor(hex, 80),
-    400: adjustColor(hex, 40),
-    500: hex,
-    600: adjustColor(hex, -20),
-    700: adjustColor(hex, -40),
-    800: adjustColor(hex, -60),
-    900: adjustColor(hex, -80),
-    950: adjustColor(hex, -90),
+    50: adjustColor(base, 180),
+    100: adjustColor(base, 160),
+    200: adjustColor(base, 120),
+    300: adjustColor(base, 80),
+    400: adjustColor(base, 40),
+    500: base,
+    600: adjustColor(base, -20),
+    700: adjustColor(base, -40),
+    800: adjustColor(base, -60),
+    900: adjustColor(base, -80),
+    950: adjustColor(base, -90),
   };
 };
 
