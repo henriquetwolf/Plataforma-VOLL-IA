@@ -44,7 +44,7 @@ export const Dashboard: React.FC = () => {
             <p className="text-slate-500 dark:text-slate-400 mt-1">
               {profile?.studioName 
                 ? `Gerenciando ${profile.studioName}` 
-                : 'Bem-vindo ao PilatesFlow.'}
+                : 'Bem-vindo à Plataforma VOLL IA.'}
             </p>
           </div>
         </div>

@@ -101,7 +101,7 @@ export const GeneratedPlan: React.FC<Props> = ({ planData, report, onStartOver, 
                 <p className="text-slate-400 font-medium">{planData.planningYear}</p>
                 <div className="flex items-center gap-2 text-brand-600 text-sm mt-1">
                   <FileText className="h-4 w-4" />
-                  <span>Gerado por PilatesFlow AI</span>
+                  <span>Gerado por Plataforma VOLL IA</span>
                 </div>
               </div>
             </div>
@@ -115,7 +115,7 @@ export const GeneratedPlan: React.FC<Props> = ({ planData, report, onStartOver, 
 
           {/* Rodapé do Relatório */}
           <div className="mt-16 pt-8 border-t border-slate-100 text-center text-slate-400 text-sm">
-            <p>&copy; {new Date().getFullYear()} PilatesFlow - Gestão Inteligente de Studios</p>
+            <p>&copy; {new Date().getFullYear()} Plataforma VOLL IA - Gestão Inteligente de Studios</p>
           </div>
         </div>
       </div>

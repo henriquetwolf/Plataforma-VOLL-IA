@@ -45,7 +45,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
             ) : (
               <div className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
                 <Sparkles className="h-6 w-6" />
-                <span className="font-bold text-xl tracking-tight">PilatesFlow</span>
+                <span className="font-bold text-xl tracking-tight">Plataforma VOLL IA</span>
               </div>
             )}
           </div>
@@ -114,7 +114,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
               ) : (
                 <>
                   <Sparkles className="h-6 w-6" />
-                  <span className="font-bold text-lg">PilatesFlow</span>
+                  <span className="font-bold text-lg">Plataforma VOLL IA</span>
                 </>
               )}
           </div>
