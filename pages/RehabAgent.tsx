@@ -6,7 +6,7 @@ import { PathologyResponse, LessonPlanResponse, LoadingState, SavedRehabLesson, 
 import { AssessmentModal } from '../components/rehab/AssessmentModal';
 import { ResultCard, LessonPlanView } from '../components/rehab/RehabResults';
 import { Button } from '../components/ui/Button';
-import { Search, History, BookOpen, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2 } from 'lucide-react';
+import { Search, History, BookOpen, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, User, ChevronRight, Folder } from 'lucide-react';
 
 const COMMON_SUGGESTIONS = [
   "Hérnia de Disco L5-S1", "Dor Lombar Crônica", "Ombro Rígido", "Condromalácia", "Cervicalgia", "Fascite Plantar"
@@ -18,7 +18,11 @@ export const RehabAgent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'reference' | 'lesson'>('reference');
   const [query, setQuery] = useState('');
   const [savedLessons, setSavedLessons] = useState<SavedRehabLesson[]>([]);
+  
+  // History Navigation State
   const [showHistory, setShowHistory] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<string | null>(null); // Nome do aluno selecionado para filtrar
+
   const [refStatus, setRefStatus] = useState<LoadingState>(LoadingState.IDLE);
   const [refData, setRefData] = useState<PathologyResponse | null>(null);
   const [errorHtml, setErrorHtml] = useState<string | null>(null);
@@ -74,28 +78,87 @@ export const RehabAgent: React.FC = () => {
     if (result.success) { alert("Salvo!"); loadHistory(); } else { alert("Erro ao salvar."); }
   };
 
+  // Group lessons by student name
+  const studentsWithLessons = Array.from(new Set(savedLessons.map(l => l.patientName))).sort();
+
   if (showHistory) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold">Aulas Salvas</h2>
-          <Button variant="outline" onClick={() => setShowHistory(false)}><ArrowLeft className="w-4 h-4 mr-2"/> Voltar</Button>
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold">Histórico Clínico</h2>
+            {selectedStudent && (
+              <>
+                <ChevronRight className="w-5 h-5 text-slate-400" />
+                <span className="text-xl text-brand-600 font-medium">{selectedStudent}</span>
+              </>
+            )}
+          </div>
+          <Button variant="outline" onClick={() => {
+            if (selectedStudent) setSelectedStudent(null);
+            else setShowHistory(false);
+          }}>
+            <ArrowLeft className="w-4 h-4 mr-2"/> {selectedStudent ? "Voltar para Alunos" : "Voltar para Início"}
+          </Button>
         </div>
-        <div className="grid gap-4">
-          {savedLessons.map(l => (
-            <div key={l.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border flex justify-between items-center">
-              <div><h3 className="font-bold">{l.customName}</h3><p className="text-sm">Paciente: {l.patientName}</p></div>
-              <div className="flex gap-2">
-                <Button variant="ghost" onClick={() => { setLessonData(l); setQuery(l.pathologyName); setLessonStatus(LoadingState.SUCCESS); setActiveTab('lesson'); setShowHistory(false); }}>Abrir</Button>
-                <button onClick={async () => { if(confirm("Apagar?")) { await deleteRehabLesson(l.id); loadHistory(); } }} className="p-2 text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>
+
+        {/* View 1: List of Students (Folders) */}
+        {!selectedStudent && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 animate-in fade-in">
+            {studentsWithLessons.length === 0 ? (
+              <p className="text-slate-500 col-span-3 text-center py-12">Nenhum plano salvo ainda.</p>
+            ) : (
+              studentsWithLessons.map(studentName => {
+                const count = savedLessons.filter(l => l.patientName === studentName).length;
+                return (
+                  <button 
+                    key={studentName}
+                    onClick={() => setSelectedStudent(studentName)}
+                    className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-400 hover:shadow-md transition-all text-left group"
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="p-3 bg-brand-50 dark:bg-brand-900/20 rounded-lg text-brand-600 dark:text-brand-400 group-hover:bg-brand-100 dark:group-hover:bg-brand-900/40 transition-colors">
+                        <Folder className="w-6 h-6" />
+                      </div>
+                      <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold px-2 py-1 rounded-full">
+                        {count}
+                      </span>
+                    </div>
+                    <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate">{studentName}</h3>
+                    <p className="text-sm text-slate-500 mt-1">Ver planos salvos</p>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {/* View 2: Lessons for Selected Student */}
+        {selectedStudent && (
+          <div className="grid gap-4 animate-in fade-in slide-in-from-right-8">
+            {savedLessons.filter(l => l.patientName === selectedStudent).map(l => (
+              <div key={l.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex justify-between items-center hover:border-brand-300 transition-colors">
+                <div>
+                  <h3 className="font-bold text-lg text-brand-700 dark:text-brand-400">{l.pathologyName}</h3>
+                  <p className="text-sm text-slate-500">Criado em: {new Date(l.createdAt).toLocaleDateString()}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="ghost" onClick={() => { setLessonData(l); setQuery(l.pathologyName); setLessonStatus(LoadingState.SUCCESS); setActiveTab('lesson'); setShowHistory(false); setSelectedStudent(null); }}>
+                    Abrir Plano
+                  </Button>
+                  <button onClick={async () => { if(confirm("Apagar este plano?")) { await deleteRehabLesson(l.id); loadHistory(); } }} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
+                    <Trash2 className="w-4 h-4"/>
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
 
+  // --- Main Search Interface ---
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in">
       {!refData && !lessonData && (
@@ -123,7 +186,17 @@ export const RehabAgent: React.FC = () => {
             <Button className="absolute right-2 top-2 bottom-2" onClick={() => handleSearch()}>Consultar</Button>
           </div>
           <div className="text-center"><p className="text-xs font-bold uppercase mb-3">Equipamentos:</p><div className="flex flex-wrap justify-center gap-2">{EQUIPMENTS.map(eq => (<button key={eq} onClick={() => toggleEquipment(eq)} className={`px-3 py-1.5 rounded-full text-xs font-medium border ${selectedEquipment.includes(eq) ? 'bg-slate-800 text-white' : 'bg-transparent text-slate-500'}`}>{selectedEquipment.includes(eq) && <CheckCircle2 className="inline w-3 h-3 mr-1"/>}{eq}</button>))}</div></div>
-          <div className="bg-slate-900 rounded-xl p-6 text-white"><div className="flex items-start gap-4"><div className="p-3 bg-white/10 rounded-full"><Activity className="h-6 w-6 text-brand-400"/></div><div><h3 className="font-bold text-lg mb-1">Tecnologia + Profissional</h3><p className="text-sm text-slate-300">A IA acelera o planejamento, mas o raciocínio clínico é seu.</p></div></div></div>
+          
+          <div className="bg-slate-900 rounded-xl p-6 text-white cursor-pointer hover:bg-slate-800 transition-all" onClick={() => setShowHistory(true)}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-white/10 rounded-full"><Folder className="h-6 w-6 text-brand-400"/></div>
+                <div><h3 className="font-bold text-lg mb-1">Aulas Salvas</h3><p className="text-sm text-slate-300">Acesse rapidamente os planos de reabilitação dos seus alunos.</p></div>
+              </div>
+              <ChevronRight className="text-slate-400" />
+            </div>
+          </div>
+
           <div><p className="text-xs font-bold uppercase mb-3">Sugestões:</p><div className="flex flex-wrap gap-2">{COMMON_SUGGESTIONS.map(sug => (<button key={sug} onClick={() => handleSearch(sug)} className="px-4 py-2 bg-slate-100 rounded-lg text-sm hover:bg-brand-50 transition-colors">{sug}</button>))}</div></div>
         </div>
       )}

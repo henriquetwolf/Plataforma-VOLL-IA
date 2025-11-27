@@ -7,7 +7,7 @@ export const saveRehabLesson = async (
   patientName: string,
   pathologyName: string,
   lessonData: LessonPlanResponse,
-  studentId?: string // Novo parâmetro opcional
+  studentId?: string
 ): Promise<{ success: boolean; error?: string; id?: string }> => {
   try {
     const payload: any = {
@@ -17,7 +17,6 @@ export const saveRehabLesson = async (
       data: lessonData
     };
 
-    // Se tiver ID de aluno, adiciona ao payload
     if (studentId) {
       payload.student_id = studentId;
     }
@@ -56,6 +55,32 @@ export const fetchRehabLessons = async (): Promise<SavedRehabLesson[]> => {
       customName: `${item.pathology_name} - ${new Date(item.created_at).toLocaleDateString()}`,
       createdAt: item.created_at,
       ...item.data 
+    }));
+  } catch (err) {
+    console.error('Unexpected error:', err);
+    return [];
+  }
+};
+
+export const fetchRehabLessonsByStudent = async (studentId: string): Promise<SavedRehabLesson[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('rehab_lessons')
+      .select('*')
+      .eq('student_id', studentId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching student lessons:', error);
+      return [];
+    }
+
+    return data.map((item: any) => ({
+      id: item.id,
+      patientName: item.patient_name,
+      customName: `${item.pathology_name} - ${new Date(item.created_at).toLocaleDateString()}`,
+      createdAt: item.created_at,
+      ...item.data
     }));
   } catch (err) {
     console.error('Unexpected error:', err);
