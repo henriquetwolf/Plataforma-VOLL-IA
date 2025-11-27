@@ -1,13 +1,18 @@
 import { GoogleGenAI } from "@google/genai";
 import { StrategicPlan } from "../types";
 
-// Chave da API Hardcoded para garantir funcionamento no Vercel
-const API_KEY = 'AIzaSyDDYobnlgxF7iYC-g7uYYc85ipJTA6hSis';
+// Inicializa o cliente usando a variável de ambiente injetada pelo Vite
+// A chave deve ser configurada no .env (local) ou nas Environment Variables do Vercel como API_KEY
+const apiKey = process.env.API_KEY;
 
-console.log("Iniciando serviço Gemini...");
+// Log de diagnóstico (seguro, mostra apenas os últimos 4 dígitos)
+if (apiKey) {
+  console.log(`[Gemini Service] API Key carregada: ...${apiKey.slice(-4)}`);
+} else {
+  console.warn("[Gemini Service] API Key NÃO encontrada. Verifique as configurações do Vercel.");
+}
 
-// Inicialização direta do cliente
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+const ai = new GoogleGenAI({ apiKey: apiKey || '' });
 
 // Helper para limpar JSON vindo da IA
 const cleanAndParseJSON = (text: string) => {
@@ -21,11 +26,30 @@ const cleanAndParseJSON = (text: string) => {
   }
 };
 
+const handleGeminiError = (error: any): string => {
+  const errStr = error.toString();
+  const errMsg = error.message || '';
+  
+  console.error("Gemini API Error:", error);
+
+  if (errStr.includes("403") || errMsg.includes("leaked") || errMsg.includes("PERMISSION_DENIED")) {
+    return "⛔ ERRO DE PERMISSÃO: A chave de API foi recusada ou bloqueada. Verifique se a chave correta (iniciada em AIzaSyC...) está configurada nas Variáveis de Ambiente do Vercel como 'API_KEY'.";
+  }
+  
+  if (errStr.includes("404")) {
+     return "Modelo de IA não encontrado. Verifique se sua conta tem acesso ao Gemini Flash.";
+  }
+
+  return "Ocorreu um erro na comunicação com a IA. Tente novamente mais tarde.";
+};
+
 export const generateStudioDescription = async (
   studioName: string,
   ownerName: string,
   specialties: string[]
 ): Promise<string> => {
+  if (!apiKey) return "⚠️ Chave de API não configurada no Vercel (API_KEY).";
+
   const prompt = `
     Você é um redator especialista em marketing para negócios de bem-estar e fitness no Brasil.
     Escreva uma descrição profissional, convidativa e concisa (máximo de 100 palavras) para um estúdio de Pilates.
@@ -45,15 +69,16 @@ export const generateStudioDescription = async (
       contents: prompt,
     });
     return response.text || "Não foi possível gerar a descrição.";
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-    return "Falha ao gerar descrição. Verifique se a chave de API é válida para este domínio.";
+  } catch (error: any) {
+    return handleGeminiError(error);
   }
 };
 
 // --- GERAÇÃO DE OPÇÕES PARA MISSÃO E VISÃO (ESTRATÉGIA) ---
 
 export const generateMissionOptions = async (studioName: string): Promise<string[]> => {
+  if (!apiKey) return ["⚠️ API Key ausente"];
+
   const prompt = `
     Atue como um consultor de branding para Pilates. Crie 3 opções distintas de MISSÃO para o estúdio "${studioName}".
     
@@ -77,6 +102,8 @@ export const generateMissionOptions = async (studioName: string): Promise<string
 };
 
 export const generateVisionOptions = async (studioName: string, year: string): Promise<string[]> => {
+  if (!apiKey) return ["⚠️ API Key ausente"];
+
   const prompt = `
     Atue como um estrategista de negócios. Crie 3 opções de VISÃO de futuro para o estúdio "${studioName}" para o ano de ${year}.
     
@@ -107,6 +134,8 @@ export const generateTailoredMissions = async (
   focus: string,
   tone: string
 ): Promise<string[]> => {
+  if (!apiKey) return ["⚠️ ERRO: Chave de API não configurada. Adicione a variável API_KEY no Vercel."];
+
   const prompt = `
     Atue como um especialista em Branding para Studios de Pilates.
     Crie 4 opções de Declaração de Missão para o estúdio abaixo, seguindo estritamente o foco e o tom solicitados.
@@ -131,15 +160,17 @@ export const generateTailoredMissions = async (
       contents: prompt,
     });
     return cleanAndParseJSON(response.text || "");
-  } catch (error) {
-    console.error("Erro ao gerar missões personalizadas:", error);
-    return [];
+  } catch (error: any) {
+    const friendlyError = handleGeminiError(error);
+    return [friendlyError];
   }
 };
 
 // --- SUGESTÕES DE SWOT ---
 
 export const generateSwotSuggestions = async (category: string): Promise<string[]> => {
+  if (!apiKey) return ["⚠️ API Key ausente"];
+
   const prompt = `
     Liste 5 exemplos comuns de "${category}" para um Estúdio de Pilates no Brasil.
     Seja específico (ex: não diga apenas "Localização", diga "Localização com pouco estacionamento").
@@ -161,6 +192,8 @@ export const generateSwotSuggestions = async (category: string): Promise<string[
 // --- GERAÇÃO INTELIGENTE DE OBJETIVOS E AÇÕES ---
 
 export const generateObjectivesSmart = async (swotData: any): Promise<any[]> => {
+  if (!apiKey) return [];
+
   const swotSummary = JSON.stringify(swotData);
 
   const prompt = `
@@ -190,6 +223,8 @@ export const generateObjectivesSmart = async (swotData: any): Promise<any[]> => 
 };
 
 export const generateActionsSmart = async (objectives: any[]): Promise<any[]> => {
+  if (!apiKey) return [];
+
   const objsSummary = JSON.stringify(objectives);
 
   const prompt = `
@@ -221,6 +256,8 @@ export const generateActionsSmart = async (objectives: any[]): Promise<any[]> =>
 // --- RELATÓRIO FINAL ---
 
 export const generateFullReport = async (data: StrategicPlan): Promise<string> => {
+  if (!apiKey) return "<p>⚠️ Erro: Chave de API não configurada no Vercel (API_KEY).</p>";
+
   const swotText = `
     Forças: ${data.swot.strengths.join('; ')}
     Fraquezas: ${data.swot.weaknesses.join('; ')}
@@ -275,13 +312,14 @@ export const generateFullReport = async (data: StrategicPlan): Promise<string> =
       contents: prompt,
     });
     return response.text || "<p>Não foi possível gerar o relatório.</p>";
-  } catch (error) {
-    console.error("Gemini Full Report Error:", error);
+  } catch (error: any) {
+    const errorMsg = handleGeminiError(error);
+
     return `
       <div class="bg-red-50 p-6 rounded-lg border border-red-200 text-center">
         <h3 class="text-red-800 font-bold mb-2">Erro na Geração</h3>
-        <p class="text-red-600">Ocorreu um erro ao conectar com a IA. Verifique se o domínio do Vercel está autorizado no Google Cloud Console ou se a chave de API está correta.</p>
-        <p class="text-xs text-red-400 mt-2">Detalhes: ${error instanceof Error ? error.message : 'Erro desconhecido'}</p>
+        <p class="text-red-600">${errorMsg}</p>
+        <p class="text-xs text-red-400 mt-2">Detalhes técnicos: ${error instanceof Error ? error.message : String(error)}</p>
       </div>
     `;
   }
