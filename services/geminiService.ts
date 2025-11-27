@@ -1,15 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
 import { StrategicPlan } from "../types";
 
-// Inicializa o cliente usando a variável de ambiente injetada pelo Vite
-// A chave deve ser configurada no .env (local) ou nas Environment Variables do Vercel como API_KEY
+// A chave é injetada pelo vite.config.ts através do process.env.API_KEY
+// Certifique-se de configurar a variável "API_KEY" no painel da Vercel
 const apiKey = process.env.API_KEY;
 
-// Log de diagnóstico (seguro, mostra apenas os últimos 4 dígitos)
-if (apiKey) {
-  console.log(`[Gemini Service] API Key carregada: ...${apiKey.slice(-4)}`);
-} else {
-  console.warn("[Gemini Service] API Key NÃO encontrada. Verifique as configurações do Vercel.");
+// Log de diagnóstico seguro (mostra apenas se carregou ou não)
+if (!apiKey) {
+  console.warn("[Gemini Service] API Key não encontrada. Configure a variável de ambiente 'API_KEY' no Vercel.");
 }
 
 const ai = new GoogleGenAI({ apiKey: apiKey || '' });
@@ -33,11 +31,11 @@ const handleGeminiError = (error: any): string => {
   console.error("Gemini API Error:", error);
 
   if (errStr.includes("403") || errMsg.includes("leaked") || errMsg.includes("PERMISSION_DENIED")) {
-    return "⛔ ERRO DE PERMISSÃO: A chave de API foi recusada ou bloqueada. Verifique se a chave correta (iniciada em AIzaSyC...) está configurada nas Variáveis de Ambiente do Vercel como 'API_KEY'.";
+    return "⛔ A chave de API foi bloqueada pelo Google. Gere uma nova chave no AI Studio e atualize as Variáveis de Ambiente no Vercel (API_KEY).";
   }
   
-  if (errStr.includes("404")) {
-     return "Modelo de IA não encontrado. Verifique se sua conta tem acesso ao Gemini Flash.";
+  if (!apiKey) {
+    return "⚠️ Chave de API não configurada. Adicione 'API_KEY' nas configurações do Vercel.";
   }
 
   return "Ocorreu um erro na comunicação com a IA. Tente novamente mais tarde.";
@@ -48,7 +46,7 @@ export const generateStudioDescription = async (
   ownerName: string,
   specialties: string[]
 ): Promise<string> => {
-  if (!apiKey) return "⚠️ Chave de API não configurada no Vercel (API_KEY).";
+  if (!apiKey) return "⚠️ Configure a API_KEY no Vercel para usar este recurso.";
 
   const prompt = `
     Você é um redator especialista em marketing para negócios de bem-estar e fitness no Brasil.
@@ -134,7 +132,7 @@ export const generateTailoredMissions = async (
   focus: string,
   tone: string
 ): Promise<string[]> => {
-  if (!apiKey) return ["⚠️ ERRO: Chave de API não configurada. Adicione a variável API_KEY no Vercel."];
+  if (!apiKey) return ["⚠️ Chave de API não configurada. Verifique as configurações do Vercel."];
 
   const prompt = `
     Atue como um especialista em Branding para Studios de Pilates.
