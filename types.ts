@@ -43,6 +43,7 @@ export enum AppRoute {
   PROFILE = '/profile',
   STUDENTS = '/students',
   STRATEGY = '/strategy',
+  FINANCE = '/finance',
   ROOT = '/'
 }
 
@@ -77,4 +78,59 @@ export interface SavedPlan {
   createdAt: string;
   planData: StrategicPlan;
   report: string;
+}
+
+// --- Tipos da Calculadora Financeira ---
+
+export interface CalculatorInputs {
+    // Studio Capacity
+    hoursPerDay: number;
+    clientsPerHour: number;
+    sessionsPerWeekPerClient: number;
+    workingDaysPerMonth: number;
+    occupancyRate: number;
+    monthlyPricePerClient: number;
+    
+    // Professional Analysis
+    professionalHoursPerWeek: number;
+    professionalClientsPerHour: number;
+    professionalOccupancyRate: number;
+
+    // Salary Definition
+    salaryRevenuePercentage: number;
+    baseSalary: number;
+    useProposedSalary: boolean;
+
+    // Taxes
+    issPercentage: number;
+    pjSimplesPercentage: number;
+    otherChargesPercentage: number;
+}
+
+export interface FinancialModel {
+    payroll: number;
+    operatingCosts: number;
+    reserves: number;
+    workingCapital: number;
+}
+
+export interface CompensationResult {
+    scenarioName: string;
+    grossRevenue: number;
+    taxDeduction: number;
+    netRevenue: number;
+    
+    // Costs
+    professionalCost: number; // O custo que sai do caixa do estúdio
+    
+    // Professional perspective
+    grossForProfessional: number;
+    taxesProfessional: number;
+    netForProfessional: number;
+    
+    // Studio perspective
+    costToStudio: number;
+    contributionMargin: number;
+    
+    isViable: boolean;
 }

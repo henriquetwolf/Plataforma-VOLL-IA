@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { AppRoute, StudioProfile } from '../types';
-import { Users, Sparkles, Compass, ArrowRight, Building2 } from 'lucide-react';
+import { Users, Sparkles, Compass, ArrowRight, Building2, Calculator } from 'lucide-react';
 import { fetchProfile } from '../services/storage';
 
 export const Dashboard: React.FC = () => {
@@ -116,6 +116,31 @@ export const Dashboard: React.FC = () => {
               </p>
               
               <span className="inline-flex items-center text-sm font-bold text-brand-700 dark:text-brand-400 group-hover:gap-2 transition-all">
+                Acessar Agente <ArrowRight className="h-4 w-4 ml-1" />
+              </span>
+            </div>
+          </Link>
+
+          {/* Agente: Calculadora Financeira */}
+          <Link 
+            to={AppRoute.FINANCE} 
+            className="group relative overflow-hidden bg-gradient-to-br from-white to-green-50/30 dark:from-slate-900 dark:to-green-900/10 p-6 rounded-xl shadow-sm border border-green-100 dark:border-green-900/50 hover:border-green-400 dark:hover:border-green-700 hover:shadow-lg transition-all"
+          >
+            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+              <Calculator size={120} />
+            </div>
+            
+            <div className="relative z-10">
+              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Calculator className="h-6 w-6" />
+              </div>
+              
+              <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Calculadora Financeira</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
+                Simule custos de contratação (CLT vs PJ), impostos e viabilidade para novas vagas.
+              </p>
+              
+              <span className="inline-flex items-center text-sm font-bold text-green-700 dark:text-green-400 group-hover:gap-2 transition-all">
                 Acessar Agente <ArrowRight className="h-4 w-4 ml-1" />
               </span>
             </div>

@@ -41,18 +41,27 @@ export const StrategicPlanning: React.FC = () => {
   const [showSavedList, setShowSavedList] = useState(false);
   const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
 
-  // Carregar dados iniciais (Perfil do Studio)
+  // Carregar dados iniciais (Perfil do Studio e Planos Salvos)
   useEffect(() => {
-    const loadStudioData = async () => {
+    const initializeData = async () => {
+      // 1. Carregar planos salvos
+      try {
+        const stored = localStorage.getItem('pilates_strategic_plans');
+        if (stored) setSavedPlans(JSON.parse(stored));
+      } catch (e) { console.error(e); }
+
+      // 2. Preencher Nome do Studio automaticamente a partir do Perfil
       if (user?.id) {
         try {
           const profile = await fetchProfile(user.id);
           if (profile?.studioName) {
-            setPlanData(prev => ({
-              ...prev,
-              // Preenche automaticamente se estiver vazio OU garante que o nome do perfil seja usado
-              studioName: prev.studioName || profile.studioName
-            }));
+            setPlanData(prev => {
+              // Só atualiza se o campo estiver vazio para respeitar o que o usuário digitar
+              if (!prev.studioName) {
+                return { ...prev, studioName: profile.studioName };
+              }
+              return prev;
+            });
           }
         } catch (error) {
           console.error("Erro ao carregar perfil para estratégia:", error);
@@ -60,14 +69,7 @@ export const StrategicPlanning: React.FC = () => {
       }
     };
     
-    // Executa o carregamento
-    loadStudioData();
-
-    // Carregar planos salvos
-    try {
-      const stored = localStorage.getItem('pilates_strategic_plans');
-      if (stored) setSavedPlans(JSON.parse(stored));
-    } catch (e) { console.error(e); }
+    initializeData();
   }, [user]);
 
   const updateLocalStorage = (plans: SavedPlan[]) => {
@@ -141,7 +143,7 @@ export const StrategicPlanning: React.FC = () => {
     const currentName = planData.studioName;
     setPlanData({ ...initialPlanData, studioName: currentName });
     
-    // Se por acaso estiver vazio, tenta buscar do perfil novamente
+    // Se por acaso estiver vazio (ex: usuário apagou), tenta buscar do perfil novamente
     if (!currentName && user?.id) {
        fetchProfile(user.id).then(profile => {
         if (profile?.studioName) {
