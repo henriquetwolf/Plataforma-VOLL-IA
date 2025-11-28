@@ -17,7 +17,7 @@ export const Profile: React.FC = () => {
   const [message, setMessage] = useState({ text: '', type: '' });
   const [dataLoaded, setDataLoaded] = useState(false);
 
-  const isReadOnly = user?.isInstructor; // Bloqueia edição para instrutores
+  const isReadOnly = user?.isInstructor; // Variável chave para bloquear edição
 
   const [formData, setFormData] = useState<StudioProfile>({
     id: '',
@@ -167,7 +167,7 @@ export const Profile: React.FC = () => {
           <p className="text-slate-500 dark:text-slate-400">Informações do estúdio.</p>
         </div>
         {isReadOnly && (
-          <div className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
+          <div className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2 border border-orange-200">
             <Lock className="w-3 h-3"/> Modo Leitura (Instrutor)
           </div>
         )}
@@ -224,7 +224,7 @@ export const Profile: React.FC = () => {
                 onChange={handleChange}
                 rows={4}
                 disabled={isReadOnly}
-                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all text-sm disabled:opacity-60"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all text-sm disabled:opacity-60 disabled:bg-slate-50 dark:disabled:bg-slate-800"
               />
             </div>
           </div>

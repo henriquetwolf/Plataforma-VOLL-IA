@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Student } from '../types';
 import { fetchStudents, addStudent, updateStudent, deleteStudent } from '../services/studentService';
-import { fetchRehabLessonsByStudent } from '../services/rehabService'; // Importação
+import { fetchRehabLessonsByStudent } from '../services/rehabService'; 
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Users, Plus, Trash2, Search, Phone, Mail, Pencil, FileText, X, Activity } from 'lucide-react';
@@ -29,6 +29,8 @@ export const Students: React.FC = () => {
     observations: ''
   });
 
+  const isInstructor = user?.isInstructor; // Flag de permissão
+
   const loadStudents = async () => {
     setIsLoading(true);
     const data = await fetchStudents();
@@ -46,6 +48,7 @@ export const Students: React.FC = () => {
   };
 
   const handleEdit = (student: Student) => {
+    if (isInstructor) return; // Bloqueio extra
     setFormData({
       name: student.name,
       email: student.email || '',
@@ -98,6 +101,7 @@ export const Students: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
+    if (isInstructor) return; // Bloqueio extra
     if (window.confirm('Tem certeza que deseja remover este aluno?')) {
       const result = await deleteStudent(id);
       if (result.success) {
@@ -161,7 +165,9 @@ export const Students: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Alunos</h1>
           <p className="text-slate-500 dark:text-slate-400">Gerencie o cadastro e histórico dos seus alunos</p>
         </div>
-        {!showForm && (
+        
+        {/* Botão Novo Aluno OCULTO para Instrutores */}
+        {!showForm && !isInstructor && (
           <Button onClick={() => setShowForm(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Novo Aluno
@@ -169,7 +175,7 @@ export const Students: React.FC = () => {
         )}
       </div>
 
-      {showForm && (
+      {showForm && !isInstructor && (
         <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-top-4 relative">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-slate-800 dark:text-white">
@@ -265,8 +271,13 @@ export const Students: React.FC = () => {
                     <td className="px-6 py-4 text-slate-500 max-w-xs truncate">{student.observations || '-'}</td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => handleEdit(student)} className="p-2 text-slate-400 hover:text-brand-600"><Pencil className="h-4 w-4" /></button>
-                        <button onClick={() => handleDelete(student.id)} className="p-2 text-slate-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
+                        {/* Botões de Ação OCULTOS para Instrutores */}
+                        {!isInstructor && (
+                          <>
+                            <button onClick={() => handleEdit(student)} className="p-2 text-slate-400 hover:text-brand-600"><Pencil className="h-4 w-4" /></button>
+                            <button onClick={() => handleDelete(student.id)} className="p-2 text-slate-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
