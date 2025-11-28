@@ -16,10 +16,22 @@ const getEnvVar = (key: string, fallback: string): string => {
   } catch (e) {
     // Ignora erros de acesso e retorna fallback
   }
+  
+  // Tenta acessar via process.env se disponível
+  try {
+    // @ts-ignore
+    if (typeof process !== 'undefined' && process.env && process.env[key]) {
+      // @ts-ignore
+      return process.env[key];
+    }
+  } catch (e) {
+    // Ignora
+  }
+
   return fallback;
 };
 
-const supabaseUrl = getEnvVar('VITE_SUPABASE_URL', FALLBACK_URL);
-const supabaseKey = getEnvVar('VITE_SUPABASE_ANON_KEY', FALLBACK_KEY);
+export const SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL', FALLBACK_URL);
+export const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY', FALLBACK_KEY);
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

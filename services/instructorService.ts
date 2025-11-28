@@ -1,33 +1,6 @@
-import { supabase } from './supabase';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase'; // Importa chaves exportadas
 import { Instructor } from '../types';
 import { createClient } from '@supabase/supabase-js';
-
-// Função segura para obter variáveis de ambiente sem quebrar a aplicação
-const getEnvVar = (key: string): string => {
-  try {
-    // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
-      // @ts-ignore
-      const value = import.meta.env[key];
-      if (value) return value;
-    }
-  } catch (e) {
-    // Ignora
-  }
-  
-  // Tenta acessar via process.env injetado pelo vite.config.ts
-  try {
-    // @ts-ignore
-    if (typeof process !== 'undefined' && process.env && process.env[key]) {
-      // @ts-ignore
-      return process.env[key];
-    }
-  } catch (e) {
-    // Ignora
-  }
-  
-  return '';
-};
 
 export const fetchInstructors = async (): Promise<Instructor[]> => {
   try {
@@ -58,7 +31,7 @@ export const fetchInstructors = async (): Promise<Instructor[]> => {
   }
 };
 
-// --- NOVA FUNÇÃO DE CRIAÇÃO COMPLETA (EXPORTADA) ---
+// --- FUNÇÃO DE CRIAÇÃO COM LOGIN ---
 export const createInstructorWithAuth = async (
   studioUserId: string, 
   instructor: Omit<Instructor, 'id' | 'studioUserId' | 'active' | 'createdAt'> & { password?: string }
@@ -66,23 +39,19 @@ export const createInstructorWithAuth = async (
   try {
     console.log("Iniciando criação de instrutor com auth...");
 
-    // 1. Validar se senha foi fornecida
+    // 1. Validar senha
     if (!instructor.password || instructor.password.length < 6) {
       return { success: false, error: "A senha deve ter no mínimo 6 caracteres." };
     }
 
-    // 2. Criar cliente temporário
-    // @ts-ignore
-    const supabaseUrl = supabase.supabaseUrl;
-    // @ts-ignore
-    const supabaseKey = supabase.supabaseKey;
-
-    if (!supabaseUrl || !supabaseKey) {
+    // 2. Criar cliente temporário usando as chaves exportadas do supabase.ts
+    // Isso evita o problema de 'undefined' com import.meta.env
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
       return { success: false, error: "Configuração do Supabase inválida." };
     }
     
-    // IMPORTANTE: Criar cliente com persistSession: false para não afetar o login atual do dono
-    const tempClient = createClient(supabaseUrl, supabaseKey, {
+    // IMPORTANTE: Criar cliente com persistSession: false para não deslogar o dono
+    const tempClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
@@ -113,7 +82,8 @@ export const createInstructorWithAuth = async (
       return { success: false, error: "Usuário criado mas ID não retornado. Verifique configurações de email." };
     }
 
-    // 4. Inserir na tabela instructors JÁ VINCULADO
+    // 4. Inserir na tabela instructors JÁ VINCULADO (auth_user_id preenchido)
+    // Usamos o cliente principal (autenticado como dono) para ter permissão de escrita
     const { error: dbError } = await supabase
       .from('instructors')
       .insert({
@@ -184,11 +154,9 @@ export const updateInstructor = async (id: string, updates: Partial<Instructor>)
   }
 };
 
-// EXCLUSÃO REFORÇADA COM LOGS
 export const deleteInstructor = async (id: string): Promise<{ success: boolean; error?: string }> => {
   try {
     console.log(`Tentando excluir instrutor ${id}...`);
-    
     const { error } = await supabase
       .from('instructors')
       .delete()
@@ -199,7 +167,6 @@ export const deleteInstructor = async (id: string): Promise<{ success: boolean; 
       return { success: false, error: error.message };
     }
     
-    console.log("Instrutor excluído com sucesso.");
     return { success: true };
   } catch (err: any) {
     console.error("Exceção ao excluir instrutor:", err);
@@ -207,10 +174,9 @@ export const deleteInstructor = async (id: string): Promise<{ success: boolean; 
   }
 };
 
-// CORREÇÃO CRÍTICA: Busca robusta por ID ou EMAIL para garantir vínculo
 export const getInstructorProfile = async (authUserId: string, email?: string) => {
   try {
-    // 1. Tenta buscar pelo ID de autenticação (se já estiver vinculado)
+    // Busca por ID primeiro
     const { data, error } = await supabase
       .from('instructors')
       .select('*, studio_profiles:studio_user_id (studio_name)')
@@ -219,38 +185,28 @@ export const getInstructorProfile = async (authUserId: string, email?: string) =
       
     if (data) return data;
 
-    // 2. Se não achou pelo ID, TENTA FORÇAR O VÍNCULO PELO EMAIL.
-    // Isso é crucial para o primeiro login, onde o ID do Auth pode ainda não estar na tabela
+    // Se não achou e tem email, tenta vincular (fallback)
     if (email) {
-       console.log("Instrutor não encontrado por ID. Buscando por email:", email);
-       
-       const { data: pendingInstructor, error: pendingError } = await supabase
+       const { data: pendingInstructor } = await supabase
         .from('instructors')
         .select('*') 
         .eq('email', email)
-        .is('auth_user_id', null) // Busca apenas se ainda não estiver vinculado
+        .is('auth_user_id', null)
         .maybeSingle();
 
        if (pendingInstructor) {
-         console.log("Instrutor pendente encontrado! Realizando vínculo automático...", pendingInstructor);
-         
-         // VINCULA AGORA! (Update auth_user_id)
          const { error: updateError, data: updatedData } = await supabase
             .from('instructors')
             .update({ auth_user_id: authUserId })
             .eq('id', pendingInstructor.id)
-            .select('*, studio_profiles:studio_user_id (studio_name)') // Já busca com join
+            .select('*, studio_profiles:studio_user_id (studio_name)')
             .single();
             
          if (!updateError && updatedData) {
-             console.log("Vínculo realizado com sucesso!", updatedData);
              return updatedData;
-         } else {
-             console.error("Falha ao vincular instrutor:", updateError);
          }
        }
     }
-
     return null;
   } catch (err) {
     console.error("Erro ao buscar perfil de instrutor:", err);

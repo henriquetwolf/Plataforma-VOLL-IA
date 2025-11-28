@@ -45,7 +45,7 @@ export const Instructors: React.FC = () => {
       email: inst.email,
       phone: inst.phone,
       address: inst.address,
-      password: '' 
+      password: '' // Senha não editável aqui
     });
     setEditingId(inst.id);
     setShowForm(true);
@@ -62,10 +62,17 @@ export const Instructors: React.FC = () => {
     e.preventDefault();
     if (!user?.id || !formData.name || !formData.email) return;
 
+    // Validação de senha na criação
+    if (!editingId && (!formData.password || formData.password.length < 6)) {
+      alert("Para criar o acesso, a senha deve ter no mínimo 6 caracteres.");
+      return;
+    }
+
     setIsSubmitting(true);
     
     let result;
     if (editingId) {
+      // Atualização normal (sem mexer na senha/auth)
       result = await updateInstructor(editingId, {
         name: formData.name,
         email: formData.email,
@@ -73,6 +80,7 @@ export const Instructors: React.FC = () => {
         address: formData.address
       });
     } else {
+      // Criação completa: Banco + Auth
       result = await createInstructorWithAuth(user.id, formData);
     }
     
@@ -80,7 +88,7 @@ export const Instructors: React.FC = () => {
       handleCancel();
       await loadData();
       if (!editingId) {
-        alert(`Instrutor ${formData.name} cadastrado com sucesso! Ele já pode acessar com o email e senha definidos.`);
+        alert(`Instrutor ${formData.name} cadastrado com sucesso! O acesso foi criado com o email e senha informados.`);
       }
     } else {
       alert(`Erro ao salvar: ${result.error}`);
@@ -90,15 +98,11 @@ export const Instructors: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja remover este instrutor? Ele perderá o acesso.')) {
-      console.log("Iniciando exclusão do instrutor:", id);
       const result = await deleteInstructor(id);
-      
       if (result.success) {
-        console.log("Exclusão bem-sucedida");
         await loadData();
       } else {
-        console.error("Falha na exclusão:", result.error);
-        alert(`Erro ao deletar: ${result.error}\n\nVerifique se você rodou o SQL de permissão "Owners can delete instructors" no Supabase.`);
+        alert(`Erro ao deletar: ${result.error}`);
       }
     }
   };
@@ -214,6 +218,7 @@ export const Instructors: React.FC = () => {
         </div>
       )}
 
+      {/* Lista de Instrutores */}
       <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
           <div className="relative max-w-sm">
