@@ -28,14 +28,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadUser = async (sessionUser: any) => {
     try {
-      // LOGIC:
-      // 1. Prioridade: Verificar se é um DONO DE ESTÚDIO (tem perfil em studio_profiles)
-      // 2. Fallback: Verificar se é um INSTRUTOR (tem registro em instructors)
+      // LÓGICA REFORÇADA:
+      // 1. Verifica se é um INSTRUTOR primeiro (para evitar criar perfil de dono acidentalmente)
+      // 2. Se não, verifica se é um DONO DE ESTÚDIO existente.
       
-      let isOwner = false;
+      // A ordem mudou para priorizar instrutores e evitar que eles "virem" donos se o sistema falhar.
+      
+      // --- VERIFICAÇÃO DE INSTRUTOR ---
+      // Passa o email também para tentar o vínculo no primeiro acesso se necessário
+      const instructor = await getInstructorProfile(sessionUser.id, sessionUser.email);
+      
+      if (instructor) {
+        // --- É INSTRUTOR ---
+        if (instructor.active === false) {
+           await supabase.auth.signOut();
+           return { error: 'Seu acesso foi desativado pelo estúdio.' };
+        }
+
+        console.log("Login de Instrutor Detectado. Vinculado ao Studio:", instructor.studio_user_id);
+
+        setState({
+          user: {
+            id: sessionUser.id,
+            email: sessionUser.email || '',
+            name: instructor.name,
+            password: '',
+            isAdmin: false,
+            isInstructor: true, 
+            studioId: instructor.studio_user_id // ID do chefe para carregar dados
+          },
+          isAuthenticated: true,
+          isLoading: false,
+        });
+        return; // Encerra aqui se for instrutor
+      }
+
+      // --- VERIFICAÇÃO DE DONO ---
       const profile = await fetchProfile(sessionUser.id);
       
       // Validação extra: o perfil retornado é realmente deste usuário?
+      let isOwner = false;
       if (profile && profile.userId === sessionUser.id) {
         isOwner = true;
       }
@@ -60,50 +92,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isLoading: false,
         });
       } else {
-        // --- NÃO É DONO, VERIFICA SE É INSTRUTOR ---
-        // Passa o email também para tentar o vínculo no primeiro acesso se necessário
-        const instructor = await getInstructorProfile(sessionUser.id, sessionUser.email);
+        // --- NEM DONO NEM INSTRUTOR (CADASTRO INCOMPLETO OU NOVO) ---
+        // Isso acontece se o usuário acabou de se cadastrar na tela de registro e o perfil ainda não foi criado.
         
-        if (instructor) {
-          // --- É INSTRUTOR ---
-          if (instructor.active === false) {
-             await supabase.auth.signOut();
-             return { error: 'Seu acesso foi desativado pelo estúdio.' };
-          }
-
-          console.log("Login de Instrutor Detectado. Vinculado ao Studio:", instructor.studio_user_id);
-
-          setState({
-            user: {
-              id: sessionUser.id,
-              email: sessionUser.email || '',
-              name: instructor.name,
-              password: '',
-              isAdmin: false,
-              isInstructor: true, 
-              studioId: instructor.studio_user_id // ID do chefe para carregar dados
-            },
-            isAuthenticated: true,
-            isLoading: false,
-          });
-        } else {
-          // --- NEM DONO NEM INSTRUTOR (CADASTRO INCOMPLETO OU NOVO) ---
-          // Isso acontece se o usuário acabou de se cadastrar na tela de registro e o perfil ainda não foi criado,
-          // ou se é um instrutor que se cadastrou com email errado.
-          
-          setState({
-            user: {
-              id: sessionUser.id,
-              email: sessionUser.email || '',
-              name: sessionUser.user_metadata?.name || 'Visitante',
-              password: '',
-              isAdmin: false,
-              isInstructor: false
-            },
-            isAuthenticated: true,
-            isLoading: false,
-          });
-        }
+        setState({
+          user: {
+            id: sessionUser.id,
+            email: sessionUser.email || '',
+            name: sessionUser.user_metadata?.name || 'Visitante',
+            password: '',
+            isAdmin: false,
+            isInstructor: false
+          },
+          isAuthenticated: true,
+          isLoading: false,
+        });
       }
     } catch (e) {
       console.error("Erro no loadUser:", e);
