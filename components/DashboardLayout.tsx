@@ -1,11 +1,12 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity } from 'lucide-react';
+import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser } from 'lucide-react';
 import { AppRoute } from '../types';
 import { fetchProfile } from '../services/storage';
+
+const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
 
 export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { logout, user } = useAuth();
@@ -14,40 +15,55 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
 
   useEffect(() => {
     const loadBrand = async () => {
-      if (user?.id) {
-        const profile = await fetchProfile(user.id);
-        if (profile) {
-          if (profile.brandColor) setBrandColor(profile.brandColor);
-        }
+      // Se for instrutor, carrega perfil do dono do estúdio
+      const targetId = user?.isInstructor ? user.studioId : user?.id;
+      
+      if (targetId) {
+        const profile = await fetchProfile(targetId);
+        if (profile?.brandColor) setBrandColor(profile.brandColor);
       }
     };
     loadBrand();
   }, [user, setBrandColor]);
 
-  const navItems = [
-    { label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.DASHBOARD },
-    { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
-    { label: 'Planejamento IA', icon: Compass, path: AppRoute.STRATEGY },
-    { label: 'Calculadora Financeira', icon: Calculator, path: AppRoute.FINANCE },
-    { label: 'Preço Inteligente', icon: Banknote, path: AppRoute.PRICING },
-    { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
-    { label: 'Perfil do Studio', icon: UserCircle, path: AppRoute.PROFILE },
-  ];
+  const isSuperAdmin = user?.email === ADMIN_EMAIL;
+  const isInstructor = user?.isInstructor;
+
+  let navItems = [];
+
+  if (isSuperAdmin) {
+    navItems = [{ label: 'Painel Admin', icon: ShieldAlert, path: AppRoute.ADMIN }];
+  } else if (isInstructor) {
+    navItems = [
+      { label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.DASHBOARD },
+      { label: 'Alunos', icon: Users, path: AppRoute.STUDENTS },
+      { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
+    ];
+  } else {
+    // Dono do Estúdio (Vê tudo)
+    navItems = [
+      { label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.DASHBOARD },
+      { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
+      { label: 'Equipe', icon: BookUser, path: AppRoute.INSTRUCTORS },
+      { label: 'Planejamento IA', icon: Compass, path: AppRoute.STRATEGY },
+      { label: 'Calculadora Financeira', icon: Calculator, path: AppRoute.FINANCE },
+      { label: 'Preço Inteligente', icon: Banknote, path: AppRoute.PRICING },
+      { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
+      { label: 'Perfil do Studio', icon: UserCircle, path: AppRoute.PROFILE },
+    ];
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex transition-colors duration-300">
-      {/* Sidebar */}
       <aside className="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 hidden md:flex flex-col fixed h-full z-10 transition-colors duration-300">
         <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
-              <Sparkles className="h-6 w-6" />
-              <span className="font-bold text-xl tracking-tight">Plataforma VOLL IA</span>
-            </div>
+          <div className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
+            <Sparkles className="h-6 w-6" />
+            <span className="font-bold text-xl tracking-tight">Plataforma VOLL IA</span>
           </div>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
@@ -69,39 +85,29 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         </nav>
 
         <div className="p-4 border-t border-slate-100 dark:border-slate-800">
-          {/* User Info */}
           <div className="flex items-center gap-3 px-4 py-3 mb-2">
-            <div className="h-8 w-8 rounded-full bg-brand-100 dark:bg-brand-900 text-brand-600 dark:text-brand-300 flex items-center justify-center text-sm font-bold">
+            <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${isSuperAdmin ? 'bg-purple-100 text-purple-700' : isInstructor ? 'bg-blue-100 text-blue-600' : 'bg-brand-100 text-brand-600'}`}>
               {user?.name.charAt(0).toUpperCase()}
             </div>
             <div className="overflow-hidden">
               <p className="text-sm font-medium text-slate-900 dark:text-slate-200 truncate">{user?.name}</p>
+              {isSuperAdmin && <p className="text-[10px] text-purple-600 font-bold uppercase tracking-wider">Super Admin</p>}
+              {isInstructor && <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Instrutor</p>}
             </div>
           </div>
           
           <div className="flex items-center gap-2 mt-2">
-             {/* Dark Mode Toggle Sidebar */}
-             <button
-              onClick={toggleTheme}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors border border-slate-200 dark:border-slate-700"
-            >
+             <button onClick={toggleTheme} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               {theme === 'dark' ? 'Claro' : 'Escuro'}
             </button>
-
-            {/* Logout */}
-            <button
-              onClick={logout}
-              className="flex items-center justify-center p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border border-transparent hover:border-red-100"
-              title="Sair"
-            >
+            <button onClick={logout} className="flex items-center justify-center p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg border border-transparent hover:border-red-100">
               <LogOut className="h-5 w-5" />
             </button>
           </div>
         </div>
       </aside>
 
-      {/* Mobile Header & Main Content */}
       <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
         <header className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
@@ -117,7 +123,6 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
             </button>
           </div>
         </header>
-
         <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full transition-colors duration-300">
           {children}
         </main>

@@ -7,6 +7,7 @@ interface DBProfile {
   user_id: string;
   studio_name?: string;
   owner_name?: string;
+  email?: string;
   description?: string;
   address?: string;
   phone?: string;
@@ -14,6 +15,8 @@ interface DBProfile {
   specialties?: string[];
   logo_url?: string;
   brand_color?: string;
+  is_admin?: boolean;
+  is_active?: boolean;
 }
 
 // Converter do formato do App (camelCase) para o DB (snake_case)
@@ -21,6 +24,7 @@ const toDBProfile = (profile: Partial<StudioProfile>): Partial<DBProfile> => {
   return {
     studio_name: profile.studioName,
     owner_name: profile.ownerName,
+    email: profile.email,
     description: profile.description,
     address: profile.address,
     phone: profile.phone,
@@ -28,6 +32,8 @@ const toDBProfile = (profile: Partial<StudioProfile>): Partial<DBProfile> => {
     specialties: profile.specialties,
     logo_url: profile.logoUrl,
     brand_color: profile.brandColor,
+    is_admin: profile.isAdmin,
+    is_active: profile.isActive
   };
 };
 
@@ -38,13 +44,16 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
     userId: dbProfile.user_id,
     studioName: dbProfile.studio_name || '',
     ownerName: dbProfile.owner_name || '',
+    email: dbProfile.email || '',
     description: dbProfile.description || '',
     address: dbProfile.address || '',
     phone: dbProfile.phone || '',
     website: dbProfile.website || '',
     specialties: dbProfile.specialties || [],
     logoUrl: dbProfile.logo_url || '',
-    brandColor: dbProfile.brand_color || '#14b8a6', // Cor padrão (Teal-500)
+    brandColor: dbProfile.brand_color || '#14b8a6',
+    isAdmin: dbProfile.is_admin || false,
+    isActive: dbProfile.is_active !== false // Default true se null
   };
 };
 
@@ -57,6 +66,10 @@ export const fetchProfile = async (userId: string): Promise<StudioProfile | null
       .maybeSingle();
 
     if (error) {
+      if (error.code === '42P17') {
+        console.warn('Infinite recursion in RLS policy detected. Check Supabase policies.');
+        return null;
+      }
       console.error('Error fetching profile:', JSON.stringify(error));
       return null;
     }
@@ -74,7 +87,6 @@ export const upsertProfile = async (userId: string, profile: Partial<StudioProfi
   try {
     const dbPayload = toDBProfile(profile);
     
-    // O upsert do Supabase gerencia insert ou update baseado na chave única (user_id)
     const { error } = await supabase
       .from('studio_profiles')
       .upsert(
@@ -98,7 +110,6 @@ export const upsertProfile = async (userId: string, profile: Partial<StudioProfi
 
 export const uploadLogo = async (userId: string, file: File): Promise<string | null> => {
   try {
-    // Cria um nome único para o arquivo: userId + timestamp + extensão
     const fileExt = file.name.split('.').pop();
     const fileName = `${userId}-${Date.now()}.${fileExt}`;
     const filePath = `${fileName}`;
@@ -120,5 +131,56 @@ export const uploadLogo = async (userId: string, file: File): Promise<string | n
   } catch (err) {
     console.error('Unexpected error uploading logo:', err);
     return null;
+  }
+};
+
+// --- FUNÇÕES ADMIN ---
+
+export const fetchAllProfiles = async (): Promise<{ data: StudioProfile[], error: any }> => {
+  try {
+    const { data, error } = await supabase
+      .from('studio_profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Admin Fetch Error:', error);
+      return { data: [], error };
+    }
+    
+    return { data: data.map(fromDBProfile), error: null };
+  } catch (err) {
+    return { data: [], error: err };
+  }
+};
+
+export const toggleUserStatus = async (userId: string, isActive: boolean): Promise<boolean> => {
+  try {
+    console.log(`Tentando atualizar status do usuário ${userId} para ${isActive}...`);
+    
+    // Atualização explícita
+    const { error, data } = await supabase
+      .from('studio_profiles')
+      .update({ is_active: isActive })
+      .eq('user_id', userId)
+      .select(); // Adicionado select para confirmar se houve update
+
+    if (error) {
+      console.error("Erro no toggleUserStatus:", error.message, error.details);
+      throw error;
+    }
+
+    // Se o array de retorno estiver vazio, significa que o Update não encontrou o registro
+    // ou foi bloqueado silenciosamente pelo RLS (Row Level Security)
+    if (!data || data.length === 0) {
+      console.warn("FALHA: Nenhum registro foi atualizado. Verifique a permissão 'Super Admin Update All' no Supabase.");
+      return false;
+    }
+
+    console.log("Status atualizado com sucesso:", data);
+    return true;
+  } catch (err) {
+    console.error("Exceção no toggleUserStatus:", err);
+    return false;
   }
 };

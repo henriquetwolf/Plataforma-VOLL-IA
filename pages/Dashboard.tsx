@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
@@ -13,8 +12,11 @@ export const Dashboard: React.FC = () => {
 
   useEffect(() => {
     const loadProfile = async () => {
-      if (user?.id) {
-        const data = await fetchProfile(user.id);
+      // Se for instrutor, usa o studioId. Se for dono, usa o id.
+      const targetId = user?.isInstructor ? user.studioId : user?.id;
+      
+      if (targetId) {
+        const data = await fetchProfile(targetId);
         setProfile(data);
       }
       setLoading(false);
@@ -30,6 +32,9 @@ export const Dashboard: React.FC = () => {
     );
   }
 
+  // Definir links visíveis baseado no papel
+  const isInstructor = user?.isInstructor;
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
       {/* Cabeçalho */}
@@ -44,7 +49,7 @@ export const Dashboard: React.FC = () => {
             </h1>
             <p className="text-slate-500 dark:text-slate-400 mt-1">
               {profile?.studioName 
-                ? `Gerenciando ${profile.studioName}` 
+                ? `${isInstructor ? 'Instrutor em' : 'Gerenciando'} ${profile.studioName}` 
                 : 'Bem-vindo à Plataforma VOLL IA.'}
             </p>
           </div>
@@ -64,13 +69,13 @@ export const Dashboard: React.FC = () => {
               <Users className="h-7 w-7" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">Meus Alunos</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Gerencie matrículas, fichas e contatos.</p>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">Alunos</h3>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Acesso às fichas e histórico.</p>
             </div>
             <ArrowRight className="ml-auto h-5 w-5 text-slate-300 dark:text-slate-600 group-hover:text-brand-500 group-hover:translate-x-1 transition-all" />
           </Link>
 
-          {/* Card Perfil */}
+          {/* Card Perfil (Visível para todos, mas editável só por dono) */}
           <Link 
             to={AppRoute.PROFILE} 
             className="group bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md hover:border-brand-200 dark:hover:border-brand-800 transition-all flex items-center gap-5"
@@ -80,7 +85,7 @@ export const Dashboard: React.FC = () => {
             </div>
             <div>
               <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-brand-700 dark:group-hover:text-brand-400 transition-colors">Perfil do Studio</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Personalização e dados comerciais.</p>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Informações do local.</p>
             </div>
             <ArrowRight className="ml-auto h-5 w-5 text-slate-300 dark:text-slate-600 group-hover:text-brand-500 group-hover:translate-x-1 transition-all" />
           </Link>
@@ -97,82 +102,8 @@ export const Dashboard: React.FC = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {/* Agente: Planejamento Estratégico */}
-          <Link 
-            to={AppRoute.STRATEGY} 
-            className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
-          >
-            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-              <Compass size={120} />
-            </div>
-            
-            <div className="relative z-10">
-              <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <Compass className="h-6 w-6" />
-              </div>
-              
-              <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Planejador Estratégico</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
-                Consultor virtual sênior. Cria análise SWOT, define Missão/Visão e monta planos de ação.
-              </p>
-              
-              <span className="inline-flex items-center text-sm font-bold text-brand-700 dark:text-brand-400 group-hover:gap-2 transition-all">
-                Acessar Agente <ArrowRight className="h-4 w-4 ml-1" />
-              </span>
-            </div>
-          </Link>
-
-          {/* Agente: Calculadora Financeira */}
-          <Link 
-            to={AppRoute.FINANCE} 
-            className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
-          >
-            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-              <Calculator size={120} />
-            </div>
-            
-            <div className="relative z-10">
-              <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <Calculator className="h-6 w-6" />
-              </div>
-              
-              <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Calculadora Financeira</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
-                Simule custos de contratação (CLT vs PJ), impostos e viabilidade para novas vagas.
-              </p>
-              
-              <span className="inline-flex items-center text-sm font-bold text-brand-700 dark:text-brand-400 group-hover:gap-2 transition-all">
-                Acessar Agente <ArrowRight className="h-4 w-4 ml-1" />
-              </span>
-            </div>
-          </Link>
-
-          {/* Agente: Preço Certo Inteligente */}
-          <Link 
-            to={AppRoute.PRICING} 
-            className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
-          >
-            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-              <Banknote size={120} />
-            </div>
-            
-            <div className="relative z-10">
-              <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <Banknote className="h-6 w-6" />
-              </div>
-              
-              <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Preço Certo (PCI)</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
-                Calcule o preço ideal, ponto de equilíbrio e margem de lucro com base nos seus custos reais.
-              </p>
-              
-              <span className="inline-flex items-center text-sm font-bold text-brand-700 dark:text-brand-400 group-hover:gap-2 transition-all">
-                Acessar Agente <ArrowRight className="h-4 w-4 ml-1" />
-              </span>
-            </div>
-          </Link>
-
-          {/* Agente: Pilates Rehab */}
+          
+          {/* Agente: Pilates Rehab (Disponível para todos) */}
           <Link 
             to={AppRoute.REHAB} 
             className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
@@ -196,6 +127,62 @@ export const Dashboard: React.FC = () => {
               </span>
             </div>
           </Link>
+
+          {/* Outros Agentes (Apenas para Donos) */}
+          {!isInstructor && (
+            <>
+              <Link 
+                to={AppRoute.STRATEGY} 
+                className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
+              >
+                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                  <Compass size={120} />
+                </div>
+                <div className="relative z-10">
+                  <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <Compass className="h-6 w-6" />
+                  </div>
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Planejador Estratégico</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">Consultor virtual sênior.</p>
+                  <span className="inline-flex items-center text-sm font-bold text-brand-700 dark:text-brand-400 group-hover:gap-2 transition-all">Acessar Agente <ArrowRight className="h-4 w-4 ml-1" /></span>
+                </div>
+              </Link>
+
+              <Link 
+                to={AppRoute.FINANCE} 
+                className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
+              >
+                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                  <Calculator size={120} />
+                </div>
+                <div className="relative z-10">
+                  <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <Calculator className="h-6 w-6" />
+                  </div>
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Calculadora Financeira</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">Simule custos de contratação.</p>
+                  <span className="inline-flex items-center text-sm font-bold text-brand-700 dark:text-brand-400 group-hover:gap-2 transition-all">Acessar Agente <ArrowRight className="h-4 w-4 ml-1" /></span>
+                </div>
+              </Link>
+
+              <Link 
+                to={AppRoute.PRICING} 
+                className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
+              >
+                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                  <Banknote size={120} />
+                </div>
+                <div className="relative z-10">
+                  <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <Banknote className="h-6 w-6" />
+                  </div>
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Preço Certo (PCI)</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">Calcule o preço ideal.</p>
+                  <span className="inline-flex items-center text-sm font-bold text-brand-700 dark:text-brand-400 group-hover:gap-2 transition-all">Acessar Agente <ArrowRight className="h-4 w-4 ml-1" /></span>
+                </div>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </div>

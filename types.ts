@@ -1,9 +1,11 @@
-
 export interface User {
   id: string;
   email: string;
   name: string;
   password: string;
+  isAdmin?: boolean; 
+  isInstructor?: boolean; // Novo: Identifica se é instrutor
+  studioId?: string; // Novo: ID do dono do estúdio (se for instrutor)
 }
 
 export interface StudioProfile {
@@ -11,6 +13,7 @@ export interface StudioProfile {
   userId: string;
   studioName: string;
   ownerName: string;
+  email?: string; 
   description: string;
   address: string;
   phone: string;
@@ -18,6 +21,20 @@ export interface StudioProfile {
   specialties: string[];
   logoUrl?: string;
   brandColor?: string;
+  isAdmin: boolean; 
+  isActive: boolean; 
+}
+
+export interface Instructor {
+  id: string;
+  studioUserId: string;
+  authUserId?: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  active: boolean;
+  createdAt: string;
 }
 
 export interface Student {
@@ -42,11 +59,14 @@ export enum AppRoute {
   DASHBOARD = '/dashboard',
   PROFILE = '/profile',
   STUDENTS = '/students',
+  INSTRUCTORS = '/instructors', // Nova rota
   STRATEGY = '/strategy',
   FINANCE = '/finance',
   MENTOR = '/mentor',
   PRICING = '/pricing',
   REHAB = '/rehab',
+  ADMIN = '/admin', 
+  INSTRUCTOR_WELCOME = '/instructor-welcome', // Nova rota
   ROOT = '/'
 }
 
@@ -143,7 +163,7 @@ export interface SavedFinancialSimulation {
 export interface ChatMessage {
   role: 'user' | 'model' | 'ai';
   text?: string;
-  content?: string; // Compatibilidade com Mentor
+  content?: string; 
   timestamp?: Date;
 }
 

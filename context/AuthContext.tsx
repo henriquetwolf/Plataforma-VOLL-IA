@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, AuthState } from '../types';
+import { User, AuthState, AppRoute } from '../types';
 import { supabase } from '../services/supabase';
+import { fetchProfile } from '../services/storage';
+import { getInstructorProfile } from '../services/instructorService';
 
 interface AuthResult {
   success: boolean;
@@ -11,6 +13,7 @@ interface AuthResult {
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<AuthResult>;
   register: (email: string, name: string, password: string) => Promise<AuthResult>;
+  createInstructorLogin: (email: string, password: string, instructorId: string) => Promise<AuthResult>;
   logout: () => void;
 }
 
@@ -23,39 +26,109 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading: true,
   });
 
-  useEffect(() => {
-    // Verificar sessão atual
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
+  const loadUser = async (sessionUser: any) => {
+    try {
+      // LOGIC:
+      // 1. Prioridade: Verificar se é um DONO DE ESTÚDIO (tem perfil em studio_profiles)
+      // 2. Fallback: Verificar se é um INSTRUTOR (tem registro em instructors)
+      
+      let isOwner = false;
+      const profile = await fetchProfile(sessionUser.id);
+      
+      // Validação extra: o perfil retornado é realmente deste usuário?
+      if (profile && profile.userId === sessionUser.id) {
+        isOwner = true;
+      }
+
+      if (isOwner && profile) {
+        // --- É DONO ---
+        if (profile.isActive === false) {
+          await supabase.auth.signOut();
+          return { error: 'Conta desativada pelo administrador.' };
+        }
+
         setState({
           user: {
-            id: session.user.id,
-            email: session.user.email || '',
-            name: session.user.user_metadata?.name || 'Usuário',
-            password: '', // Não armazenamos senha no estado
+            id: sessionUser.id,
+            email: sessionUser.email || '',
+            name: profile.ownerName || sessionUser.user_metadata?.name || 'Usuário',
+            password: '',
+            isAdmin: profile.isAdmin,
+            isInstructor: false
           },
           isAuthenticated: true,
           isLoading: false,
         });
+      } else {
+        // --- NÃO É DONO, VERIFICA SE É INSTRUTOR ---
+        // Passa o email também para tentar o vínculo no primeiro acesso se necessário
+        const instructor = await getInstructorProfile(sessionUser.id, sessionUser.email);
+        
+        if (instructor) {
+          // --- É INSTRUTOR ---
+          if (instructor.active === false) {
+             await supabase.auth.signOut();
+             return { error: 'Seu acesso foi desativado pelo estúdio.' };
+          }
+
+          console.log("Login de Instrutor Detectado. Vinculado ao Studio:", instructor.studio_user_id);
+
+          setState({
+            user: {
+              id: sessionUser.id,
+              email: sessionUser.email || '',
+              name: instructor.name,
+              password: '',
+              isAdmin: false,
+              isInstructor: true, 
+              studioId: instructor.studio_user_id // ID do chefe para carregar dados
+            },
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        } else {
+          // --- NEM DONO NEM INSTRUTOR (CADASTRO INCOMPLETO OU NOVO) ---
+          // Isso acontece se o usuário acabou de se cadastrar na tela de registro e o perfil ainda não foi criado,
+          // ou se é um instrutor que se cadastrou com email errado.
+          
+          setState({
+            user: {
+              id: sessionUser.id,
+              email: sessionUser.email || '',
+              name: sessionUser.user_metadata?.name || 'Visitante',
+              password: '',
+              isAdmin: false,
+              isInstructor: false
+            },
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Erro no loadUser:", e);
+      setState(prev => ({ ...prev, isLoading: false }));
+    }
+  };
+
+  useEffect(() => {
+    // Check inicial de sessão ao carregar a página (F5)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        loadUser(session.user);
       } else {
         setState(prev => ({ ...prev, isLoading: false }));
       }
     });
 
-    // Escutar mudanças de autenticação
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setState({
-          user: {
-            id: session.user.id,
-            email: session.user.email || '',
-            name: session.user.user_metadata?.name || 'Usuário',
-            password: '',
-          },
-          isAuthenticated: true,
-          isLoading: false,
-        });
-      } else {
+    // Ouvinte para mudanças de estado (Logout, Expiração de token)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+         // Opcional: poderíamos chamar loadUser aqui, mas o login manual já garante isso mais rápido
+         if (session?.user && !state.user) {
+            loadUser(session.user);
+         }
+      } else if (event === 'SIGNED_OUT') {
         setState({
           user: null,
           isAuthenticated: false,
@@ -69,18 +142,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string): Promise<AuthResult> => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) {
-        console.error('Login error:', error.message);
-        return { success: false, error: error.message };
+      if (error) return { success: false, error: error.message };
+
+      // CORREÇÃO CRÍTICA:
+      // Aguarda o carregamento do perfil do usuário ANTES de retornar sucesso.
+      if (data.session?.user) {
+        await loadUser(data.session.user);
       }
+
       return { success: true };
     } catch (err) {
-      console.error('Login unexpected error:', err);
       return { success: false, error: 'Erro inesperado ao tentar fazer login.' };
     }
   };
@@ -91,30 +167,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email,
         password,
         options: {
-          data: {
-            name: name,
-          },
+          data: { name: name },
         },
       });
 
-      if (error) {
-        console.error('Registration error:', error.message);
-        return { success: false, error: error.message };
+      if (error) return { success: false, error: error.message };
+      
+      // No registro também garantimos o load se houver sessão automática
+      if (data.session?.user) {
+         await loadUser(data.session.user);
       }
+
       return { success: true, data };
     } catch (err) {
-      console.error('Registration unexpected error:', err);
       return { success: false, error: 'Erro inesperado ao tentar registrar.' };
+    }
+  };
+
+  const createInstructorLogin = async (email: string, password: string, instructorId: string): Promise<AuthResult> => {
+    try {
+      return { success: false, error: "Feature indisponível." };
+    } catch (err) {
+      return { success: false, error: 'Erro.' };
     }
   };
 
   const logout = async () => {
     await supabase.auth.signOut();
-    // O estado será atualizado automaticamente pelo onAuthStateChange
+    setState({
+      user: null,
+      isAuthenticated: false,
+      isLoading: false
+    });
   };
 
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout }}>
+    <AuthContext.Provider value={{ ...state, login, register, createInstructorLogin, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Sparkles } from 'lucide-react';
 import { AppRoute } from '../types';
 import { upsertProfile } from '../services/storage';
+import { getInstructorProfile } from '../services/instructorService'; // Importar serviço
 
 export const Register: React.FC = () => {
   const [name, setName] = useState('');
@@ -32,24 +33,35 @@ export const Register: React.FC = () => {
     const result = await register(email, name, password);
     
     if (result.success) {
-      // Se tivermos uma sessão ativa (Confirm Email desligado ou email já verificado)
       if (result.data?.session?.user) {
         try {
-          // Salvar imediatamente o nome do proprietário no perfil
-          await upsertProfile(result.data.session.user.id, {
-            ownerName: name,
-            studioName: '', // Começa vazio
-            specialties: []
-          });
+          const userId = result.data.session.user.id;
+          const userEmail = result.data.session.user.email;
+
+          // VERIFICAÇÃO CRÍTICA: É UM INSTRUTOR CONVIDADO?
+          // Se for, NÃO criamos um perfil de estúdio novo. Apenas vinculamos.
+          const instructor = await getInstructorProfile(userId, userEmail);
+
+          if (instructor) {
+            // É instrutor! Não cria estúdio. Vai direto pro dashboard.
+            // O AuthContext (loadUser) vai detectar o vínculo e carregar o estúdio do chefe.
+            navigate(AppRoute.DASHBOARD);
+          } else {
+            // É um novo dono de estúdio. Cria perfil.
+            await upsertProfile(userId, {
+              ownerName: name,
+              email: email, 
+              studioName: '',
+              specialties: []
+            });
+            navigate(AppRoute.PROFILE);
+          }
           
-          navigate(AppRoute.PROFILE);
         } catch (err) {
-          console.error("Erro ao criar perfil inicial:", err);
-          // Mesmo com erro ao salvar perfil, redirecionamos, pois a conta foi criada
+          console.error("Erro no fluxo pós-registro:", err);
           navigate(AppRoute.PROFILE);
         }
       } else {
-        // Se a sessão não foi criada, provavelmnete "Confirm Email" está ativado
         setError('Conta criada, mas o login automático falhou. Se o Supabase exigir confirmação de email, verifique sua caixa de entrada.');
       }
     } else {
@@ -71,7 +83,7 @@ export const Register: React.FC = () => {
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-100 text-brand-600 mb-4">
             <Sparkles className="h-6 w-6" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Criar Conta</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Plataforma VOLL IA</h1>
           <p className="text-slate-500 mt-2">Comece a gerenciar seu estúdio de forma inteligente</p>
         </div>
 

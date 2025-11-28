@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, ChangeEvent, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { PricingInputs, CalculatedResultsPricing, SimulationResultsPricing, Competitor, SavedPricingAnalysis, PriceCompositionData } from '../types';
@@ -8,6 +9,7 @@ import { savePricingAnalysis, fetchPricingAnalyses, deletePricingAnalysis } from
 import { SaveAnalysisModal } from '../components/pricing/SaveAnalysisModal';
 import { Button } from '../components/ui/Button';
 import { Calculator, Save, RotateCcw, ChevronLeft, ChevronRight, History, Trash2, ArrowLeft } from 'lucide-react';
+import { fetchProfile } from '../services/storage';
 
 const initialInputs: PricingInputs = {
   studioInfo: {
@@ -72,7 +74,29 @@ export const PricingAgent: React.FC = () => {
 
   useEffect(() => {
     loadHistory();
-  }, []);
+    // Carregar dados do perfil para preencher o nome do estúdio
+    if (user?.id) {
+        fetchProfile(user.id).then(profile => {
+            if (profile) {
+                setInputs(prev => {
+                    // Só preenche se estiver vazio para não sobrescrever o que o usuário digitou
+                    if (!prev.studioInfo.name) {
+                        return {
+                            ...prev,
+                            studioInfo: {
+                                ...prev.studioInfo,
+                                name: profile.studioName || prev.studioInfo.name,
+                                owner: profile.ownerName || prev.studioInfo.owner,
+                                address: profile.address || prev.studioInfo.address
+                            }
+                        };
+                    }
+                    return prev;
+                });
+            }
+        });
+    }
+  }, [user?.id]);
 
   const loadHistory = async () => {
     const data = await fetchPricingAnalyses();
