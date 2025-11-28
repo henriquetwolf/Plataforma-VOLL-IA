@@ -1,12 +1,12 @@
-import { supabase } from './supabase';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase';
 import { Student } from '../types';
+import { createClient } from '@supabase/supabase-js';
 
 interface ServiceResponse {
   success: boolean;
   error?: string;
 }
 
-// Helper para converter string vazia em null (evita erros de constraint unique ou formato no banco)
 const sanitize = (value: string | undefined | null) => {
   if (!value) return null;
   const trimmed = value.trim();
@@ -28,6 +28,7 @@ export const fetchStudents = async (): Promise<Student[]> => {
     return data.map((item: any) => ({
       id: item.id,
       userId: item.user_id,
+      authUserId: item.auth_user_id, // Novo campo
       name: item.name,
       email: item.email || '',
       phone: item.phone || '',
@@ -65,6 +66,63 @@ export const addStudent = async (userId: string, student: Omit<Student, 'id' | '
   }
 };
 
+// --- NOVA FUNÇÃO: Criar Acesso do Aluno ---
+export const createStudentWithAuth = async (
+  studentId: string, 
+  email: string,
+  password: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    if (!password || password.length < 6) {
+      return { success: false, error: "Senha deve ter no mínimo 6 caracteres." };
+    }
+
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      return { success: false, error: "Configuração inválida." };
+    }
+    
+    // Cliente temporário para não deslogar o dono
+    const tempClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+      }
+    });
+
+    // Cria usuário no Auth
+    const { data: authData, error: authError } = await tempClient.auth.signUp({
+      email,
+      password,
+    });
+
+    if (authError) {
+      if (authError.message.includes("already registered")) {
+         return { success: false, error: "Email já cadastrado." };
+      }
+      return { success: false, error: authError.message };
+    }
+
+    const newUserId = authData.user?.id;
+    if (!newUserId) return { success: false, error: "Erro ao criar ID de login." };
+
+    // Vincula na tabela students
+    const { error: dbError } = await supabase
+      .from('students')
+      .update({ auth_user_id: newUserId })
+      .eq('id', studentId);
+
+    if (dbError) {
+      return { success: false, error: "Login criado, mas falha ao vincular: " + dbError.message };
+    }
+
+    return { success: true };
+
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+};
+
 export const updateStudent = async (studentId: string, updates: Partial<Student>): Promise<ServiceResponse> => {
   try {
     const payload: any = {};
@@ -80,12 +138,11 @@ export const updateStudent = async (studentId: string, updates: Partial<Student>
 
     if (error) {
       console.error('Error updating student:', error);
-      return { success: false, error: error.message || 'Erro ao atualizar aluno' };
+      return { success: false, error: error.message };
     }
     return { success: true };
   } catch (err: any) {
-    console.error('Unexpected error updating student:', err);
-    return { success: false, error: err.message || JSON.stringify(err) };
+    return { success: false, error: err.message };
   }
 };
 
@@ -97,12 +154,26 @@ export const deleteStudent = async (studentId: string): Promise<ServiceResponse>
       .eq('id', studentId);
 
     if (error) {
-      console.error('Error deleting student:', error);
       return { success: false, error: error.message };
     }
     return { success: true };
   } catch (err: any) {
-    console.error('Unexpected error deleting student:', err);
-    return { success: false, error: err.message || JSON.stringify(err) };
+    return { success: false, error: err.message };
+  }
+};
+
+// Busca perfil do aluno logado
+export const getStudentProfile = async (authUserId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('students')
+      .select('*, studio_profiles:user_id (studio_name)') // Join para pegar nome do estúdio
+      .eq('auth_user_id', authUserId)
+      .maybeSingle();
+      
+    if (data) return data;
+    return null;
+  } catch (err) {
+    return null;
   }
 };

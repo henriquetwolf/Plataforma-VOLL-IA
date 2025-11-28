@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Student } from '../types';
-import { fetchStudents, addStudent, updateStudent, deleteStudent } from '../services/studentService';
+import { fetchStudents, addStudent, updateStudent, deleteStudent, createStudentWithAuth } from '../services/studentService';
 import { fetchRehabLessonsByStudent } from '../services/rehabService'; 
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Users, Plus, Trash2, Search, Phone, Mail, Pencil, FileText, X, Activity } from 'lucide-react';
+import { Users, Plus, Trash2, Search, Phone, Mail, Pencil, Activity, X, Key } from 'lucide-react';
 
 export const Students: React.FC = () => {
   const { user } = useAuth();
@@ -22,6 +22,12 @@ export const Students: React.FC = () => {
   const [studentLessons, setStudentLessons] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
+  // Estados para Modal de Acesso (Aluno)
+  const [accessModalOpen, setAccessModalOpen] = useState(false);
+  const [accessStudent, setAccessStudent] = useState<Student | null>(null);
+  const [accessPassword, setAccessPassword] = useState('');
+  const [isCreatingAccess, setIsCreatingAccess] = useState(false);
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -29,7 +35,7 @@ export const Students: React.FC = () => {
     observations: ''
   });
 
-  const isInstructor = user?.isInstructor; // Flag de permissão
+  const isInstructor = user?.isInstructor;
 
   const loadStudents = async () => {
     setIsLoading(true);
@@ -48,7 +54,7 @@ export const Students: React.FC = () => {
   };
 
   const handleEdit = (student: Student) => {
-    if (isInstructor) return; // Bloqueio extra
+    if (isInstructor) return; 
     setFormData({
       name: student.name,
       email: student.email || '',
@@ -76,7 +82,6 @@ export const Students: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // DEFINE O ID DO DONO (Studio ID se for instrutor, ou ID próprio se for dono)
     const ownerId = user?.isInstructor ? user.studioId : user?.id;
     
     if (!ownerId || !formData.name) return;
@@ -87,7 +92,6 @@ export const Students: React.FC = () => {
     if (editingId) {
       result = await updateStudent(editingId, formData);
     } else {
-      // Adiciona usando o ID do dono para vincular ao estúdio
       result = await addStudent(ownerId, formData);
     }
     
@@ -101,7 +105,7 @@ export const Students: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (isInstructor) return; // Bloqueio extra
+    if (isInstructor) return;
     if (window.confirm('Tem certeza que deseja remover este aluno?')) {
       const result = await deleteStudent(id);
       if (result.success) {
@@ -112,6 +116,30 @@ export const Students: React.FC = () => {
     }
   };
 
+  const openAccessModal = (student: Student) => {
+    setAccessStudent(student);
+    setAccessPassword('');
+    setAccessModalOpen(true);
+  };
+
+  const handleCreateAccess = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!accessStudent || !accessStudent.email) return;
+
+    setIsCreatingAccess(true);
+    const result = await createStudentWithAuth(accessStudent.id, accessStudent.email, accessPassword);
+    setIsCreatingAccess(false);
+
+    if (result.success) {
+      alert(`Acesso criado para ${accessStudent.name}!\nLogin: ${accessStudent.email}\nSenha: ${accessPassword}`);
+      setAccessModalOpen(false);
+      loadStudents();
+    } else {
+      alert(`Erro: ${result.error}`);
+    }
+  };
+
+  // DEFINIÇÃO DA VARIÁVEL FILTEREDSTUDENTS MOVIDA PARA CÁ (ESCOPO PRINCIPAL)
   const filteredStudents = students.filter(student => 
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.email?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -166,7 +194,6 @@ export const Students: React.FC = () => {
           <p className="text-slate-500 dark:text-slate-400">Gerencie o cadastro e histórico dos seus alunos</p>
         </div>
         
-        {/* Botão Novo Aluno OCULTO para Instrutores */}
         {!showForm && !isInstructor && (
           <Button onClick={() => setShowForm(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -229,6 +256,40 @@ export const Students: React.FC = () => {
         </div>
       )}
 
+      {/* Modal de Criação de Acesso */}
+      {accessModalOpen && accessStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-xl p-6 shadow-xl border border-slate-200 dark:border-slate-800">
+            <h3 className="text-lg font-bold mb-4">Criar Acesso do Aluno</h3>
+            <div className="bg-blue-50 text-blue-700 p-3 rounded-lg text-sm mb-4">
+              O aluno poderá acessar o app para ver receitas e treinos.
+            </div>
+            <form onSubmit={handleCreateAccess} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Aluno</label>
+                <input disabled value={accessStudent.name} className="w-full px-3 py-2 bg-slate-100 rounded border" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email (Login)</label>
+                <input disabled value={accessStudent.email} className="w-full px-3 py-2 bg-slate-100 rounded border" />
+              </div>
+              <Input 
+                label="Defina uma Senha Provisória" 
+                type="password" 
+                value={accessPassword} 
+                onChange={e => setAccessPassword(e.target.value)} 
+                placeholder="Mínimo 6 caracteres"
+                autoFocus
+              />
+              <div className="flex justify-end gap-2 mt-4">
+                <Button type="button" variant="ghost" onClick={() => setAccessModalOpen(false)}>Cancelar</Button>
+                <Button type="submit" isLoading={isCreatingAccess}>Criar Acesso</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
           <div className="relative max-w-sm">
@@ -257,7 +318,7 @@ export const Students: React.FC = () => {
                 <tr>
                   <th className="px-6 py-3">Nome</th>
                   <th className="px-6 py-3">Contato</th>
-                  <th className="px-6 py-3">Obs</th>
+                  <th className="px-6 py-3">Acesso</th>
                   <th className="px-6 py-3 text-right">Ações</th>
                 </tr>
               </thead>
@@ -265,13 +326,20 @@ export const Students: React.FC = () => {
                 {filteredStudents.map((student) => (
                   <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer" onClick={() => handleViewDetails(student)}>
                     <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{student.name}</td>
-                    <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
-                      {student.email || student.phone || '-'}
+                    <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{student.email || '-'}</td>
+                    <td className="px-6 py-4" onClick={e => e.stopPropagation()}>
+                      {student.authUserId ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Ativo</span>
+                      ) : (
+                        student.email ? (
+                          <button onClick={() => openAccessModal(student)} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                            <Key className="w-3 h-3"/> Criar Acesso
+                          </button>
+                        ) : <span className="text-xs text-slate-400">Sem email</span>
+                      )}
                     </td>
-                    <td className="px-6 py-4 text-slate-500 max-w-xs truncate">{student.observations || '-'}</td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-                        {/* Botões de Ação OCULTOS para Instrutores */}
                         {!isInstructor && (
                           <>
                             <button onClick={() => handleEdit(student)} className="p-2 text-slate-400 hover:text-brand-600"><Pencil className="h-4 w-4" /></button>

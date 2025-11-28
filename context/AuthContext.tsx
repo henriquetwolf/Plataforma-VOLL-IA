@@ -3,6 +3,7 @@ import { User, AuthState, AppRoute } from '../types';
 import { supabase } from '../services/supabase';
 import { fetchProfile } from '../services/storage';
 import { getInstructorProfile } from '../services/instructorService';
+import { getStudentProfile } from '../services/studentService';
 
 interface AuthResult {
   success: boolean;
@@ -28,20 +29,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadUser = async (sessionUser: any) => {
     try {
-      console.log("Carregando perfil do usuário...", sessionUser.email);
-
-      // 1. Verifica SE É INSTRUTOR (Prioridade Absoluta)
-      // Isso impede que um instrutor seja "confundido" com um novo dono de estúdio.
+      // 1. Verifica INSTRUTOR
       const instructor = await getInstructorProfile(sessionUser.id, sessionUser.email);
-      
       if (instructor) {
         if (instructor.active === false) {
            await supabase.auth.signOut();
            return { error: 'Seu acesso foi desativado pelo estúdio.' };
         }
-
-        console.log("--> Usuário identificado como INSTRUTOR do studio:", instructor.studio_user_id);
-
         setState({
           user: {
             id: sessionUser.id,
@@ -50,18 +44,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             password: '',
             isAdmin: false,
             isInstructor: true, 
-            studioId: instructor.studio_user_id // VÍNCULO CRÍTICO
+            studioId: instructor.studio_user_id 
           },
           isAuthenticated: true,
           isLoading: false,
         });
-        return; 
+        return;
       }
 
-      // 2. Verifica SE É DONO
+      // 2. Verifica ALUNO
+      const student = await getStudentProfile(sessionUser.id);
+      if (student) {
+        setState({
+          user: {
+            id: sessionUser.id,
+            email: sessionUser.email || '',
+            name: student.name,
+            password: '',
+            isAdmin: false,
+            isInstructor: false,
+            isStudent: true, 
+            studioId: student.user_id 
+          },
+          isAuthenticated: true,
+          isLoading: false,
+        });
+        return;
+      }
+
+      // 3. Verifica DONO
       const profile = await fetchProfile(sessionUser.id);
-      
-      // Garante que o perfil pertence ao usuário logado
       let isOwner = false;
       if (profile && profile.userId === sessionUser.id) {
         isOwner = true;
@@ -72,8 +84,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await supabase.auth.signOut();
           return { error: 'Conta desativada pelo administrador.' };
         }
-
-        console.log("--> Usuário identificado como DONO DE ESTÚDIO");
 
         setState({
           user: {
@@ -88,9 +98,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isLoading: false,
         });
       } else {
-        // 3. Caso Raro: Nem Instrutor, Nem Dono (ex: acabou de criar conta na tela de registro)
-        console.log("--> Usuário NOVO (Sem perfil definido)");
-        
         setState({
           user: {
             id: sessionUser.id,
@@ -105,13 +112,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
     } catch (e) {
-      console.error("Erro crítico no loadUser:", e);
+      console.error("Erro no loadUser:", e);
       setState(prev => ({ ...prev, isLoading: false }));
     }
   };
 
   useEffect(() => {
-    // Check inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         loadUser(session.user);
@@ -120,7 +126,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    // Listener de Auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
          if (session?.user && (!state.user || state.user.id !== session.user.id)) {
@@ -140,7 +145,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string): Promise<AuthResult> => {
     try {
-      // O login no supabase apenas autentica. A validação de "quem é" ocorre no loadUser.
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -148,7 +152,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) return { success: false, error: error.message };
 
-      // Espera carregar o perfil antes de liberar a UI
       if (data.session?.user) {
         await loadUser(data.session.user);
       }

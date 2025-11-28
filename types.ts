@@ -4,8 +4,9 @@ export interface User {
   name: string;
   password: string;
   isAdmin?: boolean; 
-  isInstructor?: boolean; // Novo: Identifica se é instrutor
-  studioId?: string; // Novo: ID do dono do estúdio (se for instrutor)
+  isInstructor?: boolean; 
+  isStudent?: boolean; 
+  studioId?: string; 
 }
 
 export interface StudioProfile {
@@ -40,6 +41,7 @@ export interface Instructor {
 export interface Student {
   id: string;
   userId: string;
+  authUserId?: string; 
   name: string;
   email: string;
   phone: string;
@@ -59,26 +61,42 @@ export enum AppRoute {
   DASHBOARD = '/dashboard',
   PROFILE = '/profile',
   STUDENTS = '/students',
-  INSTRUCTORS = '/instructors', // Nova rota
+  INSTRUCTORS = '/instructors',
   STRATEGY = '/strategy',
   FINANCE = '/finance',
   MENTOR = '/mentor',
   PRICING = '/pricing',
   REHAB = '/rehab',
   ADMIN = '/admin', 
-  INSTRUCTOR_WELCOME = '/instructor-welcome', // Nova rota
+  INSTRUCTOR_WELCOME = '/instructor-welcome',
+  
+  // Rotas do Aluno
+  STUDENT_DASHBOARD = '/student/dashboard',
+  STUDENT_RECIPES = '/student/recipes',
+  STUDENT_WORKOUT = '/student/workout',
+  
   ROOT = '/'
 }
 
-// Estratégia
-export enum StrategyStep {
-  Welcome,
-  Vision,
-  SWOT,
-  Goals,
-  Actions,
-  Review,
-  GeneratedPlan
+// Tipos para Agentes do Aluno
+export interface RecipeResponse {
+  title: string;
+  ingredients: string[];
+  instructions: string[];
+  benefits: string;
+  calories?: string;
+}
+
+export interface WorkoutResponse {
+  title: string;
+  duration: string;
+  focus: string;
+  exercises: {
+    name: string;
+    reps: string;
+    instructions: string;
+    safetyNote?: string;
+  }[];
 }
 
 export interface StrategicPlan {
@@ -102,8 +120,6 @@ export interface SavedPlan {
   planData: StrategicPlan;
   report: string;
 }
-
-// --- Tipos da Calculadora Financeira ---
 
 export interface CalculatorInputs {
     hoursPerDay: number;
@@ -166,8 +182,6 @@ export interface ChatMessage {
   content?: string; 
   timestamp?: Date;
 }
-
-// --- Tipos do Agente de Precificação ---
 
 export interface Competitor {
   id: string;
@@ -273,8 +287,6 @@ export interface PriceCompositionData {
     total: number;
 }
 
-// --- Tipos do Agente de Reabilitação (Pilates Rehab) ---
-
 export interface ExerciseRecommendation {
   name: string;
   reason: string;
@@ -329,4 +341,14 @@ export enum LoadingState {
   LOADING = 'LOADING',
   SUCCESS = 'SUCCESS',
   ERROR = 'ERROR'
+}
+
+export enum StrategyStep {
+  Welcome,
+  Vision,
+  SWOT,
+  Goals,
+  Actions,
+  Review,
+  GeneratedPlan
 }

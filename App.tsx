@@ -8,13 +8,16 @@ import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
 import { Profile } from './pages/Profile';
 import { Students } from './pages/Students';
-import { Instructors } from './pages/Instructors'; // Novo
+import { Instructors } from './pages/Instructors';
 import { StrategicPlanning } from './pages/StrategicPlanning';
 import { FinancialAgent } from './pages/FinancialAgent';
 import { PricingAgent } from './pages/PricingAgent';
 import { RehabAgent } from './pages/RehabAgent';
 import { AdminPanel } from './pages/AdminPanel';
-import { InstructorWelcome } from './pages/InstructorWelcome'; // Caminho corrigido
+import { InstructorWelcome } from './pages/InstructorWelcome';
+import { StudentDashboard } from './pages/student/StudentDashboard';
+import { StudentRecipes } from './pages/student/StudentRecipes';
+import { StudentWorkout } from './pages/student/StudentWorkout';
 import { AppRoute } from './types';
 
 const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
@@ -51,16 +54,22 @@ const AppRoutes = () => {
     <Routes>
       <Route path={AppRoute.LOGIN} element={<Login />} />
       <Route path={AppRoute.REGISTER} element={<Register />} />
-      <Route path={AppRoute.INSTRUCTOR_WELCOME} element={<InstructorWelcome />} /> {/* Novo */}
+      <Route path={AppRoute.INSTRUCTOR_WELCOME} element={<InstructorWelcome />} />
       
+      {/* Rotas do Studio / Instrutor */}
       <Route path={AppRoute.DASHBOARD} element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path={AppRoute.PROFILE} element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path={AppRoute.STUDENTS} element={<ProtectedRoute><Students /></ProtectedRoute>} />
-      <Route path={AppRoute.INSTRUCTORS} element={<ProtectedRoute><Instructors /></ProtectedRoute>} /> {/* Novo */}
+      <Route path={AppRoute.INSTRUCTORS} element={<ProtectedRoute><Instructors /></ProtectedRoute>} />
       <Route path={AppRoute.STRATEGY} element={<ProtectedRoute><StrategicPlanning /></ProtectedRoute>} />
       <Route path={AppRoute.FINANCE} element={<ProtectedRoute><FinancialAgent /></ProtectedRoute>} />
       <Route path={AppRoute.PRICING} element={<ProtectedRoute><PricingAgent /></ProtectedRoute>} />
       <Route path={AppRoute.REHAB} element={<ProtectedRoute><RehabAgent /></ProtectedRoute>} />
+
+      {/* Rotas do Aluno */}
+      <Route path={AppRoute.STUDENT_DASHBOARD} element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
+      <Route path={AppRoute.STUDENT_RECIPES} element={<ProtectedRoute><StudentRecipes /></ProtectedRoute>} />
+      <Route path={AppRoute.STUDENT_WORKOUT} element={<ProtectedRoute><StudentWorkout /></ProtectedRoute>} />
 
       <Route path={AppRoute.ADMIN} element={<ProtectedRoute adminOnly><AdminPanel /></ProtectedRoute>} />
       

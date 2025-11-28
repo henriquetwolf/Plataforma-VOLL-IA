@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser } from 'lucide-react';
+import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils } from 'lucide-react';
 import { AppRoute } from '../types';
 import { fetchProfile } from '../services/storage';
 
@@ -16,7 +16,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     const loadBrand = async () => {
       // Se for instrutor, carrega perfil do dono do estúdio
-      const targetId = user?.isInstructor ? user.studioId : user?.id;
+      const targetId = user?.isInstructor || user?.isStudent ? user.studioId : user?.id;
       
       if (targetId) {
         const profile = await fetchProfile(targetId);
@@ -28,11 +28,19 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
 
   const isSuperAdmin = user?.email === ADMIN_EMAIL;
   const isInstructor = user?.isInstructor;
+  const isStudent = user?.isStudent;
 
   let navItems = [];
 
   if (isSuperAdmin) {
     navItems = [{ label: 'Painel Admin', icon: ShieldAlert, path: AppRoute.ADMIN }];
+  } else if (isStudent) {
+    // Menu do Aluno
+    navItems = [
+      { label: 'Meu Painel', icon: LayoutDashboard, path: AppRoute.STUDENT_DASHBOARD },
+      { label: 'Receitas', icon: Utensils, path: AppRoute.STUDENT_RECIPES },
+      { label: 'Treino em Casa', icon: Activity, path: AppRoute.STUDENT_WORKOUT },
+    ];
   } else if (isInstructor) {
     navItems = [
       { label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.DASHBOARD },
@@ -86,13 +94,19 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
 
         <div className="p-4 border-t border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-3 px-4 py-3 mb-2">
-            <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${isSuperAdmin ? 'bg-purple-100 text-purple-700' : isInstructor ? 'bg-blue-100 text-blue-600' : 'bg-brand-100 text-brand-600'}`}>
+            <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
+              isSuperAdmin ? 'bg-purple-100 text-purple-700' : 
+              isInstructor ? 'bg-blue-100 text-blue-600' : 
+              isStudent ? 'bg-green-100 text-green-600' : 
+              'bg-brand-100 text-brand-600'
+            }`}>
               {user?.name.charAt(0).toUpperCase()}
             </div>
             <div className="overflow-hidden">
               <p className="text-sm font-medium text-slate-900 dark:text-slate-200 truncate">{user?.name}</p>
               {isSuperAdmin && <p className="text-[10px] text-purple-600 font-bold uppercase tracking-wider">Super Admin</p>}
               {isInstructor && <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Instrutor</p>}
+              {isStudent && <p className="text-[10px] text-green-600 font-bold uppercase tracking-wider">Aluno</p>}
             </div>
           </div>
           
