@@ -5,15 +5,33 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { ArrowRight, ShieldCheck, User, BookUser } from 'lucide-react';
 import { AppRoute } from '../types';
+import { getInstructorProfile } from '../services/instructorService';
+import { fetchProfile } from '../services/storage';
+import { supabase } from '../services/supabase';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loginMode, setLoginMode] = useState<'studio' | 'admin' | 'instructor'>('studio');
+  const [isChecking, setIsChecking] = useState(false);
   
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
+
+  // Função auxiliar para pré-checar o tipo de usuário ANTES de logar completamente no contexto
+  const checkUserRole = async (uid: string, email: string) => {
+    // 1. Verifica se é INSTRUTOR
+    const instructor = await getInstructorProfile(uid, email);
+    if (instructor) return 'instructor';
+
+    // 2. Verifica se é DONO (tem perfil)
+    const profile = await fetchProfile(uid);
+    if (profile && profile.userId === uid) return 'studio';
+
+    // 3. Caso indefinido (novo cadastro ou admin sem perfil de studio)
+    return 'unknown';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,28 +42,68 @@ export const Login: React.FC = () => {
       return;
     }
 
-    const result = await login(email, password);
-    
-    if (result.success) {
-      try {
-        if (loginMode === 'admin') navigate(AppRoute.ADMIN);
-        else if (loginMode === 'instructor') navigate(AppRoute.DASHBOARD);
-        else navigate(AppRoute.DASHBOARD);
-      } catch (e) {
-        navigate(AppRoute.DASHBOARD);
-      }
-    } else {
-      const msg = result.error || '';
-      if (msg.includes('Invalid login credentials')) {
-        // Se for instrutor e der erro de credencial, sugerir primeiro acesso
-        if (loginMode === 'instructor') {
-          setError('Email ou senha incorretos. Se este é seu primeiro acesso, você precisa criar sua conta na tela de cadastro.');
+    setIsChecking(true);
+
+    try {
+      // 1. Fazemos um login "silencioso" primeiro para pegar o ID e verificar o papel
+      // Não usamos o login do contexto ainda para não disparar o estado global antes da hora
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (loginError || !data.user) {
+        setIsChecking(false);
+        if (loginError?.message.includes('Invalid login credentials')) {
+           if (loginMode === 'instructor') {
+             setError('Email ou senha incorretos. Se é seu primeiro acesso, crie sua conta.');
+           } else {
+             setError('Email ou senha incorretos.');
+           }
         } else {
-          setError('Email ou senha incorretos.');
+           setError('Erro ao entrar. Verifique suas credenciais.');
         }
-      } else {
-        setError(msg || 'Ocorreu um erro ao entrar. Verifique suas credenciais.');
+        return;
       }
+
+      // 2. Verificamos quem é esse usuário
+      const role = await checkUserRole(data.user.id, data.user.email || '');
+      
+      // 3. Aplicamos a política de "Porta Errada"
+      if (loginMode === 'studio') {
+        if (role === 'instructor') {
+          await supabase.auth.signOut(); // Desloga imediatamente
+          setError('Você é um Instrutor. Por favor, use a aba "Sou Instrutor" para entrar.');
+          setLoginMode('instructor'); // Muda a aba para ajudar
+          setIsChecking(false);
+          return;
+        }
+      } else if (loginMode === 'instructor') {
+        if (role === 'studio') {
+          await supabase.auth.signOut();
+          setError('Este login pertence a um Dono de Estúdio. Use a aba "Dono de Studio".');
+          setLoginMode('studio');
+          setIsChecking(false);
+          return;
+        }
+      }
+
+      // 4. Se passou na verificação, faz o login "oficial" no contexto para carregar tudo
+      // (Como já estamos logados no supabase client, o contexto vai apenas sincronizar o estado)
+      const result = await login(email, password);
+      
+      if (result.success) {
+         if (loginMode === 'admin') navigate(AppRoute.ADMIN);
+         else navigate(AppRoute.DASHBOARD);
+      } else {
+         setError(result.error || 'Erro ao finalizar login.');
+      }
+
+    } catch (err) {
+      console.error(err);
+      setError('Erro inesperado.');
+    } finally {
+      setIsChecking(false);
     }
   };
 
@@ -101,8 +159,7 @@ export const Login: React.FC = () => {
           {error && (
             <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 animate-in fade-in">
               {error}
-              {/* Botão de ação rápida se for erro de primeiro acesso */}
-              {error.includes('primeiro acesso') && (
+              {error.includes('primeiro acesso') && loginMode === 'instructor' && (
                 <Link to={AppRoute.REGISTER} className="block mt-2 font-bold text-blue-700 underline">
                   Criar conta agora
                 </Link>
@@ -113,7 +170,7 @@ export const Login: React.FC = () => {
           <Button 
             type="submit" 
             className={`w-full transition-all ${loginMode === 'admin' ? 'bg-slate-800 hover:bg-slate-900' : loginMode === 'instructor' ? 'bg-blue-600 hover:bg-blue-700' : ''}`} 
-            isLoading={isLoading}
+            isLoading={isLoading || isChecking}
           >
             Entrar {loginMode === 'instructor' && 'como Instrutor'}
           </Button>
