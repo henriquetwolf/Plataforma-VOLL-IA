@@ -63,14 +63,15 @@ export const fetchProfile = async (userId: string): Promise<StudioProfile | null
       .from('studio_profiles')
       .select('*')
       .eq('user_id', userId)
-      .maybeSingle();
+      .maybeSingle(); // maybeSingle retorna null em vez de erro se não achar
 
     if (error) {
       if (error.code === '42P17') {
         console.warn('Infinite recursion in RLS policy detected. Check Supabase policies.');
         return null;
       }
-      console.error('Error fetching profile:', JSON.stringify(error));
+      // Se for instrutor, é normal não ter perfil, então não logamos como erro crítico
+      // console.error('Error fetching profile:', JSON.stringify(error));
       return null;
     }
 
@@ -158,22 +159,19 @@ export const toggleUserStatus = async (userId: string, isActive: boolean): Promi
   try {
     console.log(`Tentando atualizar status do usuário ${userId} para ${isActive}...`);
     
-    // Atualização explícita
     const { error, data } = await supabase
       .from('studio_profiles')
       .update({ is_active: isActive })
       .eq('user_id', userId)
-      .select(); // Adicionado select para confirmar se houve update
+      .select(); 
 
     if (error) {
       console.error("Erro no toggleUserStatus:", error.message, error.details);
       throw error;
     }
 
-    // Se o array de retorno estiver vazio, significa que o Update não encontrou o registro
-    // ou foi bloqueado silenciosamente pelo RLS (Row Level Security)
     if (!data || data.length === 0) {
-      console.warn("FALHA: Nenhum registro foi atualizado. Verifique a permissão 'Super Admin Update All' no Supabase.");
+      console.warn("FALHA: Nenhum registro foi atualizado. Verifique a permissão 'Admins Update All' no Supabase.");
       return false;
     }
 

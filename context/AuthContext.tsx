@@ -28,13 +28,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadUser = async (sessionUser: any) => {
     try {
-      // LÓGICA REFORÇADA:
-      // 1. Verifica se é um INSTRUTOR primeiro (para evitar criar perfil de dono acidentalmente)
-      // 2. Se não, verifica se é um DONO DE ESTÚDIO existente.
+      // LOGIC:
+      // 1. Prioridade: Verificar se é INSTRUTOR (tem registro em instructors)
+      // 2. Fallback: Verificar se é DONO DE ESTÚDIO (tem perfil em studio_profiles)
       
-      // A ordem mudou para priorizar instrutores e evitar que eles "virem" donos se o sistema falhar.
-      
-      // --- VERIFICAÇÃO DE INSTRUTOR ---
+      // --- VERIFICAÇÃO DE INSTRUTOR (PRIORIDADE) ---
       // Passa o email também para tentar o vínculo no primeiro acesso se necessário
       const instructor = await getInstructorProfile(sessionUser.id, sessionUser.email);
       
@@ -63,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return; // Encerra aqui se for instrutor
       }
 
-      // --- VERIFICAÇÃO DE DONO ---
+      // --- VERIFICAÇÃO DE DONO (Se não for instrutor) ---
       const profile = await fetchProfile(sessionUser.id);
       
       // Validação extra: o perfil retornado é realmente deste usuário?
@@ -93,7 +91,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       } else {
         // --- NEM DONO NEM INSTRUTOR (CADASTRO INCOMPLETO OU NOVO) ---
-        // Isso acontece se o usuário acabou de se cadastrar na tela de registro e o perfil ainda não foi criado.
         
         setState({
           user: {
@@ -115,7 +112,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    // Check inicial de sessão ao carregar a página (F5)
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         loadUser(session.user);
@@ -124,10 +120,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    // Ouvinte para mudanças de estado (Logout, Expiração de token)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-         // Opcional: poderíamos chamar loadUser aqui, mas o login manual já garante isso mais rápido
          if (session?.user && !state.user) {
             loadUser(session.user);
          }
@@ -152,8 +146,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) return { success: false, error: error.message };
 
-      // CORREÇÃO CRÍTICA:
-      // Aguarda o carregamento do perfil do usuário ANTES de retornar sucesso.
       if (data.session?.user) {
         await loadUser(data.session.user);
       }
@@ -176,7 +168,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) return { success: false, error: error.message };
       
-      // No registro também garantimos o load se houver sessão automática
       if (data.session?.user) {
          await loadUser(data.session.user);
       }
