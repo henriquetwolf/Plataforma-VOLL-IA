@@ -40,11 +40,13 @@ export const Register: React.FC = () => {
 
           // VERIFICAÇÃO CRÍTICA: É UM INSTRUTOR CONVIDADO?
           // Se for, NÃO criamos um perfil de estúdio novo. Apenas vinculamos.
+          // Passamos o email também para tentar o match por email (caso o ID ainda não esteja vinculado)
           const instructor = await getInstructorProfile(userId, userEmail);
 
           if (instructor) {
             // É instrutor! Não cria estúdio. Vai direto pro dashboard.
             // O AuthContext (loadUser) vai detectar o vínculo e carregar o estúdio do chefe.
+            console.log("Instrutor detectado no registro. Redirecionando para dashboard do estúdio...");
             navigate(AppRoute.DASHBOARD);
           } else {
             // É um novo dono de estúdio. Cria perfil.
@@ -59,6 +61,7 @@ export const Register: React.FC = () => {
           
         } catch (err) {
           console.error("Erro no fluxo pós-registro:", err);
+          // Em caso de erro, tenta ir pro perfil por segurança
           navigate(AppRoute.PROFILE);
         }
       } else {
