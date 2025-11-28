@@ -28,21 +28,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadUser = async (sessionUser: any) => {
     try {
-      // LOGIC:
-      // 1. Prioridade ABSOLUTA: Verificar se é INSTRUTOR (tem registro em instructors).
-      //    Isso deve vir antes de checar perfil de dono, pois um instrutor pode não ter perfil ainda
-      //    e não queremos que o sistema crie um "default" para ele.
+      // LÓGICA DE SEGURANÇA REFORÇADA:
+      // A ordem de verificação é crítica para impedir que instrutores criem estúdios "sem querer".
       
+      // 1. Tenta identificar se é INSTRUTOR (Prioridade Máxima)
+      // Passamos o email para permitir a "cura" (vínculo tardio) do registro
       const instructor = await getInstructorProfile(sessionUser.id, sessionUser.email);
       
       if (instructor) {
-        // --- É INSTRUTOR ---
+        // --- É INSTRUTOR CONFIRMADO ---
         if (instructor.active === false) {
            await supabase.auth.signOut();
            return { error: 'Seu acesso foi desativado pelo estúdio.' };
         }
 
-        console.log("Login de Instrutor Detectado. Vinculado ao Studio:", instructor.studio_user_id);
+        console.log("Login de Instrutor Confirmado. Vinculado ao Studio ID:", instructor.studio_user_id);
 
         setState({
           user: {
@@ -52,17 +52,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             password: '',
             isAdmin: false,
             isInstructor: true, 
-            studioId: instructor.studio_user_id // ID do chefe para carregar dados
+            studioId: instructor.studio_user_id // Vínculo com o chefe
           },
           isAuthenticated: true,
           isLoading: false,
         });
-        return; // Encerra aqui se for instrutor, não tenta buscar perfil de dono
+        return; // Retorna imediatamente, impedindo qualquer outra lógica
       }
 
-      // --- VERIFICAÇÃO DE DONO (Se não for instrutor) ---
+      // 2. Se não é instrutor, verifica se é DONO DE ESTÚDIO (Perfil existente)
       const profile = await fetchProfile(sessionUser.id);
       
+      // Verifica se o perfil pertence mesmo ao usuário logado
       let isOwner = false;
       if (profile && profile.userId === sessionUser.id) {
         isOwner = true;
@@ -88,7 +89,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isLoading: false,
         });
       } else {
-        // --- NEM DONO NEM INSTRUTOR (CADASTRO NOVO OU INCOMPLETO) ---
+        // --- NEM DONO NEM INSTRUTOR (CADASTRO NOVO) ---
+        // Apenas usuários que se registraram explicitamente na tela de "Cadastro de Studio" devem cair aqui.
+        
+        console.warn("Usuário sem perfil e sem vínculo de instrutor detectado.");
         
         setState({
           user: {
@@ -104,13 +108,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
     } catch (e) {
-      console.error("Erro no loadUser:", e);
+      console.error("Erro crítico no loadUser:", e);
       setState(prev => ({ ...prev, isLoading: false }));
     }
   };
 
   useEffect(() => {
-    // Check inicial de sessão ao carregar a página (F5)
+    // Check inicial de sessão
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         loadUser(session.user);
@@ -119,11 +123,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    // Ouvinte para mudanças de estado (Login, Logout, Token Refresh)
+    // Ouvinte de mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
          if (session?.user) {
-            // Se o usuário mudou ou não estava carregado, recarrega
+            // Recarrega se o usuário mudou ou se o estado estava vazio
             if (!state.user || state.user.id !== session.user.id) {
                 loadUser(session.user);
             }
@@ -149,7 +153,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) return { success: false, error: error.message };
 
-      // Aguarda o carregamento do perfil ANTES de retornar sucesso para o componente de Login
+      // Força o carregamento do perfil antes de devolver o controle para a UI
       if (data.session?.user) {
         await loadUser(data.session.user);
       }
@@ -172,7 +176,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) return { success: false, error: error.message };
       
-      // No registro também garantimos o load se houver sessão automática
       if (data.session?.user) {
          await loadUser(data.session.user);
       }

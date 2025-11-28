@@ -207,8 +207,10 @@ export const deleteInstructor = async (id: string): Promise<{ success: boolean; 
   }
 };
 
+// CORREÇÃO CRÍTICA: Busca robusta por ID ou EMAIL para garantir vínculo
 export const getInstructorProfile = async (authUserId: string, email?: string) => {
   try {
+    // 1. Tenta buscar pelo ID de autenticação (se já estiver vinculado)
     const { data, error } = await supabase
       .from('instructors')
       .select('*, studio_profiles:studio_user_id (studio_name)')
@@ -217,24 +219,34 @@ export const getInstructorProfile = async (authUserId: string, email?: string) =
       
     if (data) return data;
 
+    // 2. Se não achou pelo ID, TENTA FORÇAR O VÍNCULO PELO EMAIL.
+    // Isso é crucial para o primeiro login, onde o ID do Auth pode ainda não estar na tabela
     if (email) {
+       console.log("Instrutor não encontrado por ID. Buscando por email:", email);
+       
        const { data: pendingInstructor, error: pendingError } = await supabase
         .from('instructors')
         .select('*') 
         .eq('email', email)
-        .is('auth_user_id', null)
+        .is('auth_user_id', null) // Busca apenas se ainda não estiver vinculado
         .maybeSingle();
 
        if (pendingInstructor) {
+         console.log("Instrutor pendente encontrado! Realizando vínculo automático...", pendingInstructor);
+         
+         // VINCULA AGORA! (Update auth_user_id)
          const { error: updateError, data: updatedData } = await supabase
             .from('instructors')
             .update({ auth_user_id: authUserId })
             .eq('id', pendingInstructor.id)
-            .select()
+            .select('*, studio_profiles:studio_user_id (studio_name)') // Já busca com join
             .single();
             
          if (!updateError && updatedData) {
-             return { ...updatedData, studio_profiles: { studio_name: 'Estúdio Vinculado' } }; 
+             console.log("Vínculo realizado com sucesso!", updatedData);
+             return updatedData;
+         } else {
+             console.error("Falha ao vincular instrutor:", updateError);
          }
        }
     }
