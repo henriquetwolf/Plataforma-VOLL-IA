@@ -70,12 +70,15 @@ export const fetchProfile = async (userId: string): Promise<StudioProfile | null
         console.warn('Infinite recursion in RLS policy detected. Check Supabase policies.');
         return null;
       }
-      // Se for instrutor, é normal não ter perfil, então não logamos como erro crítico
-      // console.error('Error fetching profile:', JSON.stringify(error));
+      // Log detalhado para debug de permissão
+      console.error('Error fetching profile for user', userId, ':', JSON.stringify(error));
       return null;
     }
 
-    if (!data) return null;
+    if (!data) {
+      console.log(`Perfil não encontrado para ID: ${userId}. Verifique se a política RLS "Instructors view studio profile" está ativa.`);
+      return null;
+    }
 
     return fromDBProfile(data as DBProfile);
   } catch (err) {
