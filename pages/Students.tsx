@@ -5,7 +5,7 @@ import { fetchStudents, addStudent, updateStudent, deleteStudent, createStudentW
 import { fetchRehabLessonsByStudent } from '../services/rehabService'; 
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Users, Plus, Trash2, Search, Phone, Mail, Pencil, Activity, X, Key } from 'lucide-react';
+import { Users, Plus, Trash2, Search, Phone, Mail, Pencil, Activity, X, Key, CheckCircle } from 'lucide-react';
 
 export const Students: React.FC = () => {
   const { user } = useAuth();
@@ -126,20 +126,24 @@ export const Students: React.FC = () => {
     e.preventDefault();
     if (!accessStudent || !accessStudent.email) return;
 
+    if (accessPassword.length < 6) {
+      alert("A senha deve ter no mínimo 6 caracteres.");
+      return;
+    }
+
     setIsCreatingAccess(true);
     const result = await createStudentWithAuth(accessStudent.id, accessStudent.email, accessPassword);
     setIsCreatingAccess(false);
 
     if (result.success) {
-      alert(`Acesso criado para ${accessStudent.name}!\nLogin: ${accessStudent.email}\nSenha: ${accessPassword}`);
+      alert(`Acesso criado com sucesso para ${accessStudent.name}!\n\nLogin: ${accessStudent.email}\nSenha: ${accessPassword}\n\nEnvie esses dados para o aluno.`);
       setAccessModalOpen(false);
       loadStudents();
     } else {
-      alert(`Erro: ${result.error}`);
+      alert(`Erro ao criar acesso: ${result.error}`);
     }
   };
 
-  // DEFINIÇÃO DA VARIÁVEL FILTEREDSTUDENTS MOVIDA PARA CÁ (ESCOPO PRINCIPAL)
   const filteredStudents = students.filter(student => 
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.email?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -160,6 +164,23 @@ export const Students: React.FC = () => {
             <p className="text-slate-600 dark:text-slate-400 mb-2"><strong>Email:</strong> {selectedStudent.email || '-'}</p>
             <p className="text-slate-600 dark:text-slate-400 mb-2"><strong>Telefone:</strong> {selectedStudent.phone || '-'}</p>
             <p className="text-slate-600 dark:text-slate-400"><strong>Obs:</strong> {selectedStudent.observations || '-'}</p>
+            
+            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+               <p className="text-sm font-bold mb-2 text-slate-700 dark:text-slate-300">Status do Acesso:</p>
+               {selectedStudent.authUserId ? (
+                  <span className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                    <CheckCircle className="w-4 h-4"/> Acesso Ativo
+                  </span>
+               ) : (
+                  <button 
+                    onClick={() => openAccessModal(selectedStudent)}
+                    className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-2 hover:underline"
+                    disabled={!selectedStudent.email}
+                  >
+                    <Key className="w-4 h-4"/> {selectedStudent.email ? 'Criar Acesso ao Portal' : 'Adicione um email para criar acesso'}
+                  </button>
+               )}
+            </div>
           </div>
 
           <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800">
@@ -229,6 +250,7 @@ export const Students: React.FC = () => {
               type="email"
               value={formData.email}
               onChange={handleInputChange}
+              disabled={!!editingId && !!formData.email} // Evita mudar email se já tiver acesso
             />
             <Input
               label="Telefone / WhatsApp"
@@ -260,21 +282,17 @@ export const Students: React.FC = () => {
       {accessModalOpen && accessStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-xl p-6 shadow-xl border border-slate-200 dark:border-slate-800">
-            <h3 className="text-lg font-bold mb-4">Criar Acesso do Aluno</h3>
-            <div className="bg-blue-50 text-blue-700 p-3 rounded-lg text-sm mb-4">
-              O aluno poderá acessar o app para ver receitas e treinos.
+            <h3 className="text-lg font-bold mb-4 text-slate-900 dark:text-white">Criar Acesso do Aluno</h3>
+            <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 p-3 rounded-lg text-sm mb-4 border border-blue-100 dark:border-blue-800">
+              Defina uma senha para que o aluno <strong>{accessStudent.name}</strong> possa acessar o portal de receitas e treinos.
             </div>
             <form onSubmit={handleCreateAccess} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Aluno</label>
-                <input disabled value={accessStudent.name} className="w-full px-3 py-2 bg-slate-100 rounded border" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Email (Login)</label>
-                <input disabled value={accessStudent.email} className="w-full px-3 py-2 bg-slate-100 rounded border" />
+                <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-300">Login (Email)</label>
+                <input disabled value={accessStudent.email} className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-slate-600 dark:text-slate-400" />
               </div>
               <Input 
-                label="Defina uma Senha Provisória" 
+                label="Senha Provisória *" 
                 type="password" 
                 value={accessPassword} 
                 onChange={e => setAccessPassword(e.target.value)} 
@@ -329,10 +347,12 @@ export const Students: React.FC = () => {
                     <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{student.email || '-'}</td>
                     <td className="px-6 py-4" onClick={e => e.stopPropagation()}>
                       {student.authUserId ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Ativo</span>
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800">
+                           Ativo
+                        </span>
                       ) : (
                         student.email ? (
-                          <button onClick={() => openAccessModal(student)} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                          <button onClick={() => openAccessModal(student)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-medium">
                             <Key className="w-3 h-3"/> Criar Acesso
                           </button>
                         ) : <span className="text-xs text-slate-400">Sem email</span>
