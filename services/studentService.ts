@@ -66,7 +66,7 @@ export const addStudent = async (userId: string, student: Omit<Student, 'id' | '
   }
 };
 
-// --- NOVA FUNÇÃO: Criar Acesso do Aluno ---
+// --- FUNÇÃO DE CRIAÇÃO DE ACESSO ---
 export const createStudentWithAuth = async (
   studentId: string, 
   email: string,
@@ -77,13 +77,12 @@ export const createStudentWithAuth = async (
       return { success: false, error: "Senha deve ter no mínimo 6 caracteres." };
     }
 
-    // Verifica se as chaves estão disponíveis (importadas de services/supabase.ts)
+    // Verifica se as chaves estão disponíveis
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
       return { success: false, error: "Configuração do Supabase inválida (URL/Key)." };
     }
     
     // Cliente temporário para não deslogar o dono
-    // Usamos persistSession: false para garantir isolamento
     const tempClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         persistSession: false,
@@ -108,12 +107,10 @@ export const createStudentWithAuth = async (
     const newUserId = authData.user?.id;
     
     if (!newUserId) {
-        // Se o auto-confirm estiver desligado, o ID pode vir, mas o login não estará ativo.
-        // Em alguns casos, o user pode vir null se houver erro silencioso.
         return { success: false, error: "Erro ao criar ID de login. Verifique se o email é válido." };
     }
 
-    // Vincula na tabela students usando o cliente principal (autenticado como dono/instrutor)
+    // Vincula na tabela students usando o cliente principal
     const { error: dbError } = await supabase
       .from('students')
       .update({ auth_user_id: newUserId })
@@ -169,12 +166,11 @@ export const deleteStudent = async (studentId: string): Promise<ServiceResponse>
   }
 };
 
-// Busca perfil do aluno logado
 export const getStudentProfile = async (authUserId: string) => {
   try {
     const { data, error } = await supabase
       .from('students')
-      .select('*, studio_profiles:user_id (studio_name)') // Join para pegar nome do estúdio
+      .select('*, studio_profiles:user_id (studio_name)') 
       .eq('auth_user_id', authUserId)
       .maybeSingle();
       

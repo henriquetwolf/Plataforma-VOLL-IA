@@ -16,8 +16,6 @@ export const Students: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   
   const [editingId, setEditingId] = useState<string | null>(null);
-  
-  // Detalhes do Aluno e Histórico Clínico
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [studentLessons, setStudentLessons] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -149,7 +147,7 @@ export const Students: React.FC = () => {
     student.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Modal de Detalhes
+  // Modal de Detalhes (mantido, mas com botão de acesso dentro também)
   if (selectedStudent) {
     return (
       <div className="space-y-6 animate-in fade-in">
@@ -250,7 +248,7 @@ export const Students: React.FC = () => {
               type="email"
               value={formData.email}
               onChange={handleInputChange}
-              disabled={!!editingId && !!formData.email} // Evita mudar email se já tiver acesso
+              disabled={!!editingId && !!formData.email} 
             />
             <Input
               label="Telefone / WhatsApp"
