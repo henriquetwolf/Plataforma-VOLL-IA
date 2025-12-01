@@ -8,30 +8,30 @@ import { fetchRehabLessonsByStudent } from '../services/rehabService';
 import { fetchProfile } from '../services/storage';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Users, Plus, Trash2, Search, Phone, Mail, Pencil, Activity, X, Key, CheckCircle } from 'lucide-react';
+import { Users, Plus, Trash2, Search, Phone, Mail, Pencil, Activity, X, Key, CheckCircle, Loader2 } from 'lucide-react';
 
 export const Students: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  
+  // Auth Check States
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // App States
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  
   const [editingId, setEditingId] = useState<string | null>(null);
-  
-  // Detalhes do Aluno e Histórico Clínico
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [studentLessons, setStudentLessons] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-
-  // Estados para Modal de Acesso (Aluno)
   const [accessModalOpen, setAccessModalOpen] = useState(false);
   const [accessStudent, setAccessStudent] = useState<Student | null>(null);
   const [accessPassword, setAccessPassword] = useState('');
   const [isCreatingAccess, setIsCreatingAccess] = useState(false);
-
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -41,15 +41,37 @@ export const Students: React.FC = () => {
 
   const isInstructor = user?.isInstructor;
 
-  // Verificação de Permissão
+  // Verificação de Permissão (Fail Closed)
   useEffect(() => {
     const checkPermission = async () => {
-      if (user?.isInstructor && user.studioId) {
-        const profile = await fetchProfile(user.studioId);
-        if (profile?.settings?.instructor_permissions?.students === false) {
+      if (!user) return;
+
+      if (!user.isInstructor) {
+        // Owner always has access
+        setIsAuthorized(true);
+        setCheckingAuth(false);
+        return;
+      }
+
+      if (user.isInstructor && user.studioId) {
+        try {
+          const profile = await fetchProfile(user.studioId);
+          if (profile && profile.settings?.instructor_permissions?.students === true) {
+            setIsAuthorized(true);
+          } else {
+            setIsAuthorized(false);
+            navigate(AppRoute.DASHBOARD);
+          }
+        } catch (error) {
+          console.error("Erro ao verificar permissão:", error);
+          setIsAuthorized(false);
           navigate(AppRoute.DASHBOARD);
         }
+      } else {
+        setIsAuthorized(false);
+        navigate(AppRoute.LOGIN);
       }
+      setCheckingAuth(false);
     };
     checkPermission();
   }, [user, navigate]);
@@ -62,8 +84,10 @@ export const Students: React.FC = () => {
   };
 
   useEffect(() => {
-    loadStudents();
-  }, []);
+    if (isAuthorized) {
+        loadStudents();
+    }
+  }, [isAuthorized]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -165,6 +189,14 @@ export const Students: React.FC = () => {
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (checkingAuth) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950"><Loader2 className="animate-spin h-8 w-8 text-brand-600" /></div>;
+  }
+
+  if (!isAuthorized) {
+    return null;
+  }
 
   // Modal de Detalhes
   if (selectedStudent) {

@@ -86,18 +86,19 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ ex, onEdit, onDelete }) => 
 export const RehabAgent: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  
+  // Auth Check States
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // App States
   const [activeTab, setActiveTab] = useState<'reference' | 'lesson' | 'bank'>('reference');
   const [query, setQuery] = useState('');
   const [savedLessons, setSavedLessons] = useState<SavedRehabLesson[]>([]);
-  
-  // Student Selection
   const [students, setStudents] = useState<Student[]>([]);
   const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
-
-  // History Navigation State
   const [showHistory, setShowHistory] = useState(false);
   const [selectedStudentFilter, setSelectedStudentFilter] = useState<string | null>(null);
-
   const [refStatus, setRefStatus] = useState<LoadingState>(LoadingState.IDLE);
   const [refData, setRefData] = useState<PathologyResponse | null>(null);
   const [errorHtml, setErrorHtml] = useState<string | null>(null);
@@ -106,12 +107,8 @@ export const RehabAgent: React.FC = () => {
   const [isAssessmentOpen, setIsAssessmentOpen] = useState(false);
   const [assessmentHistory, setAssessmentHistory] = useState<ChatMessage[] | undefined>(undefined);
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>(["Mat (Solo)", "Reformer", "Cadillac", "Chair", "Barrel"]);
-
-  // Exercise Bank State
   const [savedExercises, setSavedExercises] = useState<StudioExercise[]>([]);
   const [bankEquipmentFilter, setBankEquipmentFilter] = useState('All');
-  
-  // Exercise Modal State
   const [isExerciseModalOpen, setIsExerciseModalOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState<StudioExercise | null>(null);
   const [exerciseFormData, setExerciseFormData] = useState<Partial<StudioExercise>>({});
@@ -119,29 +116,61 @@ export const RehabAgent: React.FC = () => {
   const [exerciseImagePreview, setExerciseImagePreview] = useState<string | null>(null);
   const [isExerciseSaving, setIsExerciseSaving] = useState(false);
 
-  // Verificação de Permissão
+  // Verificação de Permissão (Fail Closed)
   useEffect(() => {
     const checkPermission = async () => {
-      if (user?.isInstructor && user.studioId) {
-        const profile = await fetchProfile(user.studioId);
-        if (profile?.settings?.instructor_permissions?.rehab === false) {
+      if (!user) return;
+
+      if (!user.isInstructor) {
+        // Owner sempre tem acesso
+        setIsAuthorized(true);
+        setCheckingAuth(false);
+        return;
+      }
+
+      if (user.isInstructor && user.studioId) {
+        try {
+          const profile = await fetchProfile(user.studioId);
+          if (profile && profile.settings?.instructor_permissions?.rehab === true) {
+            setIsAuthorized(true);
+          } else {
+            setIsAuthorized(false);
+            navigate(AppRoute.DASHBOARD);
+          }
+        } catch (error) {
+          console.error("Erro ao verificar permissão:", error);
+          setIsAuthorized(false);
           navigate(AppRoute.DASHBOARD);
         }
+      } else {
+        setIsAuthorized(false);
+        navigate(AppRoute.LOGIN);
       }
+      setCheckingAuth(false);
     };
     checkPermission();
   }, [user, navigate]);
 
   useEffect(() => { 
-    loadHistory();
-    loadStudents();
-  }, []);
+    if (isAuthorized) {
+      loadHistory();
+      loadStudents();
+    }
+  }, [isAuthorized]);
 
   useEffect(() => {
-    if (activeTab === 'bank' && (user?.isInstructor || user?.id)) {
+    if (activeTab === 'bank' && isAuthorized && (user?.isInstructor || user?.id)) {
       loadBank();
     }
-  }, [activeTab, user]);
+  }, [activeTab, user, isAuthorized]);
+
+  if (checkingAuth) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950"><Loader2 className="animate-spin h-8 w-8 text-brand-600" /></div>;
+  }
+
+  if (!isAuthorized) {
+    return null; // Navigation will redirect
+  }
 
   const loadHistory = async () => { 
     const data = await fetchRehabLessons(); 

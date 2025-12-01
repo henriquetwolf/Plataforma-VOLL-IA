@@ -46,15 +46,17 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
     instructor_permissions: { rehab: true, newsletters: true, students: true } 
   };
 
-  // Merge robusto para garantir que todas as chaves existam
-  const settings = dbProfile.settings ? {
+  const dbSettings = dbProfile.settings || {};
+
+  // Merge robusto (Deep Merge) para garantir que todas as chaves existam e não sejam undefined
+  const settings = {
     ...defaultSettings,
-    ...dbProfile.settings,
+    ...dbSettings,
     instructor_permissions: {
       ...defaultSettings.instructor_permissions,
-      ...(dbProfile.settings.instructor_permissions || {})
+      ...(dbSettings.instructor_permissions || {})
     }
-  } : defaultSettings;
+  };
 
   return {
     id: dbProfile.id || '',
