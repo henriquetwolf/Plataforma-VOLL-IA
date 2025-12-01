@@ -369,6 +369,20 @@ export interface SavedRehabLesson extends LessonPlanResponse {
   createdAt: string;
 }
 
+// NOVO: Banco de Exercícios
+export interface StudioExercise {
+  id: string;
+  studioId: string;
+  name: string;
+  description: string;
+  equipment: string;
+  focus: string;
+  reps: string;
+  instructorComments?: string;
+  imageUrl?: string;
+  createdAt: string;
+}
+
 export enum TriageStatus {
   CONTINUE = 'CONTINUE',
   FINISH = 'FINISH'

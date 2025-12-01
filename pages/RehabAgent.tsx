@@ -3,12 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchPathologyData, fetchLessonPlan, regenerateSingleExercise, handleGeminiError } from '../services/geminiService';
 import { saveRehabLesson, fetchRehabLessons, deleteRehabLesson } from '../services/rehabService';
+import { saveStudioExercise, fetchStudioExercises, deleteStudioExercise } from '../services/exerciseService';
 import { fetchStudents } from '../services/studentService';
-import { PathologyResponse, LessonPlanResponse, LoadingState, SavedRehabLesson, LessonExercise, ChatMessage, Student } from '../types';
+import { PathologyResponse, LessonPlanResponse, LoadingState, SavedRehabLesson, LessonExercise, ChatMessage, Student, StudioExercise } from '../types';
 import { AssessmentModal } from '../components/rehab/AssessmentModal';
 import { ResultCard, LessonPlanView } from '../components/rehab/RehabResults';
 import { Button } from '../components/ui/Button';
-import { Search, History, BookOpen, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, User, ChevronRight, Folder } from 'lucide-react';
+import { Search, History, BookOpen, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, User, ChevronRight, Folder, Bookmark, Dumbbell, Filter } from 'lucide-react';
 
 const COMMON_SUGGESTIONS = [
   "Hérnia de Disco L5-S1", "Dor Lombar Crônica", "Ombro Rígido", "Condromalácia", "Cervicalgia", "Fascite Plantar"
@@ -17,7 +18,7 @@ const EQUIPMENTS = ["Mat (Solo)", "Reformer", "Cadillac", "Chair", "Barrel", "Ac
 
 export const RehabAgent: React.FC = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'reference' | 'lesson'>('reference');
+  const [activeTab, setActiveTab] = useState<'reference' | 'lesson' | 'bank'>('reference');
   const [query, setQuery] = useState('');
   const [savedLessons, setSavedLessons] = useState<SavedRehabLesson[]>([]);
   
@@ -38,17 +39,37 @@ export const RehabAgent: React.FC = () => {
   const [assessmentHistory, setAssessmentHistory] = useState<ChatMessage[] | undefined>(undefined);
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>(["Mat (Solo)", "Reformer", "Cadillac", "Chair", "Barrel"]);
 
+  // Exercise Bank State
+  const [savedExercises, setSavedExercises] = useState<StudioExercise[]>([]);
+  const [bankEquipmentFilter, setBankEquipmentFilter] = useState('All');
+
   useEffect(() => { 
     loadHistory();
     loadStudents();
   }, []);
+
+  // Carrega exercícios do banco quando a aba é ativada
+  useEffect(() => {
+    if (activeTab === 'bank' && user?.isInstructor ? user.studioId : user?.id) {
+      loadBank();
+    }
+  }, [activeTab, user]);
 
   const loadHistory = async () => { 
     const data = await fetchRehabLessons(); 
     // Garante que nomes nulos virem string para evitar erro na filtragem da pasta
     setSavedLessons(data.map(d => ({ ...d, patientName: d.patientName || 'Sem Nome' }))); 
   };
+  
   const loadStudents = async () => { const data = await fetchStudents(); setStudents(data); };
+
+  const loadBank = async () => {
+    const ownerId = user?.isInstructor ? user.studioId : user?.id;
+    if (ownerId) {
+      const data = await fetchStudioExercises(ownerId);
+      setSavedExercises(data);
+    }
+  };
 
   const toggleEquipment = (eq: string) => {
     setSelectedEquipment(prev => prev.includes(eq) ? prev.filter(i => i !== eq) : [...prev, eq]);
@@ -87,7 +108,7 @@ export const RehabAgent: React.FC = () => {
     }
   };
 
-  const handleTabChange = async (tab: 'reference' | 'lesson') => {
+  const handleTabChange = async (tab: 'reference' | 'lesson' | 'bank') => {
     setActiveTab(tab);
     if (tab === 'lesson' && !lessonData && query && lessonStatus === LoadingState.IDLE) {
       setLessonStatus(LoadingState.LOADING);
@@ -100,10 +121,32 @@ export const RehabAgent: React.FC = () => {
   };
 
   const handleSaveLesson = async (customName: string, patientName: string, updatedExercises: LessonExercise[], studentId?: string) => {
-    if (!user?.id || !lessonData) return;
+    const ownerId = user?.isInstructor ? user.studioId : user?.id;
+    if (!ownerId || !lessonData) return;
     const finalData = { ...lessonData, exercises: updatedExercises };
-    const result = await saveRehabLesson(user.id, patientName, lessonData.pathologyName, finalData, studentId);
+    const result = await saveRehabLesson(ownerId, patientName, lessonData.pathologyName, finalData, studentId);
     if (result.success) { alert("Salvo!"); loadHistory(); } else { alert("Erro ao salvar."); }
+  };
+
+  const handleSaveToBank = async (exercise: LessonExercise, comments: string) => {
+    const ownerId = user?.isInstructor ? user.studioId : user?.id;
+    if (!ownerId) return false;
+    const result = await saveStudioExercise(ownerId, exercise, comments);
+    if (result.success) {
+      alert("Exercício salvo no banco com sucesso!");
+      loadBank(); // Atualiza em background se estiver carregado
+      return true;
+    } else {
+      alert("Erro ao salvar: " + result.error);
+      return false;
+    }
+  };
+
+  const handleDeleteExercise = async (id: string) => {
+    if (confirm("Tem certeza que deseja remover este exercício do banco?")) {
+      await deleteStudioExercise(id);
+      loadBank();
+    }
   };
 
   const handleStudentSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -113,6 +156,13 @@ export const RehabAgent: React.FC = () => {
   };
 
   const studentsWithLessons = Array.from(new Set(savedLessons.map(l => l.patientName))).sort();
+
+  const filteredBankExercises = bankEquipmentFilter === 'All' 
+    ? savedExercises 
+    : savedExercises.filter(ex => ex.equipment === bankEquipmentFilter);
+
+  // Get unique equipments for filter
+  const bankEquipments = Array.from(new Set(savedExercises.map(e => e.equipment))).sort();
 
   if (showHistory) {
     return (
@@ -203,7 +253,7 @@ export const RehabAgent: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in">
-      {!refData && !lessonData && (
+      {!refData && !lessonData && activeTab !== 'bank' && (
         <div className="text-center py-8">
           <div className="inline-flex items-center justify-center p-3 bg-brand-100 rounded-xl mb-4"><Activity className="h-8 w-8 text-brand-600"/></div>
           <h1 className="text-4xl font-bold mb-2">Pilates Rehab</h1>
@@ -212,14 +262,14 @@ export const RehabAgent: React.FC = () => {
         </div>
       )}
 
-      {(refData || lessonData) && (
+      {(refData || lessonData || activeTab === 'bank') && (
         <header className="flex justify-between items-center border-b pb-6">
           <div className="flex items-center gap-3"><Activity className="h-6 w-6 text-brand-600"/><div><h1 className="text-2xl font-bold">Pilates Rehab</h1></div></div>
-          <div className="flex gap-2"><Button variant="outline" onClick={() => { setRefData(null); setLessonData(null); setQuery(''); }}>Nova Busca</Button><Button variant="outline" onClick={() => setShowHistory(true)}>Histórico</Button></div>
+          <div className="flex gap-2"><Button variant="outline" onClick={() => { setRefData(null); setLessonData(null); setQuery(''); setActiveTab('reference'); }}>Nova Busca</Button><Button variant="outline" onClick={() => setShowHistory(true)}>Histórico</Button></div>
         </header>
       )}
 
-      {(!refData && !lessonData) && (
+      {(!refData && !lessonData && activeTab !== 'bank') && (
         <div className="max-w-3xl mx-auto space-y-6">
           {errorHtml && <div dangerouslySetInnerHTML={{ __html: errorHtml }} />}
           
@@ -258,13 +308,25 @@ export const RehabAgent: React.FC = () => {
           
           <div className="text-center"><p className="text-xs font-bold uppercase mb-3">Equipamentos Disponíveis:</p><div className="flex flex-wrap justify-center gap-2">{EQUIPMENTS.map(eq => (<button key={eq} onClick={() => toggleEquipment(eq)} className={`px-3 py-1.5 rounded-full text-xs font-medium border ${selectedEquipment.includes(eq) ? 'bg-slate-800 text-white' : 'bg-transparent text-slate-500'}`}>{selectedEquipment.includes(eq) && <CheckCircle2 className="inline w-3 h-3 mr-1"/>}{eq}</button>))}</div></div>
           
-          <div className="bg-slate-900 rounded-xl p-6 text-white cursor-pointer hover:bg-slate-800 transition-all" onClick={() => setShowHistory(true)}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-start gap-4">
-                <div className="p-3 bg-white/10 rounded-full"><Folder className="h-6 w-6 text-brand-400"/></div>
-                <div><h3 className="font-bold text-lg mb-1">Aulas Salvas</h3><p className="text-sm text-slate-300">Acesse rapidamente os planos de reabilitação dos seus alunos.</p></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-slate-900 rounded-xl p-6 text-white cursor-pointer hover:bg-slate-800 transition-all" onClick={() => setShowHistory(true)}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-white/10 rounded-full"><Folder className="h-6 w-6 text-brand-400"/></div>
+                  <div><h3 className="font-bold text-lg mb-1">Aulas Salvas</h3><p className="text-sm text-slate-300">Planos de reabilitação dos alunos.</p></div>
+                </div>
+                <ChevronRight className="text-slate-400" />
               </div>
-              <ChevronRight className="text-slate-400" />
+            </div>
+            
+            <div className="bg-brand-600 rounded-xl p-6 text-white cursor-pointer hover:bg-brand-700 transition-all" onClick={() => setActiveTab('bank')}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-white/10 rounded-full"><Dumbbell className="h-6 w-6 text-white"/></div>
+                  <div><h3 className="font-bold text-lg mb-1">Banco de Exercícios</h3><p className="text-sm text-brand-100">Biblioteca de exercícios favoritos.</p></div>
+                </div>
+                <ChevronRight className="text-brand-200" />
+              </div>
             </div>
           </div>
 
@@ -274,12 +336,14 @@ export const RehabAgent: React.FC = () => {
 
       {(refStatus === LoadingState.ERROR || lessonStatus === LoadingState.ERROR) && errorHtml && (refData || lessonData) && <div dangerouslySetInnerHTML={{ __html: errorHtml }} />}
 
-      {(refData || lessonData) && (
+      {(refData || lessonData || activeTab === 'bank') && (
         <div className="space-y-6">
-          <div className="flex p-1 bg-slate-100 rounded-lg w-fit mx-auto">
+          <div className="flex flex-wrap justify-center p-1 bg-slate-100 rounded-lg w-fit mx-auto gap-1">
             <button onClick={() => handleTabChange('reference')} className={`px-6 py-2 rounded-md text-sm font-medium ${activeTab === 'reference' ? 'bg-white shadow' : 'text-slate-500'}`}>Referência</button>
             <button onClick={() => handleTabChange('lesson')} className={`px-6 py-2 rounded-md text-sm font-medium ${activeTab === 'lesson' ? 'bg-white shadow' : 'text-slate-500'}`}>Plano de Aula</button>
+            <button onClick={() => handleTabChange('bank')} className={`px-6 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'bank' ? 'bg-white shadow text-brand-600' : 'text-slate-500'}`}><Dumbbell className="w-4 h-4"/> Banco de Exercícios</button>
           </div>
+          
           {activeTab === 'reference' && (
             <div className="animate-in fade-in">
               {refData ? (
@@ -289,12 +353,13 @@ export const RehabAgent: React.FC = () => {
                 </>
               ) : (
                 <div className="text-center py-12 text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                   <p className="mb-4">Dados de referência não carregados para este plano salvo.</p>
-                   <Button variant="outline" onClick={() => fetchReferenceData(query)}>Carregar Guia Clínico</Button>
+                   <p className="mb-4">Use a busca para carregar o Guia Clínico.</p>
+                   {query && <Button variant="outline" onClick={() => fetchReferenceData(query)}>Carregar Guia para "{query}"</Button>}
                 </div>
               )}
             </div>
           )}
+          
           {activeTab === 'lesson' && (
             <div className="animate-in fade-in">
               {lessonStatus === LoadingState.LOADING ? <div className="text-center py-12"><Loader2 className="h-10 w-10 animate-spin mx-auto text-brand-500"/><p>Gerando aula...</p></div> : lessonData ? (
@@ -303,6 +368,7 @@ export const RehabAgent: React.FC = () => {
                   studentId={currentStudent?.id}
                   studentName={(lessonData as any).patientName || currentStudent?.name} // Usa o nome salvo se disponível
                   onSaveLesson={handleSaveLesson} 
+                  onSaveToBank={handleSaveToBank}
                   onRegenerateExercise={async (idx, ex) => { 
                     const newEx = await regenerateSingleExercise(query, ex, selectedEquipment); 
                     const newExs = [...lessonData.exercises]; 
@@ -310,7 +376,80 @@ export const RehabAgent: React.FC = () => {
                     setLessonData({...lessonData, exercises: newExs}); 
                   }} 
                 />
-              ) : null}
+              ) : (
+                <div className="text-center py-12 text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                   <p className="mb-4">Nenhum plano de aula ativo.</p>
+                   {query && <Button variant="outline" onClick={() => handleTabChange('lesson')}>Gerar Aula para "{query}"</Button>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'bank' && (
+            <div className="animate-in fade-in space-y-6">
+              <div className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="mb-4 md:mb-0">
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-white">Biblioteca do Studio</h3>
+                  <p className="text-sm text-slate-500">{filteredBankExercises.length} exercícios salvos</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-slate-400" />
+                  <select 
+                    className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500"
+                    value={bankEquipmentFilter}
+                    onChange={(e) => setBankEquipmentFilter(e.target.value)}
+                  >
+                    <option value="All">Todos Equipamentos</option>
+                    {bankEquipments.map(eq => <option key={eq} value={eq}>{eq}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {filteredBankExercises.length === 0 ? (
+                <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
+                  <Dumbbell className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-500">Nenhum exercício encontrado com este filtro.</p>
+                  <p className="text-xs text-slate-400 mt-2">Salve exercícios dos planos de aula para vê-los aqui.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredBankExercises.map((ex) => (
+                    <div key={ex.id} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group">
+                      <div className="h-32 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center relative">
+                        <Dumbbell className="w-12 h-12 text-slate-300 dark:text-slate-600" />
+                        <span className="absolute top-2 right-2 bg-white dark:bg-slate-800 px-2 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-300 shadow-sm">
+                          {ex.equipment}
+                        </span>
+                      </div>
+                      <div className="p-5">
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-bold text-lg text-slate-900 dark:text-white leading-tight">{ex.name}</h4>
+                          <button onClick={() => handleDeleteExercise(ex.id)} className="text-slate-300 hover:text-red-500 transition-colors">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        
+                        <div className="flex gap-2 mb-3">
+                          <span className="text-xs bg-brand-50 text-brand-700 px-2 py-0.5 rounded font-medium">{ex.focus}</span>
+                          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{ex.reps}</span>
+                        </div>
+
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4 line-clamp-3">
+                          {ex.description}
+                        </p>
+
+                        {ex.instructorComments && (
+                          <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                            <p className="text-xs text-slate-500 italic flex items-start gap-1">
+                              <User className="w-3 h-3 mt-0.5 flex-shrink-0" /> "{ex.instructorComments}"
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

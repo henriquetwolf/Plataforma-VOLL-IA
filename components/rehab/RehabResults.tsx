@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { PathologyResponse, LessonPlanResponse, LessonExercise, Student } from '../../types';
 import { Button } from '../ui/Button';
-import { CheckCircle, AlertOctagon, Info, Save, RefreshCw, Printer, User } from 'lucide-react';
+import { CheckCircle, AlertOctagon, Info, Save, RefreshCw, Printer, User, Bookmark, X } from 'lucide-react';
 import { fetchStudents } from '../../services/studentService';
 
 // --- REFERENCE CARD ---
@@ -46,6 +47,56 @@ export const ResultCard: React.FC<ResultCardProps> = ({ title, type, items }) =>
   );
 };
 
+// --- SAVE EXERCISE MODAL ---
+const SaveExerciseModal: React.FC<{ 
+  exercise: LessonExercise | null; 
+  isOpen: boolean; 
+  onClose: () => void; 
+  onConfirm: (comments: string) => void;
+  isLoading: boolean;
+}> = ({ exercise, isOpen, onClose, onConfirm, isLoading }) => {
+  const [comments, setComments] = useState('');
+
+  if (!isOpen || !exercise) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-xl p-6 shadow-xl border border-slate-200 dark:border-slate-800 animate-in zoom-in-95">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Bookmark className="w-5 h-5 text-brand-600" /> Salvar no Banco
+          </h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div className="mb-4 bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-100 dark:border-slate-700">
+          <p className="font-bold text-slate-800 dark:text-white">{exercise.name}</p>
+          <p className="text-xs text-slate-500">{exercise.apparatus}</p>
+        </div>
+
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          Comentário do Instrutor (Opcional)
+        </label>
+        <textarea
+          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 focus:ring-2 focus:ring-brand-500 outline-none h-24 resize-none mb-4"
+          placeholder="Ex: Ótimo para alunos com encurtamento..."
+          value={comments}
+          onChange={(e) => setComments(e.target.value)}
+        />
+
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button onClick={() => { onConfirm(comments); setComments(''); }} isLoading={isLoading}>
+            Salvar
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- LESSON PLAN VIEW ---
 interface LessonPlanProps {
   plan: LessonPlanResponse;
@@ -53,11 +104,16 @@ interface LessonPlanProps {
   studentName?: string;
   onSaveLesson: (name: string, patient: string, exercises: LessonExercise[], studentId?: string) => void;
   onRegenerateExercise: (index: number, exercise: LessonExercise) => void;
+  onSaveToBank?: (exercise: LessonExercise, comments: string) => Promise<boolean>;
 }
 
-export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, studentId, studentName, onSaveLesson, onRegenerateExercise }) => {
+export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, studentId, studentName, onSaveLesson, onRegenerateExercise, onSaveToBank }) => {
   const [exercises, setExercises] = useState(plan.exercises);
   const [customTitle, setCustomTitle] = useState(`${plan.pathologyName} - Aula 1`);
+  
+  // States for Saving Exercise
+  const [exerciseToSave, setExerciseToSave] = useState<LessonExercise | null>(null);
+  const [isSavingExercise, setIsSavingExercise] = useState(false);
   
   // Estado para seleção de aluno
   const [students, setStudents] = useState<Student[]>([]);
@@ -93,6 +149,16 @@ export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, studentId, stu
       return;
     }
     onSaveLesson(customTitle, patientName, exercises, selectedStudentId);
+  };
+
+  const handleConfirmSaveExercise = async (comments: string) => {
+    if (!exerciseToSave || !onSaveToBank) return;
+    setIsSavingExercise(true);
+    const success = await onSaveToBank(exerciseToSave, comments);
+    setIsSavingExercise(false);
+    if (success) {
+      setExerciseToSave(null); // Fecha modal
+    }
   };
 
   return (
@@ -179,6 +245,15 @@ export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, studentId, stu
               
               {/* Actions */}
               <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity print:hidden">
+                {onSaveToBank && (
+                  <button
+                    onClick={() => setExerciseToSave(ex)}
+                    className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                    title="Salvar no Banco de Exercícios"
+                  >
+                    <Bookmark className="h-4 w-4" />
+                  </button>
+                )}
                 <button 
                   onClick={() => onRegenerateExercise(idx, ex)}
                   className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded transition-colors"
@@ -191,6 +266,14 @@ export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, studentId, stu
           ))}
         </div>
       </div>
+
+      <SaveExerciseModal 
+        exercise={exerciseToSave}
+        isOpen={!!exerciseToSave}
+        onClose={() => setExerciseToSave(null)}
+        onConfirm={handleConfirmSaveExercise}
+        isLoading={isSavingExercise}
+      />
     </div>
   );
 };
