@@ -43,7 +43,11 @@ export const RehabAgent: React.FC = () => {
     loadStudents();
   }, []);
 
-  const loadHistory = async () => { const data = await fetchRehabLessons(); setSavedLessons(data); };
+  const loadHistory = async () => { 
+    const data = await fetchRehabLessons(); 
+    // Garante que nomes nulos virem string para evitar erro na filtragem da pasta
+    setSavedLessons(data.map(d => ({ ...d, patientName: d.patientName || 'Sem Nome' }))); 
+  };
   const loadStudents = async () => { const data = await fetchStudents(); setStudents(data); };
 
   const toggleEquipment = (eq: string) => {
@@ -75,7 +79,6 @@ export const RehabAgent: React.FC = () => {
         setRefData(data); 
         setRefStatus(LoadingState.SUCCESS); 
       } else { 
-        // Em vez de lançar erro manual, apenas define status de erro se realmente não vier dados
         throw new Error("Não foi possível obter dados. Tente novamente.");
       }
     } catch (err: any) {
@@ -171,7 +174,16 @@ export const RehabAgent: React.FC = () => {
                   <p className="text-sm text-slate-500">Criado em: {new Date(l.createdAt).toLocaleDateString()}</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="ghost" onClick={() => { setLessonData(l); setQuery(l.pathologyName); setLessonStatus(LoadingState.SUCCESS); setActiveTab('lesson'); setShowHistory(false); setSelectedStudentFilter(null); }}>
+                  <Button variant="ghost" onClick={() => { 
+                    setLessonData(l); 
+                    setQuery(l.pathologyName); 
+                    setLessonStatus(LoadingState.SUCCESS); 
+                    setRefStatus(LoadingState.IDLE); // Reset ref status
+                    setRefData(null); // Clear ref data so we don't show old stuff
+                    setActiveTab('lesson'); 
+                    setShowHistory(false); 
+                    setSelectedStudentFilter(null); 
+                  }}>
                     Abrir Plano
                   </Button>
                   <button onClick={async () => { if(confirm("Apagar este plano?")) { await deleteRehabLesson(l.id); loadHistory(); } }} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
@@ -262,7 +274,7 @@ export const RehabAgent: React.FC = () => {
 
       {(refStatus === LoadingState.ERROR || lessonStatus === LoadingState.ERROR) && errorHtml && (refData || lessonData) && <div dangerouslySetInnerHTML={{ __html: errorHtml }} />}
 
-      {refStatus === LoadingState.SUCCESS && refData && (
+      {(refData || lessonData) && (
         <div className="space-y-6">
           <div className="flex p-1 bg-slate-100 rounded-lg w-fit mx-auto">
             <button onClick={() => handleTabChange('reference')} className={`px-6 py-2 rounded-md text-sm font-medium ${activeTab === 'reference' ? 'bg-white shadow' : 'text-slate-500'}`}>Referência</button>
@@ -270,8 +282,17 @@ export const RehabAgent: React.FC = () => {
           </div>
           {activeTab === 'reference' && (
             <div className="animate-in fade-in">
-              <div className="bg-brand-50 p-6 rounded-xl border border-brand-100 mb-6"><h2 className="text-3xl font-bold mb-3">{refData.pathologyName}</h2><p className="text-lg">{refData.summary}</p></div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><ResultCard title="Indicados" type="indicated" items={refData.indicated} /><ResultCard title="Contra-Indicados" type="contraindicated" items={refData.contraindicated} /></div>
+              {refData ? (
+                <>
+                  <div className="bg-brand-50 p-6 rounded-xl border border-brand-100 mb-6"><h2 className="text-3xl font-bold mb-3">{refData.pathologyName}</h2><p className="text-lg">{refData.summary}</p></div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><ResultCard title="Indicados" type="indicated" items={refData.indicated} /><ResultCard title="Contra-Indicados" type="contraindicated" items={refData.contraindicated} /></div>
+                </>
+              ) : (
+                <div className="text-center py-12 text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                   <p className="mb-4">Dados de referência não carregados para este plano salvo.</p>
+                   <Button variant="outline" onClick={() => fetchReferenceData(query)}>Carregar Guia Clínico</Button>
+                </div>
+              )}
             </div>
           )}
           {activeTab === 'lesson' && (
@@ -280,7 +301,7 @@ export const RehabAgent: React.FC = () => {
                 <LessonPlanView 
                   plan={lessonData} 
                   studentId={currentStudent?.id}
-                  studentName={currentStudent?.name}
+                  studentName={(lessonData as any).patientName || currentStudent?.name} // Usa o nome salvo se disponível
                   onSaveLesson={handleSaveLesson} 
                   onRegenerateExercise={async (idx, ex) => { 
                     const newEx = await regenerateSingleExercise(query, ex, selectedEquipment); 
