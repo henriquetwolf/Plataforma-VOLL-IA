@@ -1,4 +1,3 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { StrategicPlan, CalculatorInputs, FinancialModel, CompensationResult, PathologyResponse, LessonPlanResponse, LessonExercise, ChatMessage, TriageStep, TriageStatus, RecipeResponse, WorkoutResponse, Suggestion, NewsletterAudience } from "../types";
 
@@ -106,12 +105,10 @@ export const generateNewsletter = async (
     const text = response.text;
     if (!text) return null;
     
-    // Usa limpeza robusta
-    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(cleanText);
+    return cleanAndParseJSON(text);
   } catch (error) {
     console.error("Erro ao gerar newsletter:", error);
-    throw error; // Rethrow para permitir tratamento na UI
+    throw error;
   }
 };
 
@@ -161,7 +158,7 @@ export const generateObjectivesSmart = async (swot: any) => {
       contents: prompt,
       config: { responseMimeType: 'application/json' }
     });
-    return JSON.parse(res.text || '[]');
+    return cleanAndParseJSON(res.text || '[]');
   } catch (e) { return []; }
 };
 
@@ -175,7 +172,7 @@ export const generateActionsSmart = async (objectives: any) => {
       contents: prompt,
       config: { responseMimeType: 'application/json' }
     });
-    return JSON.parse(res.text || '[]');
+    return cleanAndParseJSON(res.text || '[]');
   } catch (e) { return []; }
 };
 
@@ -207,18 +204,34 @@ export const generateFinancialAnalysis = async (inputs: any, model: any, results
   } catch (e) { return "Erro na análise."; }
 };
 
-export const fetchTriageQuestion = async (complaint: string, history: ChatMessage[]): Promise<TriageStep> => {
+export const fetchTriageQuestion = async (complaint: string, history: ChatMessage[], studentName?: string): Promise<TriageStep> => {
   if (!apiKey) return { status: TriageStatus.FINISH };
-  const prompt = `Contexto: Triagem para Pilates Rehab. Queixa: "${complaint}". Histórico: ${JSON.stringify(history)}.
-  Se já tiver info suficiente (dor, local, histórico, limitações) para montar uma aula, retorne JSON { "status": "FINISH" }.
-  Senão, retorne JSON { "status": "CONTINUE", "question": "Próxima pergunta clínica relevante?" }.`;
+  
+  const prompt = `
+    Atue como um Mentor Clínico Sênior de Pilates (Fisioterapeuta Expert) conversando com um Instrutor sobre um caso clínico.
+    Aluno: ${studentName || "Aluno"}.
+    Patologia/Queixa Inicial: "${complaint}".
+    
+    Histórico da conversa até agora: ${JSON.stringify(history)}.
+    
+    OBJETIVO: Realizar uma triagem clínica (anamnese) fazendo de 3 a 5 perguntas estratégicas, uma por vez, baseadas nas respostas anteriores, para entender o quadro clínico, dor, limitações e objetivos do dia.
+    
+    ESTILO: Converse como um mentor experiente orientando um colega. Seja técnico mas acessível. Ex: "Certo, instrutor. Dado esse histórico de dor lombar, como está a mobilidade de quadril dele hoje?".
+    
+    LÓGICA DE FINALIZAÇÃO:
+    - Se o histórico já tiver pelo menos 3 a 5 trocas de mensagens E você tiver informações suficientes para montar a aula, retorne JSON com status "FINISH".
+    - Caso contrário, retorne JSON com status "CONTINUE" e a próxima pergunta no campo "question".
+    
+    Retorne JSON: { "status": "CONTINUE" | "FINISH", "question": "..." }
+  `;
+
   try {
     const res = await ai.models.generateContent({ 
       model: 'gemini-2.5-flash', 
       contents: prompt,
       config: { responseMimeType: 'application/json' }
     });
-    return JSON.parse(res.text || '{}');
+    return cleanAndParseJSON(res.text || '{}');
   } catch (e) { return { status: TriageStatus.FINISH }; }
 };
 
@@ -239,28 +252,40 @@ export const fetchPathologyData = async (query: string, equipments: string[], hi
       contents: prompt,
       config: { responseMimeType: 'application/json' }
     });
-    return JSON.parse(res.text || 'null');
+    return cleanAndParseJSON(res.text || 'null');
   } catch (e) { return null; }
 };
 
-export const fetchLessonPlan = async (pathology: string, equipments: string[], history?: ChatMessage[]) => {
+export const fetchLessonPlan = async (pathology: string, equipments: string[], history?: ChatMessage[], studentObs?: string) => {
   if (!apiKey) return null;
-  const prompt = `Crie um plano de aula de Pilates Rehab para: "${pathology}".
-  Equipamentos: ${equipments.join(', ')}.
-  Detalhes do paciente: ${JSON.stringify(history || [])}.
-  Retorne JSON: {
-    "pathologyName": "${pathology}",
-    "goal": "Objetivo principal da aula",
-    "duration": "50 min",
-    "exercises": [Array de 6 a 8 exercícios com {name, reps, apparatus, instructions, focus}]
-  }`;
+  const prompt = `
+    Crie um Plano de Aula de Pilates Rehab Completo.
+    Patologia/Foco: "${pathology}".
+    Equipamentos: ${equipments.join(', ')}.
+    Detalhes da Triagem (Mentor/Instrutor): ${JSON.stringify(history || [])}.
+    ${studentObs ? `OBSERVAÇÕES DO CADASTRO DO ALUNO: "${studentObs}". (Considere isso rigorosamente).` : ''}
+    
+    REQUISITOS:
+    1. A aula deve conter de **8 a 12 exercícios**.
+    2. Estruture com progressão lógica (Aquecimento -> Principal -> Desaquecimento).
+    3. Inclua exercícios variados nos equipamentos disponíveis.
+    
+    Retorne JSON: {
+      "pathologyName": "${pathology}",
+      "goal": "Objetivo principal da aula",
+      "duration": "55 min",
+      "exercises": [
+        { "name": "Nome", "reps": "10 reps", "apparatus": "Equipamento", "instructions": "Instrução técnica", "focus": "Foco muscular/articular" }
+      ]
+    }
+  `;
   try {
     const res = await ai.models.generateContent({ 
       model: 'gemini-2.5-flash', 
       contents: prompt,
       config: { responseMimeType: 'application/json' }
     });
-    return JSON.parse(res.text || 'null');
+    return cleanAndParseJSON(res.text || 'null');
   } catch (e) { return null; }
 };
 
@@ -273,7 +298,7 @@ export const regenerateSingleExercise = async (pathology: string, currentExercis
       contents: prompt,
       config: { responseMimeType: 'application/json' }
     });
-    return JSON.parse(res.text || JSON.stringify(currentExercise));
+    return cleanAndParseJSON(res.text || JSON.stringify(currentExercise));
   } catch (e) { return currentExercise; }
 };
 
@@ -283,7 +308,7 @@ export const generateHealthyRecipe = async (goal: string, restrictions: string) 
   Retorne JSON: { "title": "", "ingredients": [], "instructions": [], "benefits": "", "calories": "ex: 300kcal" }`;
   try {
     const res = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: 'application/json' } });
-    return JSON.parse(res.text || 'null');
+    return cleanAndParseJSON(res.text || 'null');
   } catch (e) { return null; }
 };
 
@@ -293,7 +318,7 @@ export const generateRecipeFromIngredients = async (ingredients: string[], extra
   Retorne JSON: { "title": "", "ingredients": [], "instructions": [], "benefits": "", "calories": "" }`;
   try {
     const res = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: 'application/json' } });
-    return JSON.parse(res.text || 'null');
+    return cleanAndParseJSON(res.text || 'null');
   } catch (e) { return null; }
 };
 
@@ -303,7 +328,7 @@ export const generateHomeWorkout = async (name: string, obs: string, equipment: 
   Retorne JSON: { "title": "", "duration": "", "focus": "", "exercises": [{ "name": "", "reps": "", "instructions": "", "safetyNote": "" }] }`;
   try {
     const res = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: 'application/json' } });
-    return JSON.parse(res.text || 'null');
+    return cleanAndParseJSON(res.text || 'null');
   } catch (e) { return null; }
 };
 
@@ -312,7 +337,7 @@ export const generateTailoredMissions = async (name: string, specialties: string
     const prompt = `Crie 3 opções de Missão para o studio "${name}" (Especialidades: ${specialties.join(', ')}). Foco: ${focus}. Tom: ${tone}. Retorne apenas as frases em JSON array string.`;
     try {
         const res = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: 'application/json' } });
-        return JSON.parse(res.text || '[]');
+        return cleanAndParseJSON(res.text || '[]');
     } catch (e) { return []; }
 };
 

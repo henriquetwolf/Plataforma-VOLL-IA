@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -12,6 +11,7 @@ interface Props {
   onComplete: (history: ChatMessage[]) => void;
   onCancel: () => void;
   initialHistory?: ChatMessage[];
+  studentName?: string;
 }
 
 export const AssessmentModal: React.FC<Props> = ({ 
@@ -19,7 +19,8 @@ export const AssessmentModal: React.FC<Props> = ({
   initialQuery, 
   onComplete, 
   onCancel,
-  initialHistory 
+  initialHistory,
+  studentName
 }) => {
   const [history, setHistory] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -34,14 +35,18 @@ export const AssessmentModal: React.FC<Props> = ({
         // Se já tem histórico, assumimos que pode continuar ou finalizar
         checkNextStep(initialHistory);
       } else {
-        // Iniciar nova triagem
-        setHistory([{ role: 'ai', text: `Olá. Vamos planejar a reabilitação para "${initialQuery}". Para começar, qual o nível de dor hoje (0-10) e onde ela se localiza exatamente?` }]);
+        // Iniciar nova triagem (MENTOR PERSONA)
+        const name = studentName || 'o aluno';
+        setHistory([{ 
+          role: 'ai', 
+          text: `Olá, instrutor. Vamos analisar o caso do aluno **${name}** com queixa de **${initialQuery}**. Para eu te orientar melhor na montagem da aula, me conte: como está o nível de dor hoje (0-10) e qual a principal limitação de movimento que você observou?` 
+        }]);
       }
     } else {
       setHistory([]);
       setIsFinished(false);
     }
-  }, [isOpen, initialQuery, initialHistory]);
+  }, [isOpen, initialQuery, initialHistory, studentName]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -51,14 +56,14 @@ export const AssessmentModal: React.FC<Props> = ({
 
   const checkNextStep = async (currentHistory: ChatMessage[]) => {
     setLoading(true);
-    // Limita a 6 trocas para não ficar infinito
-    if (currentHistory.length >= 6) {
+    // Limita a 8 trocas para não ficar infinito (aumentei um pouco pois o usuario pediu 3 a 5 perguntas)
+    if (currentHistory.length >= 10) {
       finishTriage(currentHistory);
       return;
     }
 
     try {
-      const step = await fetchTriageQuestion(initialQuery, currentHistory);
+      const step = await fetchTriageQuestion(initialQuery, currentHistory, studentName);
       if (step.status === TriageStatus.FINISH) {
         finishTriage(currentHistory);
       } else if (step.question) {
@@ -86,7 +91,7 @@ export const AssessmentModal: React.FC<Props> = ({
     // Pequeno delay para usuário ver que acabou
     setTimeout(() => {
       onComplete(finalHistory);
-    }, 1500);
+    }, 2000);
   };
 
   if (!isOpen) return null;
@@ -102,8 +107,8 @@ export const AssessmentModal: React.FC<Props> = ({
               <Stethoscope className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 dark:text-white">Triagem Clínica IA</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Anamnese rápida para {initialQuery}</p>
+              <h3 className="font-bold text-slate-900 dark:text-white">Mentor Clínico IA</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Analisando caso: {initialQuery}</p>
             </div>
           </div>
           <button onClick={onCancel} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
@@ -115,7 +120,7 @@ export const AssessmentModal: React.FC<Props> = ({
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 dark:bg-slate-950">
           {history.map((msg, idx) => (
             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`flex gap-2 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+              <div className={`flex gap-2 max-w-[90%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                   msg.role === 'user' ? 'bg-slate-200 dark:bg-slate-700' : 'bg-brand-100 dark:bg-brand-900'
                 }`}>
@@ -126,7 +131,7 @@ export const AssessmentModal: React.FC<Props> = ({
                     ? 'bg-brand-600 text-white rounded-tr-none' 
                     : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-tl-none shadow-sm'
                 }`}>
-                  {msg.text}
+                  <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
                 </div>
               </div>
             </div>
@@ -136,7 +141,7 @@ export const AssessmentModal: React.FC<Props> = ({
             <div className="flex justify-start">
               <div className="bg-white dark:bg-slate-800 p-3 rounded-2xl rounded-tl-none border border-slate-200 dark:border-slate-700 shadow-sm flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin text-brand-500" />
-                <span className="text-xs text-slate-400">Analisando...</span>
+                <span className="text-xs text-slate-400">Analisando resposta...</span>
               </div>
             </div>
           )}
@@ -144,7 +149,7 @@ export const AssessmentModal: React.FC<Props> = ({
           {isFinished && (
             <div className="flex justify-center py-2">
               <span className="bg-green-100 text-green-700 text-xs px-3 py-1 rounded-full font-medium">
-                Triagem concluída! Gerando plano...
+                Anamnese concluída! Preparando plano de aula...
               </span>
             </div>
           )}
@@ -169,8 +174,8 @@ export const AssessmentModal: React.FC<Props> = ({
             </Button>
           </form>
           <div className="text-center mt-2">
-             <button onClick={() => onComplete(history)} className="text-xs text-slate-400 hover:text-brand-500 underline">
-               Pular triagem e gerar agora
+             <button onClick={() => finishTriage(history)} className="text-xs text-slate-400 hover:text-brand-500 underline">
+               Pular etapas e gerar agora
              </button>
           </div>
         </div>
