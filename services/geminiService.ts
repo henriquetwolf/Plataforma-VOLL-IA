@@ -273,24 +273,24 @@ export const fetchPathologyData = async (query: string, equipments: string[], hi
 export const fetchLessonPlan = async (pathology: string, equipments: string[], history?: ChatMessage[], studentObs?: string) => {
   if (!apiKey) return null;
   const prompt = `
-    Crie um Plano de Aula de Pilates Rehab Completo.
+    Crie um Plano de Aula de Pilates Rehab Prático e Objetivo.
     Patologia/Foco: "${pathology}".
     Equipamentos Disponíveis: ${equipments.join(', ')}.
     Detalhes da Triagem (Mentor/Instrutor): ${JSON.stringify(history || [])}.
     ${studentObs ? `OBSERVAÇÕES DO ALUNO (Cadastro): "${studentObs}". LEVE ISSO EM CONSIDERAÇÃO RIGOROSAMENTE.` : ''}
     
-    REQUISITOS OBRIGATÓRIOS:
-    1. A aula deve conter de **8 a 12 exercícios**.
+    REQUISITOS DE OTIMIZAÇÃO (GERAR RÁPIDO):
+    1. Crie uma aula com **6 a 10 exercícios no máximo**.
     2. **Use no máximo 2 tipos de equipamentos** diferentes da lista fornecida para facilitar a logística da aula (ex: Só Mat e Reformer, ou só Chair e Cadillac).
-    3. Estruture com progressão lógica (Aquecimento -> Principal -> Desaquecimento).
-    4. Inclua exercícios variados.
+    3. Seja CONCISO nas instruções. Vá direto ao ponto (ex: "Inspira parado, expira movendo").
+    4. Estrutura: Aquecimento -> Principal -> Desaquecimento.
     
-    Retorne JSON: {
+    Retorne APENAS JSON válido (sem markdown): {
       "pathologyName": "${pathology}",
       "goal": "Objetivo principal da aula",
-      "duration": "55 min",
+      "duration": "45 min",
       "exercises": [
-        { "name": "Nome", "reps": "10 reps", "apparatus": "Equipamento", "instructions": "Instrução técnica", "focus": "Foco muscular/articular" }
+        { "name": "Nome", "reps": "10 reps", "apparatus": "Equipamento", "instructions": "Instrução curta e direta", "focus": "Foco muscular" }
       ]
     }
   `;
@@ -298,10 +298,13 @@ export const fetchLessonPlan = async (pathology: string, equipments: string[], h
     const res = await ai.models.generateContent({ 
       model: 'gemini-2.5-flash', 
       contents: prompt,
-      config: { responseMimeType: 'application/json' }
+      config: { 
+        responseMimeType: 'application/json',
+        temperature: 0.7 // Levemente menos criativo para ser mais rápido e assertivo
+      }
     });
     const parsed = cleanAndParseJSON(res.text || '');
-    if (!parsed) throw new Error("Falha ao analisar resposta da IA (Plano de Aula)");
+    if (!parsed) throw new Error("A IA retornou uma resposta vazia ou inválida.");
     return parsed;
   } catch (e) { 
     console.error("fetchLessonPlan error:", e);
