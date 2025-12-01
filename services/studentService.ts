@@ -28,7 +28,7 @@ export const fetchStudents = async (): Promise<Student[]> => {
     return data.map((item: any) => ({
       id: item.id,
       userId: item.user_id,
-      authUserId: item.auth_user_id, 
+      authUserId: item.auth_user_id, // Novo campo
       name: item.name,
       email: item.email || '',
       phone: item.phone || '',
@@ -66,7 +66,7 @@ export const addStudent = async (userId: string, student: Omit<Student, 'id' | '
   }
 };
 
-// --- FUNÇÃO DE CRIAÇÃO DE ACESSO ---
+// --- NOVA FUNÇÃO: Criar Acesso do Aluno ---
 export const createStudentWithAuth = async (
   studentId: string, 
   email: string,
@@ -77,9 +77,8 @@ export const createStudentWithAuth = async (
       return { success: false, error: "Senha deve ter no mínimo 6 caracteres." };
     }
 
-    // Verifica se as chaves estão disponíveis
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      return { success: false, error: "Configuração do Supabase inválida (URL/Key)." };
+      return { success: false, error: "Configuração inválida." };
     }
     
     // Cliente temporário para não deslogar o dono
@@ -99,25 +98,22 @@ export const createStudentWithAuth = async (
 
     if (authError) {
       if (authError.message.includes("already registered")) {
-         return { success: false, error: "Este email já possui uma conta no sistema." };
+         return { success: false, error: "Email já cadastrado." };
       }
       return { success: false, error: authError.message };
     }
 
     const newUserId = authData.user?.id;
-    
-    if (!newUserId) {
-        return { success: false, error: "Erro ao criar ID de login. Verifique se o email é válido." };
-    }
+    if (!newUserId) return { success: false, error: "Erro ao criar ID de login." };
 
-    // Vincula na tabela students usando o cliente principal
+    // Vincula na tabela students
     const { error: dbError } = await supabase
       .from('students')
       .update({ auth_user_id: newUserId })
       .eq('id', studentId);
 
     if (dbError) {
-      return { success: false, error: "Login criado, mas falha ao vincular no aluno: " + dbError.message };
+      return { success: false, error: "Login criado, mas falha ao vincular: " + dbError.message };
     }
 
     return { success: true };
@@ -166,11 +162,12 @@ export const deleteStudent = async (studentId: string): Promise<ServiceResponse>
   }
 };
 
+// Busca perfil do aluno logado
 export const getStudentProfile = async (authUserId: string) => {
   try {
     const { data, error } = await supabase
       .from('students')
-      .select('*, studio_profiles:user_id (studio_name)') 
+      .select('*, studio_profiles:user_id (studio_name)') // Join para pegar nome do estúdio
       .eq('auth_user_id', authUserId)
       .maybeSingle();
       

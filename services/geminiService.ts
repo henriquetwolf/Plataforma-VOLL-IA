@@ -55,6 +55,8 @@ export const handleGeminiError = (error: any): string => {
   return `<div class="bg-orange-50 border-l-4 border-orange-500 p-4">Erro na IA: ${errMsg.substring(0, 100)}...</div>`;
 };
 
+// ... (Funções existentes mantidas) ...
+
 // --- AGENTES DO ALUNO ---
 
 export const generateHealthyRecipe = async (goal: string, restrictions: string): Promise<RecipeResponse | null> => {
@@ -107,7 +109,7 @@ export const generateHomeWorkout = async (studentName: string, observations: str
   } catch (error) { throw error; }
 };
 
-// Funções placeholder
+// Funções placeholder para manter compatibilidade
 export const generateStudioDescription = async (a: string, b: string, c: string[]) => { if(!apiKey) return "Erro"; return "Descrição..."; };
 export const generateMissionOptions = async (a: string) => { if(!apiKey) return []; return ["Missão 1"]; };
 export const generateVisionOptions = async (a: string, b: string) => { if(!apiKey) return []; return ["Visão 1"]; };

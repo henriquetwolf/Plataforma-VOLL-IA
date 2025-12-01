@@ -15,7 +15,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
 
   useEffect(() => {
     const loadBrand = async () => {
-      // Se for instrutor, carrega perfil do dono do estúdio
+      // Se for instrutor ou aluno, carrega perfil do dono do estúdio
       const targetId = user?.isInstructor || user?.isStudent ? user.studioId : user?.id;
       
       if (targetId) {

@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button';
 import { ArrowRight, ShieldCheck, User, BookUser, GraduationCap } from 'lucide-react';
 import { AppRoute } from '../types';
 import { getInstructorProfile } from '../services/instructorService';
-import { getStudentProfile } from '../services/studentService';
+import { getStudentProfile } from '../services/studentService'; // Importar
 import { fetchProfile } from '../services/storage';
 import { supabase } from '../services/supabase';
 

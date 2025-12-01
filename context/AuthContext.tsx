@@ -52,7 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // 2. Verifica ALUNO
+      // 2. Verifica ALUNO (Novo)
       const student = await getStudentProfile(sessionUser.id);
       if (student) {
         console.log("Login de Aluno Detectado:", student.name);
@@ -64,8 +64,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             password: '',
             isAdmin: false,
             isInstructor: false,
-            isStudent: true, 
-            studioId: student.user_id 
+            isStudent: true, // Flag de Aluno
+            studioId: student.user_id // ID do dono do estúdio
           },
           isAuthenticated: true,
           isLoading: false,
@@ -119,6 +119,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // ... (useEffect e funções de login/register mantidas iguais ao anterior) ...
+  // ... (Para brevidade, assuma que o resto do arquivo é idêntico ao que já enviei)
+  
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {

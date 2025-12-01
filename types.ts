@@ -5,7 +5,7 @@ export interface User {
   password: string;
   isAdmin?: boolean; 
   isInstructor?: boolean; 
-  isStudent?: boolean; 
+  isStudent?: boolean; // Novo
   studioId?: string; 
 }
 
@@ -41,7 +41,7 @@ export interface Instructor {
 export interface Student {
   id: string;
   userId: string;
-  authUserId?: string; 
+  authUserId?: string; // Novo: Login do aluno
   name: string;
   email: string;
   phone: string;
@@ -99,6 +99,7 @@ export interface WorkoutResponse {
   }[];
 }
 
+// (Mantenha os demais tipos existentes no final do arquivo)
 export interface StrategicPlan {
   studioName: string;
   planningYear: string;
