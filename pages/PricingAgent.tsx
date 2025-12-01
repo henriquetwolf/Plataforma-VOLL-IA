@@ -173,7 +173,7 @@ export const PricingAgent: React.FC = () => {
 
   // --- Calculations ---
   const results = useMemo<CalculatedResultsPricing>(() => {
-    const totalFixedCosts = Object.values(inputs.fixedCosts).reduce((a: number, b) => a + (Number(b) || 0), 0);
+    const totalFixedCosts: number = Object.values(inputs.fixedCosts).reduce((a: number, b) => a + (Number(b) || 0), 0);
     const variableCostsPercentage = (Number(inputs.variableCosts.creditCardFee) + Number(inputs.variableCosts.taxes) + Number(inputs.variableCosts.depreciation)) / 100;
     const profitPercentage = Number(inputs.profitMargin) / 100;
     const emergencyReservePercentage = Number(inputs.variableCosts.emergencyReserveContribution) / 100;
@@ -235,7 +235,7 @@ export const PricingAgent: React.FC = () => {
   const simulationResults = useMemo<SimulationResultsPricing>(() => {
     if (!results.isValid) return { newRevenue: 0, newProfitValue: 0, newProfitMargin: 0, isSimulating: false, simulatedSessionsPerMonth: 0 };
 
-    const sessions = { '1x': 5, '2x': 9, '3x': 13 };
+    const sessions = { '1x': 5, '2x': 9, '3x': 13 } as const;
     const avgSimulatedPrice = (
       (Number(simulatedPackages['1x']) / sessions['1x']) + 
       (Number(simulatedPackages['2x']) / sessions['2x']) + 

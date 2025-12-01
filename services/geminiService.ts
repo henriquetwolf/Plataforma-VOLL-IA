@@ -86,6 +86,37 @@ export const generateHealthyRecipe = async (goal: string, restrictions: string):
   } catch (error) { throw error; }
 };
 
+export const generateRecipeFromIngredients = async (ingredients: string[], extraInstructions: string): Promise<RecipeResponse | null> => {
+  if (!apiKey) throw new Error("API Key missing");
+
+  const prompt = `
+    Atue como Nutricionista Funcional e Chef Criativo.
+    Crie uma receita saudável utilizando PRINCIPALMENTE os seguintes ingredientes que tenho em casa:
+    ${ingredients.join(', ')}.
+    
+    Você pode adicionar temperos básicos ou ingredientes comuns (água, azeite, sal) se necessário.
+    
+    Contexto Extra/Observações: ${extraInstructions || 'Surpreenda-me com algo prático'}.
+    
+    Retorne JSON: {
+      "title": "Nome da Receita",
+      "ingredients": ["Item 1", "Item 2"],
+      "instructions": ["Passo 1", "Passo 2"],
+      "benefits": "Por que essa combinação é boa para a saúde.",
+      "calories": "Estimativa calórica"
+    }
+  `;
+
+  try {
+    const response = await ai.models.generateContent({ 
+      model: 'gemini-2.5-flash', 
+      contents: prompt,
+      config: { responseMimeType: 'application/json' }
+    });
+    return cleanAndParseJSON(response.text || "");
+  } catch (error) { throw error; }
+};
+
 export const generateHomeWorkout = async (studentName: string, observations: string, equipment: string, duration: string): Promise<WorkoutResponse | null> => {
   if (!apiKey) throw new Error("API Key missing");
 
