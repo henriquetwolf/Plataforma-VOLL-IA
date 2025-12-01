@@ -11,11 +11,22 @@ export const StudentRecipes: React.FC = () => {
   const [restrictions, setRestrictions] = useState('');
   const [recipe, setRecipe] = useState<RecipeResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleGenerate = async () => {
     setLoading(true);
-    const result = await generateHealthyRecipe(goal, restrictions);
-    setRecipe(result);
+    setError('');
+    setRecipe(null);
+    try {
+      const result = await generateHealthyRecipe(goal, restrictions);
+      if (result) {
+        setRecipe(result);
+      } else {
+        setError('Não foi possível gerar a receita. Tente detalhar mais o pedido.');
+      }
+    } catch (e) {
+      setError('Erro ao conectar com a IA de receitas.');
+    }
     setLoading(false);
   };
 
@@ -29,6 +40,13 @@ export const StudentRecipes: React.FC = () => {
       <div className="bg-white p-6 rounded-xl border shadow-sm space-y-4">
         <Input label="Qual seu objetivo hoje? (Ex: Café da manhã rápido, Jantar low carb)" value={goal} onChange={e => setGoal(e.target.value)} />
         <Input label="Restrições ou Preferências? (Ex: Sem glúten, Gosto de abacate)" value={restrictions} onChange={e => setRestrictions(e.target.value)} />
+        
+        {error && (
+          <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+            {error}
+          </div>
+        )}
+
         <Button onClick={handleGenerate} isLoading={loading} className="w-full bg-green-600 hover:bg-green-700">
           <Sparkles className="w-4 h-4 mr-2"/> Gerar Receita
         </Button>

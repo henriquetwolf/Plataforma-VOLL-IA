@@ -77,7 +77,11 @@ export const generateHealthyRecipe = async (goal: string, restrictions: string):
   `;
 
   try {
-    const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
+    const response = await ai.models.generateContent({ 
+      model: 'gemini-2.5-flash', 
+      contents: prompt,
+      config: { responseMimeType: 'application/json' }
+    });
     return cleanAndParseJSON(response.text || "");
   } catch (error) { throw error; }
 };
@@ -104,7 +108,11 @@ export const generateHomeWorkout = async (studentName: string, observations: str
   `;
 
   try {
-    const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
+    const response = await ai.models.generateContent({ 
+      model: 'gemini-2.5-flash', 
+      contents: prompt,
+      config: { responseMimeType: 'application/json' }
+    });
     return cleanAndParseJSON(response.text || "");
   } catch (error) { throw error; }
 };
@@ -124,24 +132,52 @@ export const fetchPathologyData = async (query: string, equipment: string[], his
   if (!apiKey) throw new Error("API Key missing");
   const historyText = history ? history.map(m => `${m.role === 'ai' ? 'P' : 'R'}: ${m.text}`).join('\n') : "Sem histórico.";
   const prompt = `Atue como Fisioterapeuta. Patologia: "${query}". Contexto: ${historyText}. Equipamentos: ${equipment.join(', ')}. JSON: { pathologyName, summary, objectives: [], indicated: [{name, reason, details, apparatus}], contraindicated: [{name, reason, details, apparatus:"N/A"}] }`;
-  try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt }); return cleanAndParseJSON(response.text || ""); } catch (error) { throw error; }
+  try { 
+    const response = await ai.models.generateContent({ 
+      model: 'gemini-2.5-flash', 
+      contents: prompt,
+      config: { responseMimeType: 'application/json' }
+    }); 
+    return cleanAndParseJSON(response.text || ""); 
+  } catch (error) { throw error; }
 };
 
 export const fetchTriageQuestion = async (query: string, history: ChatMessage[]): Promise<TriageStep> => {
   if (!apiKey) throw new Error("API Key missing");
   const prompt = `Triagem Pilates. Queixa: "${query}". Histórico: ${JSON.stringify(history)}. Se suficiente, JSON { "status": "FINISH" }. Se não, JSON { "status": "CONTINUE", "question": "..." }.`;
-  try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt }); return cleanAndParseJSON(response.text || "") || { status: TriageStatus.FINISH }; } catch (error) { throw error; }
+  try { 
+    const response = await ai.models.generateContent({ 
+      model: 'gemini-2.5-flash', 
+      contents: prompt,
+      config: { responseMimeType: 'application/json' } 
+    }); 
+    return cleanAndParseJSON(response.text || "") || { status: TriageStatus.FINISH }; 
+  } catch (error) { throw error; }
 };
 
 export const fetchLessonPlan = async (query: string, equipment: string[], history?: ChatMessage[]): Promise<LessonPlanResponse | null> => {
   if (!apiKey) throw new Error("API Key missing");
   const historyText = history ? JSON.stringify(history) : "N/A";
   const prompt = `Crie Plano Aula Pilates. Aluno: "${query}". Contexto: ${historyText}. Equipamentos: ${equipment.join(', ')}. JSON: { pathologyName, goal, duration, exercises: [{name, apparatus, reps, focus, instructions}] }`;
-  try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt }); return cleanAndParseJSON(response.text || ""); } catch (error) { throw error; }
+  try { 
+    const response = await ai.models.generateContent({ 
+      model: 'gemini-2.5-flash', 
+      contents: prompt,
+      config: { responseMimeType: 'application/json' }
+    }); 
+    return cleanAndParseJSON(response.text || ""); 
+  } catch (error) { throw error; }
 };
 
 export const regenerateSingleExercise = async (query: string, oldExercise: LessonExercise, equipment: string[]): Promise<LessonExercise> => {
   if (!apiKey) throw new Error("API Key missing");
   const prompt = `Substitua exercício "${oldExercise.name}" para "${query}". Equipamentos: ${equipment.join(', ')}. JSON: { name, reps, apparatus, instructions, focus }`;
-  try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt }); return cleanAndParseJSON(response.text || ""); } catch (error) { throw error; }
+  try { 
+    const response = await ai.models.generateContent({ 
+      model: 'gemini-2.5-flash', 
+      contents: prompt,
+      config: { responseMimeType: 'application/json' }
+    }); 
+    return cleanAndParseJSON(response.text || ""); 
+  } catch (error) { throw error; }
 };

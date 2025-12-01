@@ -174,9 +174,9 @@ export const PricingAgent: React.FC = () => {
   // --- Calculations ---
   const results = useMemo<CalculatedResultsPricing>(() => {
     const totalFixedCosts = Object.values(inputs.fixedCosts).reduce((a: number, b) => a + (Number(b) || 0), 0);
-    const variableCostsPercentage = (inputs.variableCosts.creditCardFee + inputs.variableCosts.taxes + inputs.variableCosts.depreciation) / 100;
-    const profitPercentage = inputs.profitMargin / 100;
-    const emergencyReservePercentage = inputs.variableCosts.emergencyReserveContribution / 100;
+    const variableCostsPercentage = (Number(inputs.variableCosts.creditCardFee) + Number(inputs.variableCosts.taxes) + Number(inputs.variableCosts.depreciation)) / 100;
+    const profitPercentage = Number(inputs.profitMargin) / 100;
+    const emergencyReservePercentage = Number(inputs.variableCosts.emergencyReserveContribution) / 100;
 
     const denominatorProfit = 1 - variableCostsPercentage - profitPercentage - emergencyReservePercentage;
     const denominatorBreakEven = 1 - variableCostsPercentage - emergencyReservePercentage;
@@ -237,9 +237,9 @@ export const PricingAgent: React.FC = () => {
 
     const sessions = { '1x': 5, '2x': 9, '3x': 13 };
     const avgSimulatedPrice = (
-      (simulatedPackages['1x'] / sessions['1x']) + 
-      (simulatedPackages['2x'] / sessions['2x']) + 
-      (simulatedPackages['3x'] / sessions['3x'])
+      (Number(simulatedPackages['1x']) / sessions['1x']) + 
+      (Number(simulatedPackages['2x']) / sessions['2x']) + 
+      (Number(simulatedPackages['3x']) / sessions['3x'])
     ) / 3;
 
     const daysPerWeek = Object.values(inputs.capacity.workingDays).filter(Boolean).length;
@@ -247,7 +247,7 @@ export const PricingAgent: React.FC = () => {
     const simulatedSessionsPerMonth = theoreticalSessions * (simulatedOccupancyRate / 100);
 
     const newRevenue = avgSimulatedPrice * simulatedSessionsPerMonth;
-    const variableCostsPct = (inputs.variableCosts.creditCardFee + inputs.variableCosts.taxes + inputs.variableCosts.depreciation) / 100;
+    const variableCostsPct = (Number(inputs.variableCosts.creditCardFee) + Number(inputs.variableCosts.taxes) + Number(inputs.variableCosts.depreciation)) / 100;
     const newProfitValue = newRevenue - results.totalFixedCosts - (newRevenue * variableCostsPct);
     
     return {
@@ -261,9 +261,9 @@ export const PricingAgent: React.FC = () => {
 
   const priceCompositionData = useMemo<PriceCompositionData>(() => {
     if (!results.isValid) return { fixedCost: 0, variableCost: 0, reserve: 0, profit: 0, total: 0 };
-    const variablePct = (inputs.variableCosts.creditCardFee + inputs.variableCosts.taxes + inputs.variableCosts.depreciation) / 100;
-    const profitPct = inputs.profitMargin / 100;
-    const reservePct = inputs.variableCosts.emergencyReserveContribution / 100;
+    const variablePct = (Number(inputs.variableCosts.creditCardFee) + Number(inputs.variableCosts.taxes) + Number(inputs.variableCosts.depreciation)) / 100;
+    const profitPct = Number(inputs.profitMargin) / 100;
+    const reservePct = Number(inputs.variableCosts.emergencyReserveContribution) / 100;
 
     return {
       fixedCost: Number(results.totalFixedCosts) / Number(results.realSessionsPerMonth),

@@ -14,6 +14,7 @@ export const StudentWorkout: React.FC = () => {
   const [equipment, setEquipment] = useState('Apenas colchonete');
   const [workout, setWorkout] = useState<WorkoutResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -27,8 +28,19 @@ export const StudentWorkout: React.FC = () => {
 
   const handleGenerate = async () => {
     setLoading(true);
-    const result = await generateHomeWorkout(user?.name || 'Aluno', observations, equipment, duration);
-    setWorkout(result);
+    setError('');
+    setWorkout(null);
+    try {
+      const result = await generateHomeWorkout(user?.name || 'Aluno', observations, equipment, duration);
+      if (result) {
+        setWorkout(result);
+      } else {
+        setError('A IA não conseguiu gerar o treino agora. Tente novamente.');
+      }
+    } catch (e) {
+      console.error(e);
+      setError('Erro ao conectar com o assistente inteligente.');
+    }
     setLoading(false);
   };
 
@@ -58,6 +70,13 @@ export const StudentWorkout: React.FC = () => {
           <label className="text-sm font-bold text-slate-700">Equipamento em Casa</label>
           <input className="w-full p-2 border rounded mt-1" value={equipment} onChange={e => setEquipment(e.target.value)} placeholder="Ex: Bola, Elástico..." />
         </div>
+        
+        {error && (
+          <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+            {error}
+          </div>
+        )}
+
         <Button onClick={handleGenerate} isLoading={loading} className="w-full bg-blue-600 hover:bg-blue-700">
           <Sparkles className="w-4 h-4 mr-2"/> Gerar Treino
         </Button>
