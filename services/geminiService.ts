@@ -107,7 +107,7 @@ export const generateHomeWorkout = async (studentName: string, observations: str
   } catch (error) { throw error; }
 };
 
-// Funções placeholder para manter compatibilidade
+// Funções placeholder
 export const generateStudioDescription = async (a: string, b: string, c: string[]) => { if(!apiKey) return "Erro"; return "Descrição..."; };
 export const generateMissionOptions = async (a: string) => { if(!apiKey) return []; return ["Missão 1"]; };
 export const generateVisionOptions = async (a: string, b: string) => { if(!apiKey) return []; return ["Visão 1"]; };

@@ -55,6 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 2. Verifica ALUNO
       const student = await getStudentProfile(sessionUser.id);
       if (student) {
+        console.log("Login de Aluno Detectado:", student.name);
         setState({
           user: {
             id: sessionUser.id,
@@ -98,6 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isLoading: false,
         });
       } else {
+        // Nem Dono, Nem Instrutor, Nem Aluno
         setState({
           user: {
             id: sessionUser.id,
