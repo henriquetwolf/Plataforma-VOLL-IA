@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchPathologyData, fetchLessonPlan, regenerateSingleExercise, handleGeminiError } from '../services/geminiService';
@@ -116,22 +117,22 @@ export const RehabAgent: React.FC = () => {
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-bold">Histórico Clínico</h2>
-            {selectedStudentFilter && (
+            {selectedStudentFilter !== null && (
               <>
                 <ChevronRight className="w-5 h-5 text-slate-400" />
-                <span className="text-xl text-brand-600 font-medium">{selectedStudentFilter}</span>
+                <span className="text-xl text-brand-600 font-medium">{selectedStudentFilter || 'Sem Nome'}</span>
               </>
             )}
           </div>
           <Button variant="outline" onClick={() => {
-            if (selectedStudentFilter) setSelectedStudentFilter(null);
+            if (selectedStudentFilter !== null) setSelectedStudentFilter(null);
             else setShowHistory(false);
           }}>
-            <ArrowLeft className="w-4 h-4 mr-2"/> {selectedStudentFilter ? "Voltar para Alunos" : "Voltar para Início"}
+            <ArrowLeft className="w-4 h-4 mr-2"/> {selectedStudentFilter !== null ? "Voltar para Alunos" : "Voltar para Início"}
           </Button>
         </div>
 
-        {!selectedStudentFilter && (
+        {selectedStudentFilter === null && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 animate-in fade-in">
             {studentsWithLessons.length === 0 ? (
               <p className="text-slate-500 col-span-3 text-center py-12">Nenhum plano salvo ainda.</p>
@@ -140,7 +141,7 @@ export const RehabAgent: React.FC = () => {
                 const count = savedLessons.filter(l => l.patientName === studentName).length;
                 return (
                   <button 
-                    key={studentName}
+                    key={studentName || 'unknown'}
                     onClick={() => setSelectedStudentFilter(studentName)}
                     className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-400 hover:shadow-md transition-all text-left group"
                   >
@@ -152,7 +153,7 @@ export const RehabAgent: React.FC = () => {
                         {count}
                       </span>
                     </div>
-                    <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate">{studentName}</h3>
+                    <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate">{studentName || 'Sem Nome'}</h3>
                     <p className="text-sm text-slate-500 mt-1">Ver planos salvos</p>
                   </button>
                 );
@@ -161,7 +162,7 @@ export const RehabAgent: React.FC = () => {
           </div>
         )}
 
-        {selectedStudentFilter && (
+        {selectedStudentFilter !== null && (
           <div className="grid gap-4 animate-in fade-in slide-in-from-right-8">
             {savedLessons.filter(l => l.patientName === selectedStudentFilter).map(l => (
               <div key={l.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex justify-between items-center hover:border-brand-300 transition-colors">
@@ -179,6 +180,9 @@ export const RehabAgent: React.FC = () => {
                 </div>
               </div>
             ))}
+            {savedLessons.filter(l => l.patientName === selectedStudentFilter).length === 0 && (
+                <p className="text-center text-slate-500 py-8">Nenhum plano encontrado nesta pasta.</p>
+            )}
           </div>
         )}
       </div>
