@@ -178,7 +178,7 @@ export const PricingAgent: React.FC = () => {
 
   // --- Calculations ---
   const results = useMemo<CalculatedResultsPricing>(() => {
-    const totalFixedCosts: number = Object.values(inputs.fixedCosts).reduce((a: number, b: any) => a + (Number(b) || 0), 0);
+    const totalFixedCosts: number = (Object.values(inputs.fixedCosts) as number[]).reduce((a, b) => a + (Number(b) || 0), 0);
     const variableCostsPercentage = (Number(inputs.variableCosts.creditCardFee) + Number(inputs.variableCosts.taxes) + Number(inputs.variableCosts.depreciation)) / 100;
     const profitPercentage = Number(inputs.profitMargin) / 100;
     const emergencyReservePercentage = Number(inputs.variableCosts.emergencyReserveContribution) / 100;

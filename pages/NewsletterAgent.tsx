@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { generateNewsletter } from '../services/geminiService';
+import { generateNewsletter, handleGeminiError } from '../services/geminiService';
 import { saveNewsletter, fetchNewslettersByStudio, deleteNewsletter } from '../services/newsletterService';
 import { NewsletterAudience, Newsletter } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Newspaper, Send, Save, Trash2, RotateCcw, Users, User, Layout, Wand2, ArrowRight } from 'lucide-react';
+import { Newspaper, Send, Save, Trash2, RotateCcw, Users, User, Layout, Wand2, ArrowRight, AlertTriangle } from 'lucide-react';
 
 export const NewsletterAgent: React.FC = () => {
   const { user } = useAuth();
@@ -21,6 +21,7 @@ export const NewsletterAgent: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedContent, setGeneratedContent] = useState<{ title: string; content: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [errorHtml, setErrorHtml] = useState<string | null>(null);
 
   // History State
   const [history, setHistory] = useState<Newsletter[]>([]);
@@ -43,19 +44,25 @@ export const NewsletterAgent: React.FC = () => {
       alert("Por favor, informe o tópico da newsletter.");
       return;
     }
-    if (!user?.name) return; // Studio name needed? Using user.name or generic
+    if (!user?.name) return;
     
     setIsGenerating(true);
-    // Assuming user.name is Owner name, we might want Studio Name. 
-    // Ideally fetch profile, but let's pass "seu studio" or owner name for now.
-    const result = await generateNewsletter(user.name, audience, topic, style);
-    
-    if (result) {
-      setGeneratedContent(result);
-    } else {
-      alert("Não foi possível gerar a newsletter. Tente novamente.");
+    setErrorHtml(null);
+    setGeneratedContent(null);
+
+    try {
+      const result = await generateNewsletter(user.name, audience, topic, style);
+      
+      if (result) {
+        setGeneratedContent(result);
+      } else {
+        setErrorHtml('<div class="bg-yellow-50 p-4 rounded text-yellow-800 border border-yellow-200">Não foi possível gerar a newsletter. A IA não retornou conteúdo.</div>');
+      }
+    } catch (err: any) {
+      setErrorHtml(handleGeminiError(err));
+    } finally {
+      setIsGenerating(false);
     }
-    setIsGenerating(false);
   };
 
   const handleSave = async () => {
@@ -123,6 +130,10 @@ export const NewsletterAgent: React.FC = () => {
                 <Wand2 className="h-5 w-5 text-brand-500" /> Configuração
               </h2>
               
+              {errorHtml && (
+                <div className="mb-6 animate-in fade-in slide-in-from-top-2" dangerouslySetInnerHTML={{ __html: errorHtml }} />
+              )}
+
               <div className="space-y-4">
                 <div>
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">Público Alvo</label>
@@ -180,22 +191,44 @@ export const NewsletterAgent: React.FC = () => {
           <div className="space-y-6">
             <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm min-h-[500px] flex flex-col">
                <h2 className="font-bold text-lg mb-4 text-slate-800 dark:text-white flex items-center justify-between">
-                 <span>Pré-visualização</span>
+                 <div className="flex items-center gap-2">
+                   <span>Pré-visualização</span>
+                   <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-xs">
+                     <button className="px-2 py-1 bg-white dark:bg-slate-700 shadow-sm rounded-md font-medium text-slate-800 dark:text-white">Editar</button>
+                     <button className="px-2 py-1 text-slate-500 dark:text-slate-400">Visualizar</button>
+                   </div>
+                 </div>
                  {generatedContent && (
                    <span className="text-xs font-normal bg-green-100 text-green-800 px-2 py-1 rounded-full">Gerado com Sucesso</span>
                  )}
                </h2>
 
                {generatedContent ? (
-                 <div className="flex-1 flex flex-col">
+                 <div className="flex-1 flex flex-col animate-in fade-in">
                    <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-6 flex-1 mb-4 overflow-y-auto max-h-[600px]">
-                      <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4 border-b border-slate-200 pb-2">
-                        {generatedContent.title}
-                      </h3>
-                      <div 
-                        className="prose prose-slate dark:prose-invert max-w-none text-sm"
-                        dangerouslySetInnerHTML={{ __html: generatedContent.content }}
+                      <div className="mb-4">
+                        <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Título</label>
+                        <input 
+                          value={generatedContent.title}
+                          onChange={(e) => setGeneratedContent({...generatedContent, title: e.target.value})}
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-3 py-2 font-bold text-slate-900 dark:text-white"
+                        />
+                      </div>
+                      
+                      <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Conteúdo (HTML)</label>
+                      <textarea
+                        value={generatedContent.content}
+                        onChange={(e) => setGeneratedContent({...generatedContent, content: e.target.value})}
+                        className="w-full h-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-3 py-2 text-sm font-mono text-slate-700 dark:text-slate-300 resize-none mb-4"
                       />
+                      
+                      <div className="mt-4 border-t pt-4">
+                        <p className="text-xs font-bold text-slate-400 uppercase mb-2">Visualização Final:</p>
+                        <div 
+                          className="prose prose-slate dark:prose-invert max-w-none text-sm bg-white dark:bg-slate-900 p-4 rounded border border-slate-100 dark:border-slate-800"
+                          dangerouslySetInnerHTML={{ __html: generatedContent.content }}
+                        />
+                      </div>
                    </div>
                    
                    <div className="flex gap-3">

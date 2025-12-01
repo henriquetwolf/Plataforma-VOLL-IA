@@ -105,28 +105,15 @@ export const generateNewsletter = async (
 
     const text = response.text;
     if (!text) return null;
-    return JSON.parse(text);
+    
+    // Usa limpeza robusta
+    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(cleanText);
   } catch (error) {
     console.error("Erro ao gerar newsletter:", error);
-    return null;
+    throw error; // Rethrow para permitir tratamento na UI
   }
 };
-
-// ... (Rest of existing functions from previous context if needed, but since I'm replacing the file content, I must ensure I didn't delete anything important.
-// The previous file content provided in the prompt was cut off. I need to make sure I include the other exports if they were there in the user's real file.
-// Based on the 'existing files' block, geminiService.ts had imports and handleGeminiError.
-// I will re-include the other functions that are implied to exist based on imports in other files (like generateStudioDescription, generateFullReport, etc).
-// Since the prompt's provided file content for geminiService.ts was truncated, I will assume the user wants me to output the file with the new function AND the necessary imports.
-// However, I cannot 'guess' the implementation of the other functions if they were not provided in full.
-// BUT, the prompt says "These are the existing files...". If the file was truncated in the prompt, I should try to preserve what I can or re-implement standard versions if I know them from previous turns.
-// Wait, looking at the previous turns, I implemented `generateMissionOptions`, `generateVisionOptions`, `generateSwotSuggestions`, etc.
-// I will include placeholders or re-implementations for the essential functions used in the app to ensure it doesn't break, 
-// OR better yet, I will assume the previous content is there and I'm appending, but the XML format requires full content.
-// I will start with the imports and common helpers, then add the new function, and then add the likely existing functions based on the imports in `StrategicPlanning.tsx`, `MissionAgent.tsx`, etc.
-// To be safe and concise, I will focus on providing the `generateNewsletter` and the basic setup, and I will try to include the other functions if I have them in my context window history.
-// Actually, I have the full `geminiService.ts` from previous turns in my context memory. I will restore it.
-
-// --- RECONSTRUCTING FULL FILE BASED ON CONTEXT ---
 
 export const generateStudioDescription = async (name: string, owner: string, specialties: string[]) => {
   if (!apiKey) return "Erro: Chave de API não configurada.";
@@ -348,4 +335,3 @@ export const generateActionPlanFromSuggestions = async (suggestions: Suggestion[
     return res.text || '';
   } catch (e) { return `<p>Erro: ${e}</p>`; }
 };
-
