@@ -15,7 +15,7 @@ import { FinancialAgent } from './pages/FinancialAgent';
 import { PricingAgent } from './pages/PricingAgent';
 import { RehabAgent } from './pages/RehabAgent';
 import { AdminPanel } from './pages/AdminPanel';
-import { Settings } from './pages/Settings'; // Nova Importação
+import { Settings } from './pages/Settings'; 
 import { InstructorWelcome } from './pages/InstructorWelcome';
 import { StudentDashboard } from './pages/student/StudentDashboard';
 import { StudentRecipes } from './pages/student/StudentRecipes';
@@ -23,6 +23,7 @@ import { StudentWorkout } from './pages/student/StudentWorkout';
 import { StudentSuggestions } from './pages/student/StudentSuggestions';
 import { StudentNewsletters } from './pages/student/StudentNewsletters';
 import { InstructorNewsletters } from './pages/instructor/InstructorNewsletters';
+import { InstructorDashboard } from './pages/instructor/InstructorDashboard'; // Nova importação
 import { NewsletterAgent } from './pages/NewsletterAgent';
 import { StudioSuggestions } from './pages/StudioSuggestions';
 import { AppRoute } from './types';
@@ -63,7 +64,7 @@ const AppRoutes = () => {
       <Route path={AppRoute.REGISTER} element={<Register />} />
       <Route path={AppRoute.INSTRUCTOR_WELCOME} element={<InstructorWelcome />} />
       
-      {/* Rotas do Studio / Instrutor */}
+      {/* Rotas do Studio */}
       <Route path={AppRoute.DASHBOARD} element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path={AppRoute.PROFILE} element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path={AppRoute.STUDENTS} element={<ProtectedRoute><Students /></ProtectedRoute>} />
@@ -73,14 +74,13 @@ const AppRoutes = () => {
       <Route path={AppRoute.PRICING} element={<ProtectedRoute><PricingAgent /></ProtectedRoute>} />
       <Route path={AppRoute.REHAB} element={<ProtectedRoute><RehabAgent /></ProtectedRoute>} />
       <Route path={AppRoute.STUDIO_SUGGESTIONS} element={<ProtectedRoute><StudioSuggestions /></ProtectedRoute>} />
-      
-      {/* Nova Rota: Settings */}
       <Route path={AppRoute.SETTINGS} element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       
-      {/* Nova Rota: Agente de Newsletter (Dono) */}
+      {/* Rotas de Newsletter */}
       <Route path={AppRoute.NEWSLETTER_AGENT} element={<ProtectedRoute><NewsletterAgent /></ProtectedRoute>} />
       
-      {/* Nova Rota: Newsletters do Instrutor */}
+      {/* Rotas do Instrutor */}
+      <Route path={AppRoute.INSTRUCTOR_DASHBOARD} element={<ProtectedRoute><InstructorDashboard /></ProtectedRoute>} />
       <Route path={AppRoute.INSTRUCTOR_NEWSLETTERS} element={<ProtectedRoute><InstructorNewsletters /></ProtectedRoute>} />
 
       {/* Rotas do Aluno */}

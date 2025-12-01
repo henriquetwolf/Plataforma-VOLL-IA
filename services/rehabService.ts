@@ -37,12 +37,16 @@ export const saveRehabLesson = async (
   }
 };
 
-export const fetchRehabLessons = async (): Promise<SavedRehabLesson[]> => {
+export const fetchRehabLessons = async (studioId?: string): Promise<SavedRehabLesson[]> => {
   try {
-    const { data, error } = await supabase
-      .from('rehab_lessons')
-      .select('*')
-      .order('created_at', { ascending: false });
+    let query = supabase.from('rehab_lessons').select('*');
+    
+    // Filter by studio owner ID if provided (for instructors)
+    if (studioId) {
+        query = query.eq('user_id', studioId);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
       console.error('Error fetching rehab lessons:', error);

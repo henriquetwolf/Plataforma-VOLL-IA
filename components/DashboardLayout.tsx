@@ -51,20 +51,13 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
       { label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.STUDENT_NEWSLETTERS },
     ];
   } else if (isInstructor) {
-    // Menu do Instrutor (Com Permissões Dinâmicas)
+    // Menu do Instrutor - Redireciona para o novo Dashboard
     navItems = [
-      { label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.DASHBOARD },
+      { label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.INSTRUCTOR_DASHBOARD },
+      { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
+      { label: 'Criador Newsletter', icon: Newspaper, path: AppRoute.NEWSLETTER_AGENT },
+      { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
     ];
-
-    if (permissions.students !== false) {
-        navItems.push({ label: 'Alunos', icon: Users, path: AppRoute.STUDENTS });
-    }
-    if (permissions.rehab !== false) {
-        navItems.push({ label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB });
-    }
-    if (permissions.newsletters !== false) {
-        navItems.push({ label: 'Comunicados', icon: Newspaper, path: AppRoute.INSTRUCTOR_NEWSLETTERS });
-    }
 
   } else {
     // Dono do Estúdio (Vê tudo)

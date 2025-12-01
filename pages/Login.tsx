@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
@@ -82,6 +83,7 @@ export const Login: React.FC = () => {
       if (result.success) {
          if (loginMode === 'admin') navigate(AppRoute.ADMIN);
          else if (loginMode === 'student') navigate(AppRoute.STUDENT_DASHBOARD);
+         else if (loginMode === 'instructor') navigate(AppRoute.INSTRUCTOR_DASHBOARD); // Redireciona para o Dashboard do Instrutor
          else navigate(AppRoute.DASHBOARD);
       } else {
          setError(result.error || 'Erro ao finalizar login.');

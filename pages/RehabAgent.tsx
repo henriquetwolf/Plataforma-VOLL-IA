@@ -174,11 +174,17 @@ export const RehabAgent: React.FC = () => {
   }
 
   const loadHistory = async () => { 
-    const data = await fetchRehabLessons(); 
+    // CRÍTICO: Para instrutores, busca lições do estúdio (user_id = studioId do instrutor)
+    const targetId = user?.isInstructor ? user.studioId : user?.id;
+    const data = await fetchRehabLessons(targetId); 
     setSavedLessons(data.map(d => ({ ...d, patientName: d.patientName || 'Sem Nome' }))); 
   };
   
-  const loadStudents = async () => { const data = await fetchStudents(); setStudents(data); };
+  const loadStudents = async () => { 
+    const targetId = user?.isInstructor ? user.studioId : user?.id;
+    const data = await fetchStudents(targetId); 
+    setStudents(data); 
+  };
 
   const loadBank = async () => {
     const ownerId = user?.isInstructor ? user.studioId : user?.id;

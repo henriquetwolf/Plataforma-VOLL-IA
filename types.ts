@@ -67,6 +67,7 @@ export enum AppRoute {
   LOGIN = '/login',
   REGISTER = '/register',
   DASHBOARD = '/dashboard',
+  INSTRUCTOR_DASHBOARD = '/instructor/dashboard', // NOVA ROTA EXCLUSIVA
   PROFILE = '/profile',
   STUDENTS = '/students',
   INSTRUCTORS = '/instructors',

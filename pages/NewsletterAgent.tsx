@@ -26,15 +26,18 @@ export const NewsletterAgent: React.FC = () => {
   // History State
   const [history, setHistory] = useState<Newsletter[]>([]);
 
+  // Correct ID logic: Instructors use studioId, Owners use id
+  const targetId = user?.isInstructor ? user.studioId : user?.id;
+
   useEffect(() => {
-    if (user?.id && activeTab === 'history') {
+    if (targetId && activeTab === 'history') {
       loadHistory();
     }
-  }, [user, activeTab]);
+  }, [targetId, activeTab]);
 
   const loadHistory = async () => {
-    if (user?.id) {
-      const data = await fetchNewslettersByStudio(user.id);
+    if (targetId) {
+      const data = await fetchNewslettersByStudio(targetId);
       setHistory(data);
     }
   };
@@ -66,10 +69,10 @@ export const NewsletterAgent: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!generatedContent || !user?.id) return;
+    if (!generatedContent || !targetId) return;
     
     setIsSaving(true);
-    const result = await saveNewsletter(user.id, generatedContent.title, generatedContent.content, audience);
+    const result = await saveNewsletter(targetId, generatedContent.title, generatedContent.content, audience);
     
     if (result.success) {
       alert("Newsletter salva e publicada com sucesso!");

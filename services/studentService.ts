@@ -1,3 +1,4 @@
+
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase';
 import { Student } from '../types';
 import { createClient } from '@supabase/supabase-js';
@@ -13,12 +14,16 @@ const sanitize = (value: string | undefined | null) => {
   return trimmed === '' ? null : trimmed;
 };
 
-export const fetchStudents = async (): Promise<Student[]> => {
+export const fetchStudents = async (studioId?: string): Promise<Student[]> => {
   try {
-    const { data, error } = await supabase
-      .from('students')
-      .select('*')
-      .order('created_at', { ascending: false });
+    let query = supabase.from('students').select('*');
+    
+    // Filter by studio owner ID if provided (for instructors seeing owner's students)
+    if (studioId) {
+        query = query.eq('user_id', studioId);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
       console.error('Error fetching students:', error);

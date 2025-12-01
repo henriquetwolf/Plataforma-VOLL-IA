@@ -79,7 +79,9 @@ export const Students: React.FC = () => {
 
   const loadStudents = async () => {
     setIsLoading(true);
-    const data = await fetchStudents();
+    // CRÍTICO: Para instrutores, usa o studioId (dono) para ver os alunos do estúdio e não os seus
+    const targetId = user?.isInstructor ? user.studioId : user?.id;
+    const data = await fetchStudents(targetId);
     setStudents(data);
     setIsLoading(false);
   };
