@@ -29,7 +29,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadUser = async (sessionUser: any) => {
     try {
-      // 1. Verifica INSTRUTOR
+      // 1. Verifica ALUNO (Prioridade para evitar conflito com email de instrutor)
+      const student = await getStudentProfile(sessionUser.id);
+      if (student) {
+        console.log("Login de Aluno Detectado:", student.name);
+        setState({
+          user: {
+            id: sessionUser.id,
+            email: sessionUser.email || '',
+            name: student.name,
+            password: '',
+            isAdmin: false,
+            isInstructor: false,
+            isStudent: true, // Flag de Aluno
+            studioId: student.user_id // ID do dono do estúdio
+          },
+          isAuthenticated: true,
+          isLoading: false,
+        });
+        return;
+      }
+
+      // 2. Verifica INSTRUTOR
       const instructor = await getInstructorProfile(sessionUser.id, sessionUser.email);
       if (instructor) {
         if (instructor.active === false) {
@@ -45,27 +66,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             isAdmin: false,
             isInstructor: true, 
             studioId: instructor.studio_user_id 
-          },
-          isAuthenticated: true,
-          isLoading: false,
-        });
-        return;
-      }
-
-      // 2. Verifica ALUNO (Novo)
-      const student = await getStudentProfile(sessionUser.id);
-      if (student) {
-        console.log("Login de Aluno Detectado:", student.name);
-        setState({
-          user: {
-            id: sessionUser.id,
-            email: sessionUser.email || '',
-            name: student.name,
-            password: '',
-            isAdmin: false,
-            isInstructor: false,
-            isStudent: true, // Flag de Aluno
-            studioId: student.user_id // ID do dono do estúdio
           },
           isAuthenticated: true,
           isLoading: false,
@@ -119,9 +119,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // ... (useEffect e funções de login/register mantidas iguais ao anterior) ...
-  // ... (Para brevidade, assuma que o resto do arquivo é idêntico ao que já enviei)
-  
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {

@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button';
 import { ArrowRight, ShieldCheck, User, BookUser, GraduationCap } from 'lucide-react';
 import { AppRoute } from '../types';
 import { getInstructorProfile } from '../services/instructorService';
-import { getStudentProfile } from '../services/studentService'; // Importar
+import { getStudentProfile } from '../services/studentService'; 
 import { fetchProfile } from '../services/storage';
 import { supabase } from '../services/supabase';
 
@@ -21,12 +21,14 @@ export const Login: React.FC = () => {
   const navigate = useNavigate();
 
   const checkUserRole = async (uid: string, email: string) => {
-    const instructor = await getInstructorProfile(uid, email);
-    if (instructor) return 'instructor';
+    // Ordem importante: Aluno primeiro para evitar que instrutores pendentes (por email) capturem o login
     
     const student = await getStudentProfile(uid);
     if (student) return 'student';
 
+    const instructor = await getInstructorProfile(uid, email);
+    if (instructor) return 'instructor';
+    
     const profile = await fetchProfile(uid);
     if (profile && profile.userId === uid) return 'studio';
 

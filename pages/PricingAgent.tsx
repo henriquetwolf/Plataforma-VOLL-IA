@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, ChangeEvent, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { PricingInputs, CalculatedResultsPricing, SimulationResultsPricing, Competitor, SavedPricingAnalysis, PriceCompositionData } from '../types';
@@ -174,7 +173,7 @@ export const PricingAgent: React.FC = () => {
 
   // --- Calculations ---
   const results = useMemo<CalculatedResultsPricing>(() => {
-    const totalFixedCosts = Object.values(inputs.fixedCosts).reduce((a, b) => a + (Number(b) || 0), 0);
+    const totalFixedCosts = Object.values(inputs.fixedCosts).reduce((a: number, b) => a + (Number(b) || 0), 0);
     const variableCostsPercentage = (inputs.variableCosts.creditCardFee + inputs.variableCosts.taxes + inputs.variableCosts.depreciation) / 100;
     const profitPercentage = inputs.profitMargin / 100;
     const emergencyReservePercentage = inputs.variableCosts.emergencyReserveContribution / 100;
@@ -193,7 +192,7 @@ export const PricingAgent: React.FC = () => {
     const daysPerWeek = Object.values(inputs.capacity.workingDays).filter(Boolean).length;
     const workingDaysPerMonth = daysPerWeek * WEEKS_PER_MONTH;
 
-    const theoreticalSessions = Number(inputs.capacity.clientsPerHour) * Number(inputs.capacity.hoursPerDay) * workingDaysPerMonth;
+    const theoreticalSessions = Number(inputs.capacity.clientsPerHour) * Number(inputs.capacity.hoursPerDay) * Number(workingDaysPerMonth);
     const realSessionsPerMonth = theoreticalSessions * (Number(inputs.capacity.occupancyRate) / 100);
 
     const pricePerSession = realSessionsPerMonth > 0 ? targetRevenue / realSessionsPerMonth : 0;
@@ -267,11 +266,11 @@ export const PricingAgent: React.FC = () => {
     const reservePct = inputs.variableCosts.emergencyReserveContribution / 100;
 
     return {
-      fixedCost: results.totalFixedCosts / results.realSessionsPerMonth,
-      variableCost: results.pricePerSession * variablePct,
-      reserve: results.pricePerSession * reservePct,
-      profit: results.pricePerSession * profitPct,
-      total: results.pricePerSession
+      fixedCost: Number(results.totalFixedCosts) / Number(results.realSessionsPerMonth),
+      variableCost: Number(results.pricePerSession) * variablePct,
+      reserve: Number(results.pricePerSession) * reservePct,
+      profit: Number(results.pricePerSession) * profitPct,
+      total: Number(results.pricePerSession)
     };
   }, [results, inputs]);
 

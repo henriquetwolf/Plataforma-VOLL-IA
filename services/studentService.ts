@@ -172,9 +172,10 @@ export const deleteStudent = async (studentId: string): Promise<ServiceResponse>
 // Busca perfil do aluno logado
 export const getStudentProfile = async (authUserId: string) => {
   try {
+    // Busca simplificada sem joins complexos para evitar erros de relacionamento
     const { data, error } = await supabase
       .from('students')
-      .select('*, studio_profiles:user_id (studio_name)') // Join para pegar nome do estúdio
+      .select('*') 
       .eq('auth_user_id', authUserId)
       .maybeSingle();
       
