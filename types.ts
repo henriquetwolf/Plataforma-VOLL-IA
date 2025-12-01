@@ -71,16 +71,33 @@ export enum AppRoute {
   ADMIN = '/admin', 
   INSTRUCTOR_WELCOME = '/instructor-welcome',
   
+  // Rotas de Newsletter
+  NEWSLETTER_AGENT = '/newsletter-agent',
+  INSTRUCTOR_NEWSLETTERS = '/instructor/newsletters',
+  
   // Rotas do Aluno
   STUDENT_DASHBOARD = '/student/dashboard',
   STUDENT_RECIPES = '/student/recipes',
   STUDENT_WORKOUT = '/student/workout',
   STUDENT_SUGGESTIONS = '/student/suggestions',
+  STUDENT_NEWSLETTERS = '/student/newsletters',
   
   // Rotas do Studio (Novas)
   STUDIO_SUGGESTIONS = '/suggestions',
 
   ROOT = '/'
+}
+
+// Tipos para Newsletter
+export type NewsletterAudience = 'students' | 'instructors' | 'both';
+
+export interface Newsletter {
+  id: string;
+  studioId: string;
+  title: string;
+  content: string;
+  targetAudience: NewsletterAudience;
+  createdAt: string;
 }
 
 // Tipos para Sugestões

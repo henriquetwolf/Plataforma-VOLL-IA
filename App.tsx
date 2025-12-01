@@ -20,6 +20,9 @@ import { StudentDashboard } from './pages/student/StudentDashboard';
 import { StudentRecipes } from './pages/student/StudentRecipes';
 import { StudentWorkout } from './pages/student/StudentWorkout';
 import { StudentSuggestions } from './pages/student/StudentSuggestions';
+import { StudentNewsletters } from './pages/student/StudentNewsletters';
+import { InstructorNewsletters } from './pages/instructor/InstructorNewsletters';
+import { NewsletterAgent } from './pages/NewsletterAgent';
 import { StudioSuggestions } from './pages/StudioSuggestions';
 import { AppRoute } from './types';
 
@@ -69,12 +72,19 @@ const AppRoutes = () => {
       <Route path={AppRoute.PRICING} element={<ProtectedRoute><PricingAgent /></ProtectedRoute>} />
       <Route path={AppRoute.REHAB} element={<ProtectedRoute><RehabAgent /></ProtectedRoute>} />
       <Route path={AppRoute.STUDIO_SUGGESTIONS} element={<ProtectedRoute><StudioSuggestions /></ProtectedRoute>} />
+      
+      {/* Nova Rota: Agente de Newsletter (Dono) */}
+      <Route path={AppRoute.NEWSLETTER_AGENT} element={<ProtectedRoute><NewsletterAgent /></ProtectedRoute>} />
+      
+      {/* Nova Rota: Newsletters do Instrutor */}
+      <Route path={AppRoute.INSTRUCTOR_NEWSLETTERS} element={<ProtectedRoute><InstructorNewsletters /></ProtectedRoute>} />
 
       {/* Rotas do Aluno */}
       <Route path={AppRoute.STUDENT_DASHBOARD} element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
       <Route path={AppRoute.STUDENT_RECIPES} element={<ProtectedRoute><StudentRecipes /></ProtectedRoute>} />
       <Route path={AppRoute.STUDENT_WORKOUT} element={<ProtectedRoute><StudentWorkout /></ProtectedRoute>} />
       <Route path={AppRoute.STUDENT_SUGGESTIONS} element={<ProtectedRoute><StudentSuggestions /></ProtectedRoute>} />
+      <Route path={AppRoute.STUDENT_NEWSLETTERS} element={<ProtectedRoute><StudentNewsletters /></ProtectedRoute>} />
 
       <Route path={AppRoute.ADMIN} element={<ProtectedRoute adminOnly><AdminPanel /></ProtectedRoute>} />
       

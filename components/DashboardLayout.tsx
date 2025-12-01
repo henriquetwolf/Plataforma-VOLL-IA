@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper } from 'lucide-react';
 import { AppRoute } from '../types';
 import { fetchProfile } from '../services/storage';
 
@@ -42,12 +42,14 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
       { label: 'Receitas', icon: Utensils, path: AppRoute.STUDENT_RECIPES },
       { label: 'Treino em Casa', icon: Activity, path: AppRoute.STUDENT_WORKOUT },
       { label: 'Caixa de Sugestões', icon: MessageSquare, path: AppRoute.STUDENT_SUGGESTIONS },
+      { label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.STUDENT_NEWSLETTERS },
     ];
   } else if (isInstructor) {
     navItems = [
       { label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.DASHBOARD },
       { label: 'Alunos', icon: Users, path: AppRoute.STUDENTS },
       { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
+      { label: 'Comunicados', icon: Newspaper, path: AppRoute.INSTRUCTOR_NEWSLETTERS },
     ];
   } else {
     // Dono do Estúdio (Vê tudo)
@@ -56,6 +58,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
       { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
       { label: 'Equipe', icon: BookUser, path: AppRoute.INSTRUCTORS },
       { label: 'Sugestões Alunos', icon: MessageSquare, path: AppRoute.STUDIO_SUGGESTIONS },
+      { label: 'Criador Newsletter', icon: Newspaper, path: AppRoute.NEWSLETTER_AGENT },
       { label: 'Planejamento IA', icon: Compass, path: AppRoute.STRATEGY },
       { label: 'Calculadora Financeira', icon: Calculator, path: AppRoute.FINANCE },
       { label: 'Preço Inteligente', icon: Banknote, path: AppRoute.PRICING },

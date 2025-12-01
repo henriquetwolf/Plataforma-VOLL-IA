@@ -1,8 +1,9 @@
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { AppRoute, StudioProfile } from '../types';
-import { Users, Sparkles, Compass, ArrowRight, Building2, Calculator, Banknote, Activity } from 'lucide-react';
+import { Users, Sparkles, Compass, ArrowRight, Building2, Calculator, Banknote, Activity, MessageSquare } from 'lucide-react';
 import { fetchProfile } from '../services/storage';
 
 export const Dashboard: React.FC = () => {
@@ -131,6 +132,24 @@ export const Dashboard: React.FC = () => {
           {/* Outros Agentes (Apenas para Donos) */}
           {!isInstructor && (
             <>
+              {/* Agente: Analisador de Feedback (Novo) */}
+              <Link 
+                to={AppRoute.STUDIO_SUGGESTIONS} 
+                className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
+              >
+                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                  <MessageSquare size={120} />
+                </div>
+                <div className="relative z-10">
+                  <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <MessageSquare className="h-6 w-6" />
+                  </div>
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Analisador de Feedback</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">Crie planos de ação com base em sugestões.</p>
+                  <span className="inline-flex items-center text-sm font-bold text-brand-700 dark:text-brand-400 group-hover:gap-2 transition-all">Acessar Agente <ArrowRight className="h-4 w-4 ml-1" /></span>
+                </div>
+              </Link>
+
               <Link 
                 to={AppRoute.STRATEGY} 
                 className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
