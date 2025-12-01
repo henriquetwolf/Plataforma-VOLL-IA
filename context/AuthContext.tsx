@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, AuthState, AppRoute } from '../types';
 import { supabase } from '../services/supabase';
@@ -41,8 +42,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             password: '',
             isAdmin: false,
             isInstructor: false,
-            isStudent: true, // Flag de Aluno
-            studioId: student.user_id // ID do dono do estúdio
+            isStudent: true, 
+            isOwner: false,
+            studioId: student.user_id 
           },
           isAuthenticated: true,
           isLoading: false,
@@ -65,6 +67,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             password: '',
             isAdmin: false,
             isInstructor: true, 
+            isOwner: false,
+            isStudent: false,
             studioId: instructor.studio_user_id 
           },
           isAuthenticated: true,
@@ -75,10 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // 3. Verifica DONO
       const profile = await fetchProfile(sessionUser.id);
-      let isOwner = false;
-      if (profile && profile.userId === sessionUser.id) {
-        isOwner = true;
-      }
+      const isOwner = profile && profile.userId === sessionUser.id;
 
       if (isOwner && profile) {
         if (profile.isActive === false) {
@@ -93,13 +94,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name: profile.ownerName || sessionUser.user_metadata?.name || 'Usuário',
             password: '',
             isAdmin: profile.isAdmin,
-            isInstructor: false
+            isInstructor: false,
+            isStudent: false,
+            isOwner: true // Confirmação de dono
           },
           isAuthenticated: true,
           isLoading: false,
         });
       } else {
-        // Nem Dono, Nem Instrutor, Nem Aluno
+        // Nem Dono, Nem Instrutor, Nem Aluno (Visitante ou Erro)
         setState({
           user: {
             id: sessionUser.id,
@@ -107,7 +110,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name: sessionUser.user_metadata?.name || 'Visitante',
             password: '',
             isAdmin: false,
-            isInstructor: false
+            isInstructor: false,
+            isStudent: false,
+            isOwner: false // Explicitamente não dono
           },
           isAuthenticated: true,
           isLoading: false,

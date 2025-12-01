@@ -1,15 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { generateNewsletter, handleGeminiError } from '../services/geminiService';
 import { saveNewsletter, fetchNewslettersByStudio, deleteNewsletter } from '../services/newsletterService';
-import { NewsletterAudience, Newsletter } from '../types';
+import { NewsletterAudience, Newsletter, AppRoute } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Newspaper, Send, Save, Trash2, RotateCcw, Users, User, Layout, Wand2, ArrowRight, AlertTriangle } from 'lucide-react';
+import { Newspaper, Send, Save, Trash2, RotateCcw, Users, User, Layout, Wand2, ArrowRight, AlertTriangle, ArrowLeft, Home } from 'lucide-react';
 
 export const NewsletterAgent: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'create' | 'history'>('create');
   
   // Create State
@@ -101,11 +103,23 @@ export const NewsletterAgent: React.FC = () => {
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in">
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Newspaper className="h-8 w-8 text-brand-600" /> Criador de Newsletter
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400">Crie comunicados profissionais com ajuda da IA.</p>
+        <div className="flex items-center gap-4">
+          {user?.isInstructor && (
+            <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={() => navigate(AppRoute.INSTRUCTOR_DASHBOARD)}
+                className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 shadow-sm"
+            >
+                <Home className="h-5 w-5" />
+            </Button>
+          )}
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Newspaper className="h-8 w-8 text-brand-600" /> Criador de Newsletter
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400">Crie comunicados profissionais com ajuda da IA.</p>
+          </div>
         </div>
         
         <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">

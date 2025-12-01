@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper, Settings } from 'lucide-react';
+import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper, Settings, Home } from 'lucide-react';
 import { AppRoute } from '../types';
 import { fetchProfile } from '../services/storage';
 
@@ -36,6 +36,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
   const isSuperAdmin = user?.email === ADMIN_EMAIL;
   const isInstructor = user?.isInstructor;
   const isStudent = user?.isStudent;
+  const isOwner = user?.isOwner;
 
   let navItems = [];
 
@@ -51,16 +52,15 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
       { label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.STUDENT_NEWSLETTERS },
     ];
   } else if (isInstructor) {
-    // Menu do Instrutor - Redireciona para o novo Dashboard
+    // Menu do Instrutor - ESTRITO (Com Home no topo)
     navItems = [
-      { label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.INSTRUCTOR_DASHBOARD },
+      { label: 'Home', icon: Home, path: AppRoute.INSTRUCTOR_DASHBOARD },
       { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
       { label: 'Criador Newsletter', icon: Newspaper, path: AppRoute.NEWSLETTER_AGENT },
       { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
     ];
-
-  } else {
-    // Dono do Estúdio (Vê tudo)
+  } else if (isOwner) {
+    // Dono do Estúdio - ESTRITO (Só mostra se for confirmado Dono)
     navItems = [
       { label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.DASHBOARD },
       { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
@@ -74,6 +74,9 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
       { label: 'Perfil do Studio', icon: UserCircle, path: AppRoute.PROFILE },
       { label: 'Configurações', icon: Settings, path: AppRoute.SETTINGS },
     ];
+  } else {
+    // Fallback de segurança: Usuário não identificado corretamente
+    navItems = []; 
   }
 
   return (
@@ -122,6 +125,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
               {isSuperAdmin && <p className="text-[10px] text-purple-600 font-bold uppercase tracking-wider">Super Admin</p>}
               {isInstructor && <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Instrutor</p>}
               {isStudent && <p className="text-[10px] text-green-600 font-bold uppercase tracking-wider">Aluno</p>}
+              {isOwner && <p className="text-[10px] text-brand-600 font-bold uppercase tracking-wider">Dono</p>}
             </div>
           </div>
           

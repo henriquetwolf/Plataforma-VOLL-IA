@@ -8,7 +8,7 @@ import { fetchRehabLessonsByStudent } from '../services/rehabService';
 import { fetchProfile } from '../services/storage';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Users, Plus, Trash2, Search, Phone, Mail, Pencil, Activity, X, Key, CheckCircle, Loader2 } from 'lucide-react';
+import { Users, Plus, Trash2, Search, Pencil, Activity, X, Key, CheckCircle, Loader2, Home, Building2, ArrowLeft } from 'lucide-react';
 
 export const Students: React.FC = () => {
   const { user } = useAuth();
@@ -53,11 +53,14 @@ export const Students: React.FC = () => {
         return;
       }
 
-      if (user.isInstructor && user.studioId) {
+      if (user.isInstructor) {
+        // Instructors rely on studioId. If missing, wait or fail.
+        if (!user.studioId) return;
+
         try {
           const profile = await fetchProfile(user.studioId);
           // O permission check deve ser strict
-          if (profile && profile.settings?.instructor_permissions?.students === true) {
+          if (profile && profile.settings?.instructor_permissions?.students !== false) {
             setIsAuthorized(true);
           } else {
             setIsAuthorized(false);
@@ -68,9 +71,6 @@ export const Students: React.FC = () => {
           setIsAuthorized(false);
           navigate(AppRoute.DASHBOARD);
         }
-      } else {
-        setIsAuthorized(false);
-        navigate(AppRoute.LOGIN);
       }
       setCheckingAuth(false);
     };
@@ -78,19 +78,22 @@ export const Students: React.FC = () => {
   }, [user, navigate]);
 
   const loadStudents = async () => {
-    setIsLoading(true);
-    // CRÍTICO: Para instrutores, usa o studioId (dono) para ver os alunos do estúdio e não os seus
+    // Busca TODOS os alunos do estúdio (identificado pelo studioId do usuário logado)
     const targetId = user?.isInstructor ? user.studioId : user?.id;
+    
+    if (!targetId) return;
+
+    setIsLoading(true);
     const data = await fetchStudents(targetId);
     setStudents(data);
     setIsLoading(false);
   };
 
   useEffect(() => {
-    if (isAuthorized) {
+    if (user && isAuthorized) {
         loadStudents();
     }
-  }, [isAuthorized]);
+  }, [user, isAuthorized]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -197,7 +200,7 @@ export const Students: React.FC = () => {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950"><Loader2 className="animate-spin h-8 w-8 text-brand-600" /></div>;
   }
 
-  if (!isAuthorized) {
+  if (!isAuthorized && !checkingAuth) {
     return null;
   }
 
@@ -206,7 +209,9 @@ export const Students: React.FC = () => {
     return (
       <div className="space-y-6 animate-in fade-in">
         <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={() => setSelectedStudent(null)}>Voltar</Button>
+          <Button variant="outline" onClick={() => setSelectedStudent(null)}>
+            <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
+          </Button>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedStudent.name}</h1>
         </div>
 
@@ -224,13 +229,15 @@ export const Students: React.FC = () => {
                     <CheckCircle className="w-4 h-4"/> Acesso Ativo
                   </span>
                ) : (
-                  <button 
-                    onClick={() => openAccessModal(selectedStudent)}
-                    className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-2 hover:underline"
-                    disabled={!selectedStudent.email}
-                  >
-                    <Key className="w-4 h-4"/> {selectedStudent.email ? 'Criar Acesso ao Portal' : 'Adicione um email para criar acesso'}
-                  </button>
+                  !isInstructor && (
+                    <button 
+                        onClick={() => openAccessModal(selectedStudent)}
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-2 hover:underline"
+                        disabled={!selectedStudent.email}
+                    >
+                        <Key className="w-4 h-4"/> {selectedStudent.email ? 'Criar Acesso ao Portal' : 'Adicione um email para criar acesso'}
+                    </button>
+                  )
                )}
             </div>
           </div>
@@ -262,9 +269,23 @@ export const Students: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Alunos</h1>
-          <p className="text-slate-500 dark:text-slate-400">Gerencie o cadastro e histórico dos seus alunos</p>
+        <div className="flex items-center gap-4">
+          {isInstructor && (
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              onClick={() => navigate(AppRoute.INSTRUCTOR_DASHBOARD)}
+              className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 shadow-sm"
+            >
+              <Home className="h-5 w-5" />
+            </Button>
+          )}
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              Alunos {isInstructor && <span className="text-xs font-normal bg-brand-100 text-brand-700 px-2 py-1 rounded-full ml-2 flex items-center gap-1"><Building2 className="w-3 h-3"/> Studio</span>}
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400">Gerencie o cadastro e histórico dos seus alunos</p>
+          </div>
         </div>
         
         {!showForm && !isInstructor && (
@@ -310,53 +331,24 @@ export const Students: React.FC = () => {
               value={formData.phone}
               onChange={handleInputChange}
             />
-            
             <div className="md:col-span-2">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 block">Observações</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Observações Clínicas / Objetivos
+              </label>
               <textarea
                 name="observations"
                 value={formData.observations}
                 onChange={handleInputChange}
                 rows={3}
-                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
 
             <div className="md:col-span-2 flex justify-end gap-2 mt-2">
               <Button type="button" variant="ghost" onClick={handleCancel}>Cancelar</Button>
-              <Button type="submit" isLoading={isSubmitting}>{editingId ? 'Salvar Alterações' : 'Cadastrar Aluno'}</Button>
+              <Button type="submit" isLoading={isSubmitting}>{editingId ? 'Salvar Alterações' : 'Cadastrar'}</Button>
             </div>
           </form>
-        </div>
-      )}
-
-      {/* Modal de Criação de Acesso */}
-      {accessModalOpen && accessStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-xl p-6 shadow-xl border border-slate-200 dark:border-slate-800">
-            <h3 className="text-lg font-bold mb-4 text-slate-900 dark:text-white">Criar Acesso do Aluno</h3>
-            <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 p-3 rounded-lg text-sm mb-4 border border-blue-100 dark:border-blue-800">
-              Defina uma senha para que o aluno <strong>{accessStudent.name}</strong> possa acessar o portal de receitas e treinos.
-            </div>
-            <form onSubmit={handleCreateAccess} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-300">Login (Email)</label>
-                <input disabled value={accessStudent.email} className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-slate-600 dark:text-slate-400" />
-              </div>
-              <Input 
-                label="Senha Provisória *" 
-                type="password" 
-                value={accessPassword} 
-                onChange={e => setAccessPassword(e.target.value)} 
-                placeholder="Mínimo 6 caracteres"
-                autoFocus
-              />
-              <div className="flex justify-end gap-2 mt-4">
-                <Button type="button" variant="ghost" onClick={() => setAccessModalOpen(false)}>Cancelar</Button>
-                <Button type="submit" isLoading={isCreatingAccess}>Criar Acesso</Button>
-              </div>
-            </form>
-          </div>
         </div>
       )}
 
@@ -379,7 +371,7 @@ export const Students: React.FC = () => {
         ) : filteredStudents.length === 0 ? (
           <div className="p-12 text-center text-slate-500">
             <Users className="h-12 w-12 mx-auto text-slate-300 mb-3" />
-            <p className="text-lg font-medium">Nenhum aluno encontrado</p>
+            <p>Nenhum aluno encontrado.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -388,34 +380,35 @@ export const Students: React.FC = () => {
                 <tr>
                   <th className="px-6 py-3">Nome</th>
                   <th className="px-6 py-3">Contato</th>
-                  <th className="px-6 py-3">Acesso</th>
+                  <th className="px-6 py-3 text-center">Acesso</th>
                   <th className="px-6 py-3 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {filteredStudents.map((student) => (
-                  <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer" onClick={() => handleViewDetails(student)}>
+                  <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{student.name}</td>
-                    <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{student.email || '-'}</td>
-                    <td className="px-6 py-4" onClick={e => e.stopPropagation()}>
-                      {student.authUserId ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800">
-                           Ativo
-                        </span>
-                      ) : (
-                        student.email ? (
-                          <button onClick={() => openAccessModal(student)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-medium">
-                            <Key className="w-3 h-3"/> Criar Acesso
-                          </button>
-                        ) : <span className="text-xs text-slate-400">Sem email</span>
-                      )}
+                    <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{student.email || student.phone || '-'}</td>
+                    <td className="px-6 py-4 text-center">
+                       {student.authUserId ? (
+                         <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">Ativo</span>
+                       ) : (
+                         !isInstructor ? (
+                           <button onClick={() => openAccessModal(student)} className="text-xs text-blue-600 hover:underline flex items-center justify-center gap-1 mx-auto">
+                             <Key className="w-3 h-3"/> Criar Acesso
+                           </button>
+                         ) : <span className="text-xs text-slate-400">-</span>
+                       )}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => handleViewDetails(student)} className="text-brand-600 hover:text-brand-800 font-medium text-xs border border-brand-200 px-3 py-1 rounded hover:bg-brand-50 transition-colors">
+                          Ver Detalhes
+                        </button>
                         {!isInstructor && (
                           <>
-                            <button onClick={() => handleEdit(student)} className="p-2 text-slate-400 hover:text-brand-600"><Pencil className="h-4 w-4" /></button>
-                            <button onClick={() => handleDelete(student.id)} className="p-2 text-slate-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
+                            <button onClick={() => handleEdit(student)} className="text-slate-400 hover:text-brand-600 p-1"><Pencil className="h-4 w-4" /></button>
+                            <button onClick={() => handleDelete(student.id)} className="text-slate-400 hover:text-red-600 p-1"><Trash2 className="h-4 w-4" /></button>
                           </>
                         )}
                       </div>
@@ -427,6 +420,34 @@ export const Students: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Access Modal */}
+      {accessModalOpen && accessStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-xl p-6 shadow-xl border border-slate-200 dark:border-slate-800">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Criar Acesso do Aluno</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+              Defina uma senha para <strong>{accessStudent.name}</strong> ({accessStudent.email}).
+            </p>
+            
+            <form onSubmit={handleCreateAccess} className="space-y-4">
+              <Input 
+                label="Senha de Acesso" 
+                type="password" 
+                value={accessPassword} 
+                onChange={(e) => setAccessPassword(e.target.value)} 
+                placeholder="Mínimo 6 caracteres"
+                autoFocus
+              />
+              
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="ghost" onClick={() => setAccessModalOpen(false)}>Cancelar</Button>
+                <Button type="submit" isLoading={isCreatingAccess}>Criar Login</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

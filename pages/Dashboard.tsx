@@ -1,33 +1,36 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AppRoute, StudioProfile } from '../types';
 import { Users, Sparkles, Compass, ArrowRight, Building2, Calculator, Banknote, Activity, MessageSquare, Newspaper } from 'lucide-react';
 import { fetchProfile } from '../services/storage';
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<StudioProfile | null>(null);
-  const [permissions, setPermissions] = useState({ rehab: true, newsletters: true, students: true });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // PROTEÇÃO: Se for instrutor, redireciona para o painel correto
+    if (user?.isInstructor) {
+      navigate(AppRoute.INSTRUCTOR_DASHBOARD);
+      return;
+    }
+
     const loadProfile = async () => {
-      // Se for instrutor, usa o studioId. Se for dono, usa o id.
-      const targetId = user?.isInstructor ? user.studioId : user?.id;
+      // Se for dono, usa o id.
+      const targetId = user?.id;
       
       if (targetId) {
         const data = await fetchProfile(targetId);
         setProfile(data);
-        if (data?.settings?.instructor_permissions) {
-            setPermissions(data.settings.instructor_permissions);
-        }
       }
       setLoading(false);
     };
     loadProfile();
-  }, [user]);
+  }, [user, navigate]);
 
   if (loading) {
     return (
@@ -37,7 +40,8 @@ export const Dashboard: React.FC = () => {
     );
   }
 
-  const isInstructor = user?.isInstructor;
+  // Double check visual
+  if (user?.isInstructor) return null;
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
@@ -53,7 +57,7 @@ export const Dashboard: React.FC = () => {
             </h1>
             <p className="text-slate-500 dark:text-slate-400 mt-1">
               {profile?.studioName 
-                ? `${isInstructor ? 'Instrutor em' : 'Gerenciando'} ${profile.studioName}` 
+                ? `Gerenciando ${profile.studioName}` 
                 : 'Bem-vindo à Plataforma VOLL IA.'}
             </p>
           </div>
@@ -64,7 +68,6 @@ export const Dashboard: React.FC = () => {
       <div>
         <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-4">Gestão do Studio</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Card Alunos (Visível para todos) */}
           <Link 
             to={AppRoute.STUDENTS} 
             className="group bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md hover:border-brand-200 dark:hover:border-brand-800 transition-all flex items-center gap-5"
@@ -79,27 +82,23 @@ export const Dashboard: React.FC = () => {
             <ArrowRight className="ml-auto h-5 w-5 text-slate-300 dark:text-slate-600 group-hover:text-brand-500 group-hover:translate-x-1 transition-all" />
           </Link>
 
-          {/* Card Perfil (Apenas Dono) */}
-          {!isInstructor && (
-            <Link 
-              to={AppRoute.PROFILE} 
-              className="group bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md hover:border-brand-200 dark:hover:border-brand-800 transition-all flex items-center gap-5"
-            >
-              <div className="h-14 w-14 rounded-full bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 flex items-center justify-center group-hover:bg-brand-600 group-hover:text-white transition-colors">
-                <Building2 className="h-7 w-7" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-brand-700 dark:group-hover:text-brand-400 transition-colors">Perfil do Studio</h3>
-                <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Informações do local.</p>
-              </div>
-              <ArrowRight className="ml-auto h-5 w-5 text-slate-300 dark:text-slate-600 group-hover:text-brand-500 group-hover:translate-x-1 transition-all" />
-            </Link>
-          )}
+          <Link 
+            to={AppRoute.PROFILE} 
+            className="group bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md hover:border-brand-200 dark:hover:border-brand-800 transition-all flex items-center gap-5"
+          >
+            <div className="h-14 w-14 rounded-full bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 flex items-center justify-center group-hover:bg-brand-600 group-hover:text-white transition-colors">
+              <Building2 className="h-7 w-7" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-brand-700 dark:group-hover:text-brand-400 transition-colors">Perfil do Studio</h3>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Informações do local.</p>
+            </div>
+            <ArrowRight className="ml-auto h-5 w-5 text-slate-300 dark:text-slate-600 group-hover:text-brand-500 group-hover:translate-x-1 transition-all" />
+          </Link>
         </div>
       </div>
 
-      {/* Seção 2: Agentes de IA (Apenas Dono - Instrutor acessa via Menu Lateral se permitido) */}
-      {!isInstructor && (
+      {/* Seção 2: Agentes de IA */}
       <div>
         <div className="flex items-center gap-2 mb-4">
           <div className="p-1.5 bg-brand-100 dark:bg-brand-900 rounded-lg">
@@ -110,7 +109,6 @@ export const Dashboard: React.FC = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           
-          {/* Agente: Pilates Rehab */}
           <Link 
             to={AppRoute.REHAB} 
             className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
@@ -135,7 +133,6 @@ export const Dashboard: React.FC = () => {
             </div>
           </Link>
 
-          {/* Criador Newsletter */}
           <Link 
             to={AppRoute.NEWSLETTER_AGENT} 
             className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
@@ -153,7 +150,6 @@ export const Dashboard: React.FC = () => {
             </div>
           </Link>
 
-          {/* Analisador de Feedback */}
           <Link 
             to={AppRoute.STUDIO_SUGGESTIONS} 
             className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
@@ -171,7 +167,6 @@ export const Dashboard: React.FC = () => {
             </div>
           </Link>
 
-          {/* Planejamento IA */}
           <Link 
             to={AppRoute.STRATEGY} 
             className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
@@ -189,7 +184,6 @@ export const Dashboard: React.FC = () => {
             </div>
           </Link>
 
-          {/* Calculadora Financeira */}
           <Link 
             to={AppRoute.FINANCE} 
             className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
@@ -207,7 +201,6 @@ export const Dashboard: React.FC = () => {
             </div>
           </Link>
 
-          {/* Preço Inteligente */}
           <Link 
             to={AppRoute.PRICING} 
             className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
@@ -226,7 +219,6 @@ export const Dashboard: React.FC = () => {
           </Link>
         </div>
       </div>
-      )}
     </div>
   );
 };

@@ -6,7 +6,8 @@ export interface User {
   password: string;
   isAdmin?: boolean; 
   isInstructor?: boolean; 
-  isStudent?: boolean; // Novo
+  isStudent?: boolean; 
+  isOwner?: boolean; // Novo flag para segurança estrita
   studioId?: string; 
 }
 
@@ -49,7 +50,7 @@ export interface Instructor {
 export interface Student {
   id: string;
   userId: string;
-  authUserId?: string; // Novo: Login do aluno
+  authUserId?: string; 
   name: string;
   email: string;
   phone: string;
@@ -67,7 +68,7 @@ export enum AppRoute {
   LOGIN = '/login',
   REGISTER = '/register',
   DASHBOARD = '/dashboard',
-  INSTRUCTOR_DASHBOARD = '/instructor/dashboard', // NOVA ROTA EXCLUSIVA
+  INSTRUCTOR_DASHBOARD = '/instructor/dashboard', 
   PROFILE = '/profile',
   STUDENTS = '/students',
   INSTRUCTORS = '/instructors',
@@ -77,7 +78,7 @@ export enum AppRoute {
   PRICING = '/pricing',
   REHAB = '/rehab',
   ADMIN = '/admin', 
-  SETTINGS = '/settings', // Nova rota
+  SETTINGS = '/settings', 
   INSTRUCTOR_WELCOME = '/instructor-welcome',
   
   // Rotas de Newsletter
@@ -91,13 +92,13 @@ export enum AppRoute {
   STUDENT_SUGGESTIONS = '/student/suggestions',
   STUDENT_NEWSLETTERS = '/student/newsletters',
   
-  // Rotas do Studio (Novas)
+  // Rotas do Studio
   STUDIO_SUGGESTIONS = '/suggestions',
 
   ROOT = '/'
 }
 
-// Tipos para Newsletter
+// ... (Rest of the file remains unchanged)
 export type NewsletterAudience = 'students' | 'instructors' | 'both';
 
 export interface Newsletter {
@@ -109,7 +110,6 @@ export interface Newsletter {
   createdAt: string;
 }
 
-// Tipos para Sugestões
 export interface Suggestion {
   id: string;
   studioId: string;
@@ -126,11 +126,10 @@ export interface SuggestionActionPlan {
   title: string;
   selectedSuggestions: Suggestion[];
   ownerObservations: string;
-  aiActionPlan: string; // HTML ou Markdown content
+  aiActionPlan: string;
   createdAt: string;
 }
 
-// Tipos para Agentes do Aluno
 export interface RecipeResponse {
   title: string;
   ingredients: string[];
@@ -151,7 +150,6 @@ export interface WorkoutResponse {
   }[];
 }
 
-// (Mantenha os demais tipos existentes no final do arquivo)
 export interface StrategicPlan {
   studioName: string;
   planningYear: string;
@@ -379,7 +377,6 @@ export interface SavedRehabLesson extends LessonPlanResponse {
   createdAt: string;
 }
 
-// NOVO: Banco de Exercícios
 export interface StudioExercise {
   id: string;
   studioId: string;

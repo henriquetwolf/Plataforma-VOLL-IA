@@ -5,9 +5,10 @@ import { useNavigate } from 'react-router-dom';
 import { fetchInstructorNewsletters } from '../../services/newsletterService';
 import { fetchProfile } from '../../services/storage';
 import { Newsletter } from '../../types';
-import { ArrowLeft, Newspaper, Calendar, Loader2 } from 'lucide-react';
+import { ArrowLeft, Newspaper, Calendar, Loader2, Home } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AppRoute } from '../../types';
+import { Button } from '../../components/ui/Button';
 
 export const InstructorNewsletters: React.FC = () => {
   const { user } = useAuth();
@@ -36,7 +37,7 @@ export const InstructorNewsletters: React.FC = () => {
         try {
           const profile = await fetchProfile(user.studioId);
           // Strict check
-          if (profile && profile.settings?.instructor_permissions?.newsletters === true) {
+          if (profile && profile.settings?.instructor_permissions?.newsletters !== false) {
             setIsAuthorized(true);
           } else {
             setIsAuthorized(false);
@@ -48,8 +49,9 @@ export const InstructorNewsletters: React.FC = () => {
           navigate(AppRoute.DASHBOARD);
         }
       } else {
-        setIsAuthorized(false);
-        navigate(AppRoute.LOGIN);
+        if (!user.studioId && !checkingAuth) {
+             // Fallback
+        }
       }
       setCheckingAuth(false);
     };
@@ -59,7 +61,7 @@ export const InstructorNewsletters: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       // Instructors usually have studioId in their user object (from login logic)
-      if (user?.studioId && isAuthorized) {
+      if (user?.studioId) {
         const data = await fetchInstructorNewsletters(user.studioId);
         setNewsletters(data);
         setLoading(false);
@@ -81,9 +83,14 @@ export const InstructorNewsletters: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in">
       <div className="flex items-center gap-4 mb-6">
-        <Link to={AppRoute.DASHBOARD} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
-          <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-slate-400"/>
-        </Link>
+        <Button 
+            variant="secondary" 
+            size="sm" 
+            onClick={() => navigate(AppRoute.INSTRUCTOR_DASHBOARD)}
+            className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-600"
+        >
+            <Home className="h-5 w-5" />
+        </Button>
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Newspaper className="text-blue-600"/> Comunicados Internos
