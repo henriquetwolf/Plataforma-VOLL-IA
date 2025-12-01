@@ -1,7 +1,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { fetchInstructorNewsletters } from '../../services/newsletterService';
+import { fetchProfile } from '../../services/storage';
 import { Newsletter } from '../../types';
 import { ArrowLeft, Newspaper, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -9,8 +11,22 @@ import { AppRoute } from '../../types';
 
 export const InstructorNewsletters: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [newsletters, setNewsletters] = useState<Newsletter[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Verificação de Permissão
+  useEffect(() => {
+    const checkPermission = async () => {
+      if (user?.isInstructor && user.studioId) {
+        const profile = await fetchProfile(user.studioId);
+        if (profile?.settings?.instructor_permissions?.newsletters === false) {
+          navigate(AppRoute.DASHBOARD);
+        }
+      }
+    };
+    checkPermission();
+  }, [user, navigate]);
 
   useEffect(() => {
     const loadData = async () => {

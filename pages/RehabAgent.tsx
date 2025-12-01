@@ -1,11 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { fetchPathologyData, fetchLessonPlan, regenerateSingleExercise, handleGeminiError } from '../services/geminiService';
 import { saveRehabLesson, fetchRehabLessons, deleteRehabLesson } from '../services/rehabService';
 import { saveStudioExercise, fetchStudioExercises, deleteStudioExercise, updateStudioExercise, createStudioExercise, uploadExerciseImage } from '../services/exerciseService';
 import { fetchStudents } from '../services/studentService';
-import { PathologyResponse, LessonPlanResponse, LoadingState, SavedRehabLesson, LessonExercise, ChatMessage, Student, StudioExercise } from '../types';
+import { fetchProfile } from '../services/storage';
+import { PathologyResponse, LessonPlanResponse, LoadingState, SavedRehabLesson, LessonExercise, ChatMessage, Student, StudioExercise, AppRoute } from '../types';
 import { AssessmentModal } from '../components/rehab/AssessmentModal';
 import { ResultCard, LessonPlanView } from '../components/rehab/RehabResults';
 import { Button } from '../components/ui/Button';
@@ -83,6 +85,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ ex, onEdit, onDelete }) => 
 
 export const RehabAgent: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'reference' | 'lesson' | 'bank'>('reference');
   const [query, setQuery] = useState('');
   const [savedLessons, setSavedLessons] = useState<SavedRehabLesson[]>([]);
@@ -115,6 +118,19 @@ export const RehabAgent: React.FC = () => {
   const [exerciseImageFile, setExerciseImageFile] = useState<File | null>(null);
   const [exerciseImagePreview, setExerciseImagePreview] = useState<string | null>(null);
   const [isExerciseSaving, setIsExerciseSaving] = useState(false);
+
+  // Verificação de Permissão
+  useEffect(() => {
+    const checkPermission = async () => {
+      if (user?.isInstructor && user.studioId) {
+        const profile = await fetchProfile(user.studioId);
+        if (profile?.settings?.instructor_permissions?.rehab === false) {
+          navigate(AppRoute.DASHBOARD);
+        }
+      }
+    };
+    checkPermission();
+  }, [user, navigate]);
 
   useEffect(() => { 
     loadHistory();

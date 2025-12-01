@@ -1,14 +1,18 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Student } from '../types';
+import { useNavigate } from 'react-router-dom';
+import { Student, AppRoute } from '../types';
 import { fetchStudents, addStudent, updateStudent, deleteStudent, createStudentWithAuth } from '../services/studentService';
 import { fetchRehabLessonsByStudent } from '../services/rehabService'; 
+import { fetchProfile } from '../services/storage';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Users, Plus, Trash2, Search, Phone, Mail, Pencil, Activity, X, Key, CheckCircle } from 'lucide-react';
 
 export const Students: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,6 +40,19 @@ export const Students: React.FC = () => {
   });
 
   const isInstructor = user?.isInstructor;
+
+  // Verificação de Permissão
+  useEffect(() => {
+    const checkPermission = async () => {
+      if (user?.isInstructor && user.studioId) {
+        const profile = await fetchProfile(user.studioId);
+        if (profile?.settings?.instructor_permissions?.students === false) {
+          navigate(AppRoute.DASHBOARD);
+        }
+      }
+    };
+    checkPermission();
+  }, [user, navigate]);
 
   const loadStudents = async () => {
     setIsLoading(true);

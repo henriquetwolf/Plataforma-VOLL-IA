@@ -42,6 +42,20 @@ const toDBProfile = (profile: Partial<StudioProfile>): Partial<DBProfile> => {
 
 // Converter do DB (snake_case) para o App (camelCase)
 const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
+  const defaultSettings = { 
+    instructor_permissions: { rehab: true, newsletters: true, students: true } 
+  };
+
+  // Merge robusto para garantir que todas as chaves existam
+  const settings = dbProfile.settings ? {
+    ...defaultSettings,
+    ...dbProfile.settings,
+    instructor_permissions: {
+      ...defaultSettings.instructor_permissions,
+      ...(dbProfile.settings.instructor_permissions || {})
+    }
+  } : defaultSettings;
+
   return {
     id: dbProfile.id || '',
     userId: dbProfile.user_id,
@@ -57,7 +71,7 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
     brandColor: dbProfile.brand_color || '#14b8a6',
     isAdmin: dbProfile.is_admin || false,
     isActive: dbProfile.is_active !== false,
-    settings: dbProfile.settings || { instructor_permissions: { rehab: true, newsletters: true, students: true } }
+    settings: settings
   };
 };
 
