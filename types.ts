@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   email: string;
@@ -74,8 +75,33 @@ export enum AppRoute {
   STUDENT_DASHBOARD = '/student/dashboard',
   STUDENT_RECIPES = '/student/recipes',
   STUDENT_WORKOUT = '/student/workout',
+  STUDENT_SUGGESTIONS = '/student/suggestions',
   
+  // Rotas do Studio (Novas)
+  STUDIO_SUGGESTIONS = '/suggestions',
+
   ROOT = '/'
+}
+
+// Tipos para Sugestões
+export interface Suggestion {
+  id: string;
+  studioId: string;
+  studentId: string;
+  studentName: string;
+  content: string;
+  createdAt: string;
+  isRead?: boolean;
+}
+
+export interface SuggestionActionPlan {
+  id: string;
+  studioId: string;
+  title: string;
+  selectedSuggestions: Suggestion[];
+  ownerObservations: string;
+  aiActionPlan: string; // HTML ou Markdown content
+  createdAt: string;
 }
 
 // Tipos para Agentes do Aluno

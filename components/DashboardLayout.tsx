@@ -1,8 +1,9 @@
+
 import React, { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils } from 'lucide-react';
+import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare } from 'lucide-react';
 import { AppRoute } from '../types';
 import { fetchProfile } from '../services/storage';
 
@@ -40,6 +41,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
       { label: 'Meu Painel', icon: LayoutDashboard, path: AppRoute.STUDENT_DASHBOARD },
       { label: 'Receitas', icon: Utensils, path: AppRoute.STUDENT_RECIPES },
       { label: 'Treino em Casa', icon: Activity, path: AppRoute.STUDENT_WORKOUT },
+      { label: 'Caixa de Sugestões', icon: MessageSquare, path: AppRoute.STUDENT_SUGGESTIONS },
     ];
   } else if (isInstructor) {
     navItems = [
@@ -53,6 +55,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
       { label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.DASHBOARD },
       { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
       { label: 'Equipe', icon: BookUser, path: AppRoute.INSTRUCTORS },
+      { label: 'Sugestões Alunos', icon: MessageSquare, path: AppRoute.STUDIO_SUGGESTIONS },
       { label: 'Planejamento IA', icon: Compass, path: AppRoute.STRATEGY },
       { label: 'Calculadora Financeira', icon: Calculator, path: AppRoute.FINANCE },
       { label: 'Preço Inteligente', icon: Banknote, path: AppRoute.PRICING },

@@ -146,7 +146,8 @@ export const PricingAgent: React.FC = () => {
       const newCompetitors = [...prev.marketAnalysis.competitors];
       const comp = { ...newCompetitors[index] };
       if (field === 'distance' || field === 'price2x') {
-        comp[field] = parseFloat(value) || 0;
+        // Use as any to avoid type check issues during assignment if narrowing fails
+        (comp as any)[field] = parseFloat(value) || 0;
       } else {
         (comp as any)[field] = value;
       }
@@ -165,7 +166,10 @@ export const PricingAgent: React.FC = () => {
   const handleSliderChange = (section: 'variableCosts' | 'capacity', field: string) => (e: ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10);
     setInputs(prev => {
-      if (section === 'variableCosts') return { ...prev, variableCosts: { ...prev.variableCosts, [field]: value } };
+      if (section === 'variableCosts') {
+        const key = field as keyof typeof prev.variableCosts;
+        return { ...prev, variableCosts: { ...prev.variableCosts, [key]: value } };
+      }
       if (section === 'capacity') return { ...prev, capacity: { ...prev.capacity, occupancyRate: value } };
       return prev;
     });
@@ -173,7 +177,7 @@ export const PricingAgent: React.FC = () => {
 
   // --- Calculations ---
   const results = useMemo<CalculatedResultsPricing>(() => {
-    const totalFixedCosts: number = Object.values(inputs.fixedCosts).reduce((a: number, b) => a + (Number(b) || 0), 0);
+    const totalFixedCosts: number = Object.values(inputs.fixedCosts).reduce((a: number, b: any) => a + (Number(b) || 0), 0);
     const variableCostsPercentage = (Number(inputs.variableCosts.creditCardFee) + Number(inputs.variableCosts.taxes) + Number(inputs.variableCosts.depreciation)) / 100;
     const profitPercentage = Number(inputs.profitMargin) / 100;
     const emergencyReservePercentage = Number(inputs.variableCosts.emergencyReserveContribution) / 100;

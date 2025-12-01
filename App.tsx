@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -18,6 +19,8 @@ import { InstructorWelcome } from './pages/InstructorWelcome';
 import { StudentDashboard } from './pages/student/StudentDashboard';
 import { StudentRecipes } from './pages/student/StudentRecipes';
 import { StudentWorkout } from './pages/student/StudentWorkout';
+import { StudentSuggestions } from './pages/student/StudentSuggestions';
+import { StudioSuggestions } from './pages/StudioSuggestions';
 import { AppRoute } from './types';
 
 const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
@@ -65,11 +68,13 @@ const AppRoutes = () => {
       <Route path={AppRoute.FINANCE} element={<ProtectedRoute><FinancialAgent /></ProtectedRoute>} />
       <Route path={AppRoute.PRICING} element={<ProtectedRoute><PricingAgent /></ProtectedRoute>} />
       <Route path={AppRoute.REHAB} element={<ProtectedRoute><RehabAgent /></ProtectedRoute>} />
+      <Route path={AppRoute.STUDIO_SUGGESTIONS} element={<ProtectedRoute><StudioSuggestions /></ProtectedRoute>} />
 
       {/* Rotas do Aluno */}
       <Route path={AppRoute.STUDENT_DASHBOARD} element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
       <Route path={AppRoute.STUDENT_RECIPES} element={<ProtectedRoute><StudentRecipes /></ProtectedRoute>} />
       <Route path={AppRoute.STUDENT_WORKOUT} element={<ProtectedRoute><StudentWorkout /></ProtectedRoute>} />
+      <Route path={AppRoute.STUDENT_SUGGESTIONS} element={<ProtectedRoute><StudentSuggestions /></ProtectedRoute>} />
 
       <Route path={AppRoute.ADMIN} element={<ProtectedRoute adminOnly><AdminPanel /></ProtectedRoute>} />
       

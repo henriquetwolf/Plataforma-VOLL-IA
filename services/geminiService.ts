@@ -1,5 +1,6 @@
+
 import { GoogleGenAI } from "@google/genai";
-import { StrategicPlan, CalculatorInputs, FinancialModel, CompensationResult, PathologyResponse, LessonPlanResponse, LessonExercise, ChatMessage, TriageStep, TriageStatus, RecipeResponse, WorkoutResponse } from "../types";
+import { StrategicPlan, CalculatorInputs, FinancialModel, CompensationResult, PathologyResponse, LessonPlanResponse, LessonExercise, ChatMessage, TriageStep, TriageStatus, RecipeResponse, WorkoutResponse, Suggestion } from "../types";
 
 const apiKey = process.env.API_KEY;
 
@@ -56,6 +57,44 @@ export const handleGeminiError = (error: any): string => {
 };
 
 // ... (Funções existentes mantidas) ...
+
+// --- GESTÃO DE SUGESTÕES (STUDIO) ---
+
+export const generateActionPlanFromSuggestions = async (
+  suggestions: Suggestion[],
+  ownerObservations: string
+): Promise<string> => {
+  if (!apiKey) throw new Error("API Key missing");
+
+  const suggestionsText = suggestions.map(s => `- "${s.content}" (Aluno: ${s.studentName}, Data: ${new Date(s.createdAt).toLocaleDateString()})`).join('\n');
+
+  const prompt = `
+    Atue como Consultor de Melhoria Contínua para um Studio de Pilates.
+    
+    Analise as seguintes sugestões enviadas pelos alunos:
+    ${suggestionsText}
+
+    Considere também estas observações do dono do estúdio:
+    "${ownerObservations || 'Nenhuma observação extra.'}"
+
+    Crie um **Plano de Ação** concreto e formatado em HTML (sem tags html/body, apenas divs, h2, ul, p) para endereçar esses pontos.
+    O plano deve conter:
+    1. **Análise de Sentimento**: Resumo breve do que os alunos estão sentindo.
+    2. **Ações Imediatas (Curto Prazo)**: Coisas fáceis de resolver agora.
+    3. **Planejamento Estratégico (Médio/Longo Prazo)**: Melhorias estruturais.
+    4. **Resposta Sugerida**: Um texto modelo para enviar aos alunos agradecendo o feedback.
+
+    Use classes do Tailwind CSS para estilização bonita no HTML retornado (ex: text-brand-600, bg-slate-50, p-4, rounded-lg).
+  `;
+
+  try {
+    const response = await ai.models.generateContent({ 
+      model: 'gemini-2.5-flash', 
+      contents: prompt
+    });
+    return response.text || "";
+  } catch (error) { throw error; }
+};
 
 // --- AGENTES DO ALUNO ---
 
