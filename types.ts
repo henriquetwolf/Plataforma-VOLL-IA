@@ -24,7 +24,14 @@ export interface StudioProfile {
   logoUrl?: string;
   brandColor?: string;
   isAdmin: boolean; 
-  isActive: boolean; 
+  isActive: boolean;
+  settings?: {
+    instructor_permissions?: {
+      rehab?: boolean;
+      newsletters?: boolean;
+      students?: boolean;
+    }
+  };
 }
 
 export interface Instructor {
@@ -69,6 +76,7 @@ export enum AppRoute {
   PRICING = '/pricing',
   REHAB = '/rehab',
   ADMIN = '/admin', 
+  SETTINGS = '/settings', // Nova rota
   INSTRUCTOR_WELCOME = '/instructor-welcome',
   
   // Rotas de Newsletter
@@ -271,6 +279,7 @@ export interface PricingInputs {
       sat: boolean;
     };
     occupancyRate: number;
+    capacity: number;
   };
   marketAnalysis: {
     competitors: Competitor[];

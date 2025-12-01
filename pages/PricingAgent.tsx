@@ -46,6 +46,7 @@ const initialInputs: PricingInputs = {
       sat: false,
     },
     occupancyRate: 70,
+    capacity: 0,
   },
   marketAnalysis: {
     competitors: Array.from({ length: 5 }, (_, i) => ({

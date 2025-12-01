@@ -1,9 +1,9 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper } from 'lucide-react';
+import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper, Settings } from 'lucide-react';
 import { AppRoute } from '../types';
 import { fetchProfile } from '../services/storage';
 
@@ -13,18 +13,24 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
   const { logout, user } = useAuth();
   const { theme, toggleTheme, setBrandColor } = useTheme();
   const location = useLocation();
+  const [permissions, setPermissions] = useState({ rehab: true, newsletters: true, students: true });
 
   useEffect(() => {
-    const loadBrand = async () => {
+    const loadBrandAndPermissions = async () => {
       // Se for instrutor ou aluno, carrega perfil do dono do estúdio
       const targetId = user?.isInstructor || user?.isStudent ? user.studioId : user?.id;
       
       if (targetId) {
         const profile = await fetchProfile(targetId);
-        if (profile?.brandColor) setBrandColor(profile.brandColor);
+        if (profile) {
+            if (profile.brandColor) setBrandColor(profile.brandColor);
+            if (profile.settings?.instructor_permissions) {
+                setPermissions(profile.settings.instructor_permissions);
+            }
+        }
       }
     };
-    loadBrand();
+    loadBrandAndPermissions();
   }, [user, setBrandColor]);
 
   const isSuperAdmin = user?.email === ADMIN_EMAIL;
@@ -45,12 +51,21 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
       { label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.STUDENT_NEWSLETTERS },
     ];
   } else if (isInstructor) {
+    // Menu do Instrutor (Com Permissões Dinâmicas)
     navItems = [
       { label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.DASHBOARD },
-      { label: 'Alunos', icon: Users, path: AppRoute.STUDENTS },
-      { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
-      { label: 'Comunicados', icon: Newspaper, path: AppRoute.INSTRUCTOR_NEWSLETTERS },
     ];
+
+    if (permissions.students !== false) {
+        navItems.push({ label: 'Alunos', icon: Users, path: AppRoute.STUDENTS });
+    }
+    if (permissions.rehab !== false) {
+        navItems.push({ label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB });
+    }
+    if (permissions.newsletters !== false) {
+        navItems.push({ label: 'Comunicados', icon: Newspaper, path: AppRoute.INSTRUCTOR_NEWSLETTERS });
+    }
+
   } else {
     // Dono do Estúdio (Vê tudo)
     navItems = [
@@ -64,6 +79,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
       { label: 'Preço Inteligente', icon: Banknote, path: AppRoute.PRICING },
       { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
       { label: 'Perfil do Studio', icon: UserCircle, path: AppRoute.PROFILE },
+      { label: 'Configurações', icon: Settings, path: AppRoute.SETTINGS },
     ];
   }
 

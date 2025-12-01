@@ -91,9 +91,11 @@ export const updateStudioExercise = async (
 
 export const uploadExerciseImage = async (userId: string, file: File): Promise<string | null> => {
   try {
+    // Sanitize filename
     const fileExt = file.name.split('.').pop();
     const fileName = `ex-${userId}-${Date.now()}.${fileExt}`;
-    const filePath = `${fileName}`;
+    // Upload to root of bucket
+    const filePath = fileName;
 
     // Tenta upload no bucket 'exercise-images'
     // Nota: O bucket precisa existir no Supabase Storage e ter políticas públicas de leitura

@@ -15,6 +15,7 @@ import { FinancialAgent } from './pages/FinancialAgent';
 import { PricingAgent } from './pages/PricingAgent';
 import { RehabAgent } from './pages/RehabAgent';
 import { AdminPanel } from './pages/AdminPanel';
+import { Settings } from './pages/Settings'; // Nova Importação
 import { InstructorWelcome } from './pages/InstructorWelcome';
 import { StudentDashboard } from './pages/student/StudentDashboard';
 import { StudentRecipes } from './pages/student/StudentRecipes';
@@ -72,6 +73,9 @@ const AppRoutes = () => {
       <Route path={AppRoute.PRICING} element={<ProtectedRoute><PricingAgent /></ProtectedRoute>} />
       <Route path={AppRoute.REHAB} element={<ProtectedRoute><RehabAgent /></ProtectedRoute>} />
       <Route path={AppRoute.STUDIO_SUGGESTIONS} element={<ProtectedRoute><StudioSuggestions /></ProtectedRoute>} />
+      
+      {/* Nova Rota: Settings */}
+      <Route path={AppRoute.SETTINGS} element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       
       {/* Nova Rota: Agente de Newsletter (Dono) */}
       <Route path={AppRoute.NEWSLETTER_AGENT} element={<ProtectedRoute><NewsletterAgent /></ProtectedRoute>} />

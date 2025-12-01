@@ -10,12 +10,76 @@ import { AssessmentModal } from '../components/rehab/AssessmentModal';
 import { ResultCard, LessonPlanView } from '../components/rehab/RehabResults';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Search, History, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, User, ChevronRight, Folder, Dumbbell, Filter, Plus, Pencil, X, Upload, ImageIcon } from 'lucide-react';
+import { Search, History, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, User, ChevronRight, Folder, Dumbbell, Filter, Plus, Pencil, X, Upload, ImageIcon, Maximize2 } from 'lucide-react';
 
 const COMMON_SUGGESTIONS = [
   "Hérnia de Disco L5-S1", "Dor Lombar Crônica", "Ombro Rígido", "Condromalácia", "Cervicalgia", "Fascite Plantar"
 ];
 const EQUIPMENTS = ["Mat (Solo)", "Reformer", "Cadillac", "Chair", "Barrel", "Acessórios"];
+
+interface ExerciseCardProps {
+  ex: StudioExercise;
+  onEdit: (ex: StudioExercise) => void;
+  onDelete: (id: string) => void;
+}
+
+// Componente de Card Individual para gerenciar estado da imagem
+const ExerciseCard: React.FC<ExerciseCardProps> = ({ ex, onEdit, onDelete }) => {
+  const [imgError, setImgError] = useState(false);
+
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group h-full flex flex-col">
+      <div className="h-48 bg-slate-100 dark:bg-slate-800 relative flex items-center justify-center overflow-hidden">
+        {ex.imageUrl && !imgError ? (
+          <img 
+            src={ex.imageUrl} 
+            alt={ex.name} 
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center text-slate-300 dark:text-slate-600">
+            <Dumbbell className="w-12 h-12 mb-2" />
+            {imgError && <span className="text-[10px] text-red-400">Erro na imagem</span>}
+          </div>
+        )}
+        <span className="absolute top-2 right-2 bg-white/90 dark:bg-slate-900/90 px-2 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-300 shadow-sm backdrop-blur-sm z-10">
+          {ex.equipment}
+        </span>
+      </div>
+      <div className="p-5 flex flex-col flex-1">
+        <div className="flex justify-between items-start mb-2">
+          <h4 className="font-bold text-lg text-slate-900 dark:text-white leading-tight line-clamp-2">{ex.name}</h4>
+          <div className="flex gap-1 shrink-0 ml-2">
+            <button onClick={() => onEdit(ex)} className="p-1.5 text-slate-300 hover:text-brand-600 hover:bg-brand-50 rounded transition-colors" title="Editar">
+              <Pencil className="w-4 h-4" />
+            </button>
+            <button onClick={() => onDelete(ex.id)} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Excluir">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex gap-2 mb-3">
+          <span className="text-xs bg-brand-50 text-brand-700 px-2 py-0.5 rounded font-medium truncate max-w-[120px]">{ex.focus}</span>
+          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded truncate max-w-[80px]">{ex.reps}</span>
+        </div>
+
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4 line-clamp-3 flex-1">
+          {ex.description}
+        </p>
+
+        {ex.instructorComments && (
+          <div className="mt-auto pt-3 border-t border-slate-100 dark:border-slate-800">
+            <p className="text-xs text-slate-500 italic flex items-start gap-1">
+              <User className="w-3 h-3 mt-0.5 flex-shrink-0" /> <span className="line-clamp-2">"{ex.instructorComments}"</span>
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export const RehabAgent: React.FC = () => {
   const { user } = useAuth();
@@ -481,48 +545,12 @@ export const RehabAgent: React.FC = () => {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredBankExercises.map((ex) => (
-                    <div key={ex.id} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group">
-                      <div className="h-48 bg-slate-100 dark:bg-slate-800 relative flex items-center justify-center overflow-hidden">
-                        {ex.imageUrl ? (
-                          <img src={ex.imageUrl} alt={ex.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <Dumbbell className="w-12 h-12 text-slate-300 dark:text-slate-600" />
-                        )}
-                        <span className="absolute top-2 right-2 bg-white/90 dark:bg-slate-900/90 px-2 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-300 shadow-sm backdrop-blur-sm">
-                          {ex.equipment}
-                        </span>
-                      </div>
-                      <div className="p-5">
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-bold text-lg text-slate-900 dark:text-white leading-tight">{ex.name}</h4>
-                          <div className="flex gap-1">
-                            <button onClick={() => openExerciseModal(ex)} className="p-1.5 text-slate-300 hover:text-brand-600 hover:bg-brand-50 rounded transition-colors" title="Editar">
-                              <Pencil className="w-4 h-4" />
-                            </button>
-                            <button onClick={() => handleDeleteExercise(ex.id)} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Excluir">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                        
-                        <div className="flex gap-2 mb-3">
-                          <span className="text-xs bg-brand-50 text-brand-700 px-2 py-0.5 rounded font-medium">{ex.focus}</span>
-                          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{ex.reps}</span>
-                        </div>
-
-                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4 line-clamp-3">
-                          {ex.description}
-                        </p>
-
-                        {ex.instructorComments && (
-                          <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                            <p className="text-xs text-slate-500 italic flex items-start gap-1">
-                              <User className="w-3 h-3 mt-0.5 flex-shrink-0" /> "{ex.instructorComments}"
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <ExerciseCard 
+                      key={ex.id} 
+                      ex={ex} 
+                      onEdit={openExerciseModal} 
+                      onDelete={handleDeleteExercise} 
+                    />
                   ))}
                 </div>
               )}

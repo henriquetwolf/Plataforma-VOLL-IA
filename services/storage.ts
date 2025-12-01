@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 import { StudioProfile } from '../types';
 
@@ -17,6 +18,7 @@ interface DBProfile {
   brand_color?: string;
   is_admin?: boolean;
   is_active?: boolean;
+  settings?: any; // JSONB
 }
 
 // Converter do formato do App (camelCase) para o DB (snake_case)
@@ -33,7 +35,8 @@ const toDBProfile = (profile: Partial<StudioProfile>): Partial<DBProfile> => {
     logo_url: profile.logoUrl,
     brand_color: profile.brandColor,
     is_admin: profile.isAdmin,
-    is_active: profile.isActive
+    is_active: profile.isActive,
+    settings: profile.settings
   };
 };
 
@@ -53,7 +56,8 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
     logoUrl: dbProfile.logo_url || '',
     brandColor: dbProfile.brand_color || '#14b8a6',
     isAdmin: dbProfile.is_admin || false,
-    isActive: dbProfile.is_active !== false // Default true se null
+    isActive: dbProfile.is_active !== false,
+    settings: dbProfile.settings || { instructor_permissions: { rehab: true, newsletters: true, students: true } }
   };
 };
 
