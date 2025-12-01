@@ -28,7 +28,7 @@ export const fetchStudents = async (): Promise<Student[]> => {
     return data.map((item: any) => ({
       id: item.id,
       userId: item.user_id,
-      authUserId: item.auth_user_id, // Novo campo
+      authUserId: item.auth_user_id, 
       name: item.name,
       email: item.email || '',
       phone: item.phone || '',
@@ -77,11 +77,13 @@ export const createStudentWithAuth = async (
       return { success: false, error: "Senha deve ter no mínimo 6 caracteres." };
     }
 
+    // Verifica se as chaves estão disponíveis (importadas de services/supabase.ts)
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      return { success: false, error: "Configuração inválida." };
+      return { success: false, error: "Configuração do Supabase inválida (URL/Key)." };
     }
     
     // Cliente temporário para não deslogar o dono
+    // Usamos persistSession: false para garantir isolamento
     const tempClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         persistSession: false,
@@ -98,22 +100,27 @@ export const createStudentWithAuth = async (
 
     if (authError) {
       if (authError.message.includes("already registered")) {
-         return { success: false, error: "Email já cadastrado." };
+         return { success: false, error: "Este email já possui uma conta no sistema." };
       }
       return { success: false, error: authError.message };
     }
 
     const newUserId = authData.user?.id;
-    if (!newUserId) return { success: false, error: "Erro ao criar ID de login." };
+    
+    if (!newUserId) {
+        // Se o auto-confirm estiver desligado, o ID pode vir, mas o login não estará ativo.
+        // Em alguns casos, o user pode vir null se houver erro silencioso.
+        return { success: false, error: "Erro ao criar ID de login. Verifique se o email é válido." };
+    }
 
-    // Vincula na tabela students
+    // Vincula na tabela students usando o cliente principal (autenticado como dono/instrutor)
     const { error: dbError } = await supabase
       .from('students')
       .update({ auth_user_id: newUserId })
       .eq('id', studentId);
 
     if (dbError) {
-      return { success: false, error: "Login criado, mas falha ao vincular: " + dbError.message };
+      return { success: false, error: "Login criado, mas falha ao vincular no aluno: " + dbError.message };
     }
 
     return { success: true };

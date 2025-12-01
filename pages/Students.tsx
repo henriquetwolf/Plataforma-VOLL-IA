@@ -16,11 +16,13 @@ export const Students: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   
   const [editingId, setEditingId] = useState<string | null>(null);
+  
+  // Detalhes do Aluno e Histórico Clínico
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [studentLessons, setStudentLessons] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // Estados para Modal de Acesso
+  // Estados para Modal de Acesso (Aluno)
   const [accessModalOpen, setAccessModalOpen] = useState(false);
   const [accessStudent, setAccessStudent] = useState<Student | null>(null);
   const [accessPassword, setAccessPassword] = useState('');
@@ -134,7 +136,7 @@ export const Students: React.FC = () => {
     setIsCreatingAccess(false);
 
     if (result.success) {
-      alert(`Acesso criado com sucesso para ${accessStudent.name}!\n\nLogin: ${accessStudent.email}\nSenha: ${accessPassword}`);
+      alert(`Acesso criado com sucesso para ${accessStudent.name}!\n\nLogin: ${accessStudent.email}\nSenha: ${accessPassword}\n\nEnvie esses dados para o aluno.`);
       setAccessModalOpen(false);
       loadStudents();
     } else {
@@ -147,7 +149,7 @@ export const Students: React.FC = () => {
     student.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Modal de Detalhes
+  // Modal de Detalhes (mantido, mas com botão de acesso dentro também)
   if (selectedStudent) {
     return (
       <div className="space-y-6 animate-in fade-in">
