@@ -26,8 +26,7 @@ export const InstructorNewsletters: React.FC = () => {
       if (!user) return;
 
       if (!user.isInstructor) {
-        // Owner logic if needed, but this page is typically for instructors
-        // Assuming owner can view it for testing or reuse
+        // Owner logic if needed
         setIsAuthorized(true);
         setCheckingAuth(false);
         return;
@@ -36,6 +35,7 @@ export const InstructorNewsletters: React.FC = () => {
       if (user.isInstructor && user.studioId) {
         try {
           const profile = await fetchProfile(user.studioId);
+          // Strict check
           if (profile && profile.settings?.instructor_permissions?.newsletters === true) {
             setIsAuthorized(true);
           } else {

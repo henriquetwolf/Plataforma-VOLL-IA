@@ -56,6 +56,7 @@ export const Students: React.FC = () => {
       if (user.isInstructor && user.studioId) {
         try {
           const profile = await fetchProfile(user.studioId);
+          // O permission check deve ser strict
           if (profile && profile.settings?.instructor_permissions?.students === true) {
             setIsAuthorized(true);
           } else {
