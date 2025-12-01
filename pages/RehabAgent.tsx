@@ -3,13 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchPathologyData, fetchLessonPlan, regenerateSingleExercise, handleGeminiError } from '../services/geminiService';
 import { saveRehabLesson, fetchRehabLessons, deleteRehabLesson } from '../services/rehabService';
-import { saveStudioExercise, fetchStudioExercises, deleteStudioExercise } from '../services/exerciseService';
+import { saveStudioExercise, fetchStudioExercises, deleteStudioExercise, updateStudioExercise, createStudioExercise, uploadExerciseImage } from '../services/exerciseService';
 import { fetchStudents } from '../services/studentService';
 import { PathologyResponse, LessonPlanResponse, LoadingState, SavedRehabLesson, LessonExercise, ChatMessage, Student, StudioExercise } from '../types';
 import { AssessmentModal } from '../components/rehab/AssessmentModal';
 import { ResultCard, LessonPlanView } from '../components/rehab/RehabResults';
 import { Button } from '../components/ui/Button';
-import { Search, History, BookOpen, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, User, ChevronRight, Folder, Bookmark, Dumbbell, Filter } from 'lucide-react';
+import { Input } from '../components/ui/Input';
+import { Search, History, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, User, ChevronRight, Folder, Dumbbell, Filter, Plus, Pencil, X, Upload, ImageIcon } from 'lucide-react';
 
 const COMMON_SUGGESTIONS = [
   "Hérnia de Disco L5-S1", "Dor Lombar Crônica", "Ombro Rígido", "Condromalácia", "Cervicalgia", "Fascite Plantar"
@@ -42,22 +43,28 @@ export const RehabAgent: React.FC = () => {
   // Exercise Bank State
   const [savedExercises, setSavedExercises] = useState<StudioExercise[]>([]);
   const [bankEquipmentFilter, setBankEquipmentFilter] = useState('All');
+  
+  // Exercise Modal State
+  const [isExerciseModalOpen, setIsExerciseModalOpen] = useState(false);
+  const [editingExercise, setEditingExercise] = useState<StudioExercise | null>(null);
+  const [exerciseFormData, setExerciseFormData] = useState<Partial<StudioExercise>>({});
+  const [exerciseImageFile, setExerciseImageFile] = useState<File | null>(null);
+  const [exerciseImagePreview, setExerciseImagePreview] = useState<string | null>(null);
+  const [isExerciseSaving, setIsExerciseSaving] = useState(false);
 
   useEffect(() => { 
     loadHistory();
     loadStudents();
   }, []);
 
-  // Carrega exercícios do banco quando a aba é ativada
   useEffect(() => {
-    if (activeTab === 'bank' && user?.isInstructor ? user.studioId : user?.id) {
+    if (activeTab === 'bank' && (user?.isInstructor || user?.id)) {
       loadBank();
     }
   }, [activeTab, user]);
 
   const loadHistory = async () => { 
     const data = await fetchRehabLessons(); 
-    // Garante que nomes nulos virem string para evitar erro na filtragem da pasta
     setSavedLessons(data.map(d => ({ ...d, patientName: d.patientName || 'Sem Nome' }))); 
   };
   
@@ -134,7 +141,7 @@ export const RehabAgent: React.FC = () => {
     const result = await saveStudioExercise(ownerId, exercise, comments);
     if (result.success) {
       alert("Exercício salvo no banco com sucesso!");
-      loadBank(); // Atualiza em background se estiver carregado
+      loadBank();
       return true;
     } else {
       alert("Erro ao salvar: " + result.error);
@@ -155,14 +162,69 @@ export const RehabAgent: React.FC = () => {
     setCurrentStudent(student);
   };
 
+  // --- Modal Logic ---
+  const openExerciseModal = (exercise?: StudioExercise) => {
+    if (exercise) {
+      setEditingExercise(exercise);
+      setExerciseFormData({ ...exercise });
+      setExerciseImagePreview(exercise.imageUrl || null);
+    } else {
+      setEditingExercise(null);
+      setExerciseFormData({ name: '', equipment: 'Mat (Solo)', focus: '', reps: '', description: '', instructorComments: '' });
+      setExerciseImagePreview(null);
+    }
+    setExerciseImageFile(null);
+    setIsExerciseModalOpen(true);
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setExerciseImageFile(file);
+      setExerciseImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleSaveExerciseForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const ownerId = user?.isInstructor ? user.studioId : user?.id;
+    if (!ownerId || !exerciseFormData.name) return;
+
+    setIsExerciseSaving(true);
+    try {
+      let imageUrl = exerciseFormData.imageUrl;
+
+      // Upload image if selected
+      if (exerciseImageFile) {
+        const url = await uploadExerciseImage(ownerId, exerciseImageFile);
+        if (url) imageUrl = url;
+      }
+
+      const finalData = { ...exerciseFormData, imageUrl };
+
+      if (editingExercise) {
+        await updateStudioExercise(editingExercise.id, finalData);
+      } else {
+        await createStudioExercise(ownerId, finalData);
+      }
+      
+      loadBank();
+      setIsExerciseModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao salvar exercício.");
+    } finally {
+      setIsExerciseSaving(false);
+    }
+  };
+
   const studentsWithLessons = Array.from(new Set(savedLessons.map(l => l.patientName))).sort();
 
   const filteredBankExercises = bankEquipmentFilter === 'All' 
     ? savedExercises 
     : savedExercises.filter(ex => ex.equipment === bankEquipmentFilter);
 
-  // Get unique equipments for filter
-  const bankEquipments = Array.from(new Set(savedExercises.map(e => e.equipment))).sort();
+  const bankEquipments = Array.from(new Set([...EQUIPMENTS, ...savedExercises.map(e => e.equipment)])).sort();
 
   if (showHistory) {
     return (
@@ -228,8 +290,8 @@ export const RehabAgent: React.FC = () => {
                     setLessonData(l); 
                     setQuery(l.pathologyName); 
                     setLessonStatus(LoadingState.SUCCESS); 
-                    setRefStatus(LoadingState.IDLE); // Reset ref status
-                    setRefData(null); // Clear ref data so we don't show old stuff
+                    setRefStatus(LoadingState.IDLE);
+                    setRefData(null);
                     setActiveTab('lesson'); 
                     setShowHistory(false); 
                     setSelectedStudentFilter(null); 
@@ -366,7 +428,7 @@ export const RehabAgent: React.FC = () => {
                 <LessonPlanView 
                   plan={lessonData} 
                   studentId={currentStudent?.id}
-                  studentName={(lessonData as any).patientName || currentStudent?.name} // Usa o nome salvo se disponível
+                  studentName={(lessonData as any).patientName || currentStudent?.name}
                   onSaveLesson={handleSaveLesson} 
                   onSaveToBank={handleSaveToBank}
                   onRegenerateExercise={async (idx, ex) => { 
@@ -387,46 +449,60 @@ export const RehabAgent: React.FC = () => {
 
           {activeTab === 'bank' && (
             <div className="animate-in fade-in space-y-6">
-              <div className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+              <div className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm gap-4">
                 <div className="mb-4 md:mb-0">
                   <h3 className="font-bold text-lg text-slate-900 dark:text-white">Biblioteca do Studio</h3>
                   <p className="text-sm text-slate-500">{filteredBankExercises.length} exercícios salvos</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-slate-400" />
-                  <select 
-                    className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500"
-                    value={bankEquipmentFilter}
-                    onChange={(e) => setBankEquipmentFilter(e.target.value)}
-                  >
-                    <option value="All">Todos Equipamentos</option>
-                    {bankEquipments.map(eq => <option key={eq} value={eq}>{eq}</option>)}
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-4 h-4 text-slate-400" />
+                    <select 
+                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500"
+                      value={bankEquipmentFilter}
+                      onChange={(e) => setBankEquipmentFilter(e.target.value)}
+                    >
+                      <option value="All">Todos Equipamentos</option>
+                      {bankEquipments.map(eq => <option key={eq} value={eq}>{eq}</option>)}
+                    </select>
+                  </div>
+                  <Button onClick={() => openExerciseModal()} size="sm" className="ml-2">
+                    <Plus className="w-4 h-4 mr-2" /> Novo Exercício
+                  </Button>
                 </div>
               </div>
 
               {filteredBankExercises.length === 0 ? (
                 <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
                   <Dumbbell className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                  <p className="text-slate-500">Nenhum exercício encontrado com este filtro.</p>
-                  <p className="text-xs text-slate-400 mt-2">Salve exercícios dos planos de aula para vê-los aqui.</p>
+                  <p className="text-slate-500">Nenhum exercício encontrado.</p>
+                  <Button variant="outline" onClick={() => openExerciseModal()} className="mt-4">Cadastrar Exercício</Button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredBankExercises.map((ex) => (
                     <div key={ex.id} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group">
-                      <div className="h-32 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center relative">
-                        <Dumbbell className="w-12 h-12 text-slate-300 dark:text-slate-600" />
-                        <span className="absolute top-2 right-2 bg-white dark:bg-slate-800 px-2 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-300 shadow-sm">
+                      <div className="h-48 bg-slate-100 dark:bg-slate-800 relative flex items-center justify-center overflow-hidden">
+                        {ex.imageUrl ? (
+                          <img src={ex.imageUrl} alt={ex.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <Dumbbell className="w-12 h-12 text-slate-300 dark:text-slate-600" />
+                        )}
+                        <span className="absolute top-2 right-2 bg-white/90 dark:bg-slate-900/90 px-2 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-300 shadow-sm backdrop-blur-sm">
                           {ex.equipment}
                         </span>
                       </div>
                       <div className="p-5">
                         <div className="flex justify-between items-start mb-2">
                           <h4 className="font-bold text-lg text-slate-900 dark:text-white leading-tight">{ex.name}</h4>
-                          <button onClick={() => handleDeleteExercise(ex.id)} className="text-slate-300 hover:text-red-500 transition-colors">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="flex gap-1">
+                            <button onClick={() => openExerciseModal(ex)} className="p-1.5 text-slate-300 hover:text-brand-600 hover:bg-brand-50 rounded transition-colors" title="Editar">
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleDeleteExercise(ex.id)} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Excluir">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                         
                         <div className="flex gap-2 mb-3">
@@ -465,6 +541,103 @@ export const RehabAgent: React.FC = () => {
         onCancel={() => setIsAssessmentOpen(false)} 
         initialHistory={assessmentHistory} 
       />
+
+      {/* Exercise Edit/Add Modal */}
+      {isExerciseModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                {editingExercise ? 'Editar Exercício' : 'Novo Exercício'}
+              </h3>
+              <button onClick={() => setIsExerciseModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveExerciseForm} className="space-y-4">
+              
+              {/* Image Upload */}
+              <div className="flex justify-center mb-4">
+                <div className="relative w-full h-48 bg-slate-100 dark:bg-slate-800 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors overflow-hidden group">
+                  {exerciseImagePreview ? (
+                    <>
+                      <img src={exerciseImagePreview} alt="Preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Pencil className="text-white w-8 h-8" />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center text-slate-400">
+                      <ImageIcon className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Clique para adicionar foto</p>
+                    </div>
+                  )}
+                  <input type="file" accept="image/*" onChange={handleImageChange} className="absolute inset-0 opacity-0 cursor-pointer" />
+                </div>
+              </div>
+
+              <Input 
+                label="Nome do Exercício" 
+                value={exerciseFormData.name || ''} 
+                onChange={e => setExerciseFormData({...exerciseFormData, name: e.target.value})} 
+                required 
+              />
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Equipamento</label>
+                  <select 
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 outline-none focus:ring-2 focus:ring-brand-500"
+                    value={exerciseFormData.equipment || ''}
+                    onChange={e => setExerciseFormData({...exerciseFormData, equipment: e.target.value})}
+                  >
+                    {bankEquipments.map(eq => <option key={eq} value={eq}>{eq}</option>)}
+                    <option value="Outros">Outros</option>
+                  </select>
+                </div>
+                <Input 
+                  label="Foco Muscular" 
+                  value={exerciseFormData.focus || ''} 
+                  onChange={e => setExerciseFormData({...exerciseFormData, focus: e.target.value})} 
+                />
+              </div>
+
+              <Input 
+                label="Série / Repetições" 
+                value={exerciseFormData.reps || ''} 
+                onChange={e => setExerciseFormData({...exerciseFormData, reps: e.target.value})} 
+                placeholder="Ex: 3x 10"
+              />
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Descrição / Instruções</label>
+                <textarea 
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 outline-none focus:ring-2 focus:ring-brand-500 h-24 resize-none"
+                  value={exerciseFormData.description || ''}
+                  onChange={e => setExerciseFormData({...exerciseFormData, description: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Comentários Pessoais</label>
+                <textarea 
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 outline-none focus:ring-2 focus:ring-brand-500 h-16 resize-none"
+                  value={exerciseFormData.instructorComments || ''}
+                  onChange={e => setExerciseFormData({...exerciseFormData, instructorComments: e.target.value})}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="ghost" onClick={() => setIsExerciseModalOpen(false)}>Cancelar</Button>
+                <Button type="submit" isLoading={isExerciseSaving}>
+                  {editingExercise ? 'Salvar Alterações' : 'Cadastrar'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
