@@ -70,9 +70,16 @@ export const RehabAgent: React.FC = () => {
     setRefStatus(LoadingState.LOADING);
     try {
       const data = await fetchPathologyData(q, selectedEquipment, history);
-      if (data) { setRefData(data); setRefStatus(LoadingState.SUCCESS); } else { throw new Error("Vazio"); }
+      if (data) { 
+        setRefData(data); 
+        setRefStatus(LoadingState.SUCCESS); 
+      } else { 
+        // Em vez de lançar erro manual, apenas define status de erro se realmente não vier dados
+        throw new Error("Não foi possível obter dados. Tente novamente.");
+      }
     } catch (err: any) {
-      setRefStatus(LoadingState.ERROR); setErrorHtml(handleGeminiError(err));
+      setRefStatus(LoadingState.ERROR); 
+      setErrorHtml(handleGeminiError(err));
     }
   };
 
@@ -265,7 +272,20 @@ export const RehabAgent: React.FC = () => {
           )}
           {activeTab === 'lesson' && (
             <div className="animate-in fade-in">
-              {lessonStatus === LoadingState.LOADING ? <div className="text-center py-12"><Loader2 className="h-10 w-10 animate-spin mx-auto text-brand-500"/><p>Gerando aula...</p></div> : lessonData ? <LessonPlanView plan={lessonData} onSaveLesson={handleSaveLesson} onRegenerateExercise={async (idx, ex) => { const newEx = await regenerateSingleExercise(query, ex, selectedEquipment); const newExs = [...lessonData.exercises]; newExs[idx] = newEx; setLessonData({...lessonData, exercises: newExs}); }} /> : null}
+              {lessonStatus === LoadingState.LOADING ? <div className="text-center py-12"><Loader2 className="h-10 w-10 animate-spin mx-auto text-brand-500"/><p>Gerando aula...</p></div> : lessonData ? (
+                <LessonPlanView 
+                  plan={lessonData} 
+                  studentId={currentStudent?.id}
+                  studentName={currentStudent?.name}
+                  onSaveLesson={handleSaveLesson} 
+                  onRegenerateExercise={async (idx, ex) => { 
+                    const newEx = await regenerateSingleExercise(query, ex, selectedEquipment); 
+                    const newExs = [...lessonData.exercises]; 
+                    newExs[idx] = newEx; 
+                    setLessonData({...lessonData, exercises: newExs}); 
+                  }} 
+                />
+              ) : null}
             </div>
           )}
         </div>

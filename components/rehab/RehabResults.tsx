@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { PathologyResponse, LessonPlanResponse, LessonExercise, Student } from '../../types';
 import { Button } from '../ui/Button';
@@ -50,25 +49,33 @@ export const ResultCard: React.FC<ResultCardProps> = ({ title, type, items }) =>
 // --- LESSON PLAN VIEW ---
 interface LessonPlanProps {
   plan: LessonPlanResponse;
+  studentId?: string;
+  studentName?: string;
   onSaveLesson: (name: string, patient: string, exercises: LessonExercise[], studentId?: string) => void;
   onRegenerateExercise: (index: number, exercise: LessonExercise) => void;
 }
 
-export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, onSaveLesson, onRegenerateExercise }) => {
+export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, studentId, studentName, onSaveLesson, onRegenerateExercise }) => {
   const [exercises, setExercises] = useState(plan.exercises);
   const [customTitle, setCustomTitle] = useState(`${plan.pathologyName} - Aula 1`);
   
   // Estado para seleção de aluno
   const [students, setStudents] = useState<Student[]>([]);
-  const [selectedStudentId, setSelectedStudentId] = useState('');
-  const [patientName, setPatientName] = useState('');
+  const [selectedStudentId, setSelectedStudentId] = useState(studentId || '');
+  const [patientName, setPatientName] = useState(studentName || '');
 
   // Carregar alunos ao montar
   useEffect(() => {
     fetchStudents().then(data => setStudents(data));
   }, []);
 
-  // Atualizar nome quando selecionar aluno
+  // Atualizar quando props mudam
+  useEffect(() => {
+    if (studentId) setSelectedStudentId(studentId);
+    if (studentName) setPatientName(studentName);
+  }, [studentId, studentName]);
+
+  // Atualizar nome quando selecionar aluno manualmente
   const handleStudentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = e.target.value;
     setSelectedStudentId(id);

@@ -12,7 +12,16 @@ const ai = new GoogleGenAI({ apiKey: apiKey || '' });
 const cleanAndParseJSON = (text: string) => {
   try {
     if (!text) return null;
+    // Remove markdown code blocks if present
     let cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    // Locate the first '{' and last '}' to handle potential preamble text
+    const firstBrace = cleanText.indexOf('{');
+    const lastBrace = cleanText.lastIndexOf('}');
+    
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      cleanText = cleanText.substring(firstBrace, lastBrace + 1);
+    }
+    
     return JSON.parse(cleanText);
   } catch (e) {
     console.error("Erro ao fazer parse do JSON da IA:", e);
@@ -52,7 +61,7 @@ export const handleGeminiError = (error: any): string => {
     return `<div class="bg-yellow-50 border-l-4 border-yellow-500 p-4">⚠️ Chave de API não configurada no Vercel.</div>`;
   }
 
-  return `<div class="bg-orange-50 border-l-4 border-orange-500 p-4">Erro na IA: ${errMsg.substring(0, 100)}...</div>`;
+  return `<div class="bg-orange-50 border-l-4 border-orange-500 p-4">Erro na IA: ${errMsg.substring(0, 100)}... Tente novamente.</div>`;
 };
 
 // --- NEWSLETTER AGENT ---
@@ -103,7 +112,7 @@ export const generateNewsletter = async (
     });
 
     const text = response.text;
-    if (!text) return null;
+    if (!text) throw new Error("A IA retornou vazio.");
     
     return cleanAndParseJSON(text);
   } catch (error) {
@@ -252,8 +261,13 @@ export const fetchPathologyData = async (query: string, equipments: string[], hi
       contents: prompt,
       config: { responseMimeType: 'application/json' }
     });
-    return cleanAndParseJSON(res.text || 'null');
-  } catch (e) { return null; }
+    const parsed = cleanAndParseJSON(res.text || '');
+    if (!parsed) throw new Error("Falha ao analisar resposta da IA");
+    return parsed;
+  } catch (e) { 
+    console.error("fetchPathologyData error:", e);
+    throw e;
+  }
 };
 
 export const fetchLessonPlan = async (pathology: string, equipments: string[], history?: ChatMessage[], studentObs?: string) => {
@@ -261,14 +275,15 @@ export const fetchLessonPlan = async (pathology: string, equipments: string[], h
   const prompt = `
     Crie um Plano de Aula de Pilates Rehab Completo.
     Patologia/Foco: "${pathology}".
-    Equipamentos: ${equipments.join(', ')}.
+    Equipamentos Disponíveis: ${equipments.join(', ')}.
     Detalhes da Triagem (Mentor/Instrutor): ${JSON.stringify(history || [])}.
-    ${studentObs ? `OBSERVAÇÕES DO CADASTRO DO ALUNO: "${studentObs}". (Considere isso rigorosamente).` : ''}
+    ${studentObs ? `OBSERVAÇÕES DO ALUNO (Cadastro): "${studentObs}". LEVE ISSO EM CONSIDERAÇÃO RIGOROSAMENTE.` : ''}
     
-    REQUISITOS:
+    REQUISITOS OBRIGATÓRIOS:
     1. A aula deve conter de **8 a 12 exercícios**.
-    2. Estruture com progressão lógica (Aquecimento -> Principal -> Desaquecimento).
-    3. Inclua exercícios variados nos equipamentos disponíveis.
+    2. **Use no máximo 2 tipos de equipamentos** diferentes da lista fornecida para facilitar a logística da aula (ex: Só Mat e Reformer, ou só Chair e Cadillac).
+    3. Estruture com progressão lógica (Aquecimento -> Principal -> Desaquecimento).
+    4. Inclua exercícios variados.
     
     Retorne JSON: {
       "pathologyName": "${pathology}",
@@ -285,8 +300,13 @@ export const fetchLessonPlan = async (pathology: string, equipments: string[], h
       contents: prompt,
       config: { responseMimeType: 'application/json' }
     });
-    return cleanAndParseJSON(res.text || 'null');
-  } catch (e) { return null; }
+    const parsed = cleanAndParseJSON(res.text || '');
+    if (!parsed) throw new Error("Falha ao analisar resposta da IA (Plano de Aula)");
+    return parsed;
+  } catch (e) { 
+    console.error("fetchLessonPlan error:", e);
+    throw e; 
+  }
 };
 
 export const regenerateSingleExercise = async (pathology: string, currentExercise: any, equipments: string[]) => {
