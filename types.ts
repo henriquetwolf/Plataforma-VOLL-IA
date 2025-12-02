@@ -1,4 +1,5 @@
 
+
 export interface User {
   id: string;
   dbId?: string; // ID interno do banco de dados (PK da tabela students/instructors)
@@ -10,6 +11,12 @@ export interface User {
   isStudent?: boolean; 
   isOwner?: boolean; // Novo flag para segurança estrita
   studioId?: string; 
+}
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  maxStudents: number;
 }
 
 export interface StudioProfile {
@@ -27,7 +34,10 @@ export interface StudioProfile {
   brandColor?: string;
   isAdmin: boolean; 
   isActive: boolean;
-  maxStudents?: number; // Limite do plano
+  maxStudents?: number; // Mantido para legado ou override manual se necessário
+  planId?: string; // ID do Plano vinculado
+  planName?: string; // Nome do plano (join)
+  planLimit?: number; // Limite do plano (join)
   settings?: {
     sender_email?: string; // Email configurado para envios (Gmail)
     instructor_permissions?: {

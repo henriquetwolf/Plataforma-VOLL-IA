@@ -1,6 +1,7 @@
 
+
 import { supabase } from './supabase';
-import { StudioProfile } from '../types';
+import { StudioProfile, SubscriptionPlan } from '../types';
 
 // Mapeamento de tipos para coincidir com o banco de dados (snake_case)
 interface DBProfile {
@@ -18,8 +19,14 @@ interface DBProfile {
   brand_color?: string;
   is_admin?: boolean;
   is_active?: boolean;
-  max_students?: number; // Novo campo
+  max_students?: number; 
+  plan_id?: string;
   settings?: any; // JSONB
+  // Join fields
+  subscription_plans?: {
+    name: string;
+    max_students: number;
+  }
 }
 
 // Converter do formato do App (camelCase) para o DB (snake_case)
@@ -36,7 +43,8 @@ const toDBProfile = (profile: Partial<StudioProfile>): Partial<DBProfile> => {
     logo_url: profile.logoUrl,
     brand_color: profile.brandColor,
     is_admin: profile.isAdmin,
-    max_students: profile.maxStudents, // Mapeamento novo
+    max_students: profile.maxStudents, 
+    plan_id: profile.planId, // Mapeamento novo
     // REMOVIDO: is_active não deve ser atualizado por aqui para evitar que 
     // o usuário sobrescreva o bloqueio do admin ao salvar o perfil.
     settings: profile.settings
@@ -63,7 +71,6 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
   };
 
   // Lógica defensiva para is_active
-  // Se for explicitamente false, é false. Se for null/undefined/true, é true.
   const isActive = dbProfile.is_active !== false;
 
   return {
@@ -82,6 +89,9 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
     isAdmin: dbProfile.is_admin || false,
     isActive: isActive, 
     maxStudents: dbProfile.max_students,
+    planId: dbProfile.plan_id,
+    planName: dbProfile.subscription_plans?.name,
+    planLimit: dbProfile.subscription_plans?.max_students,
     settings: settings
   };
 };
@@ -90,15 +100,11 @@ export const fetchProfile = async (userId: string): Promise<StudioProfile | null
   try {
     const { data, error } = await supabase
       .from('studio_profiles')
-      .select('*')
+      .select('*, subscription_plans(name, max_students)')
       .eq('user_id', userId)
       .maybeSingle();
 
     if (error) {
-      if (error.code === '42P17') {
-        console.warn('Infinite recursion in RLS policy detected. Check Supabase policies.');
-        return null;
-      }
       console.error('Error fetching profile for user', userId, ':', JSON.stringify(error));
       return null;
     }
@@ -165,13 +171,51 @@ export const uploadLogo = async (userId: string, file: File): Promise<string | n
   }
 };
 
+// --- PLANOS DE ASSINATURA ---
+
+export const fetchSubscriptionPlans = async (): Promise<SubscriptionPlan[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('subscription_plans')
+      .select('*')
+      .order('max_students', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching plans:', error);
+      return [];
+    }
+
+    return data.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      maxStudents: p.max_students
+    }));
+  } catch (err) {
+    return [];
+  }
+};
+
+export const updateSubscriptionPlan = async (id: string, maxStudents: number): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { error } = await supabase
+      .from('subscription_plans')
+      .update({ max_students: maxStudents })
+      .eq('id', id);
+
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+};
+
 // --- FUNÇÕES ADMIN ---
 
 export const fetchAllProfiles = async (): Promise<{ data: StudioProfile[], error: any }> => {
   try {
     const { data, error } = await supabase
       .from('studio_profiles')
-      .select('*')
+      .select('*, subscription_plans(name, max_students)')
       .order('created_at', { ascending: false });
 
     if (error) {

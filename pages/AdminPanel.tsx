@@ -1,12 +1,14 @@
 
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { fetchAllProfiles, toggleUserStatus, adminResetPassword, upsertProfile } from '../services/storage';
+import { fetchAllProfiles, toggleUserStatus, adminResetPassword, upsertProfile, fetchSubscriptionPlans, updateSubscriptionPlan } from '../services/storage';
 import { fetchInstructors, toggleInstructorStatus } from '../services/instructorService';
 import { fetchStudents, revokeStudentAccess } from '../services/studentService';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save } from 'lucide-react';
+import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X } from 'lucide-react';
+import { SubscriptionPlan } from '../types';
 
 const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
 
@@ -18,7 +20,9 @@ interface AdminUserView {
   role: 'owner' | 'instructor' | 'student';
   isActive: boolean;
   contextInfo?: string; // Studio name or Owner name
-  maxStudents?: number; // Only for owners
+  maxStudents?: number; // Only for owners (legacy)
+  planId?: string; // ID do plano
+  planName?: string; // Nome do plano
 }
 
 export const AdminPanel: React.FC = () => {
@@ -39,8 +43,14 @@ export const AdminPanel: React.FC = () => {
 
   // Owner Drill Down View
   const [viewingOwner, setViewingOwner] = useState<AdminUserView | null>(null);
-  const [ownerPlanLimit, setOwnerPlanLimit] = useState<number | undefined>(undefined);
+  const [ownerPlanId, setOwnerPlanId] = useState<string | undefined>(undefined);
   const [savingPlan, setSavingPlan] = useState(false);
+
+  // Plans Management
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [showPlansModal, setShowPlansModal] = useState(false);
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [editPlanLimit, setEditPlanLimit] = useState<number>(0);
 
   const loadData = async () => {
     setLoading(true);
@@ -48,6 +58,10 @@ export const AdminPanel: React.FC = () => {
     const usersList: AdminUserView[] = [];
 
     try {
+      // 0. Fetch Plans
+      const plansData = await fetchSubscriptionPlans();
+      setPlans(plansData);
+
       // 1. Fetch Owners (Studio Profiles)
       const { data: profiles, error: profileError } = await fetchAllProfiles();
       if (profileError) throw profileError;
@@ -61,7 +75,9 @@ export const AdminPanel: React.FC = () => {
           role: 'owner',
           isActive: p.isActive,
           contextInfo: p.studioName,
-          maxStudents: p.maxStudents
+          maxStudents: p.maxStudents,
+          planId: p.planId,
+          planName: p.planName || (p.planId ? 'Plano ID ' + p.planId : 'Sem Plano')
         });
       });
 
@@ -156,8 +172,6 @@ export const AdminPanel: React.FC = () => {
     }
 
     setResetting(true);
-    // Para Donos, targetId é o userId (auth id), que é o que precisamos.
-    // O RPC update_user_password espera o ID da tabela auth.users.
     let targetAuthId = resetModalUser.targetId;
     
     const result = await adminResetPassword(targetAuthId, newPassword);
@@ -174,52 +188,73 @@ export const AdminPanel: React.FC = () => {
 
   const openViewDetails = (owner: AdminUserView) => {
     setViewingOwner(owner);
-    setOwnerPlanLimit(owner.maxStudents);
+    // Use planId if available, otherwise undefined
+    setOwnerPlanId(owner.planId);
   };
 
-  const handleSavePlanLimit = async () => {
+  const handleSavePlanAssignment = async () => {
     if (!viewingOwner) return;
     setSavingPlan(true);
     
     const result = await upsertProfile(viewingOwner.targetId, {
-      maxStudents: ownerPlanLimit
+      planId: ownerPlanId
     });
 
     if (result.success) {
       alert("Plano atualizado com sucesso!");
       // Update local state
-      setAllUsers(prev => prev.map(u => u.id === viewingOwner.id ? { ...u, maxStudents: ownerPlanLimit } : u));
+      const selectedPlan = plans.find(p => p.id === ownerPlanId);
+      setAllUsers(prev => prev.map(u => 
+        u.id === viewingOwner.id 
+          ? { ...u, planId: ownerPlanId, planName: selectedPlan?.name } 
+          : u
+      ));
     } else {
       alert("Erro ao salvar plano: " + result.error);
     }
     setSavingPlan(false);
   };
 
+  const handleUpdatePlanLimit = async (planId: string) => {
+    if (editPlanLimit <= 0) return;
+    
+    const result = await updateSubscriptionPlan(planId, editPlanLimit);
+    if (result.success) {
+        setPlans(prev => prev.map(p => p.id === planId ? { ...p, maxStudents: editPlanLimit } : p));
+        setEditingPlanId(null);
+    } else {
+        alert("Erro ao atualizar plano: " + result.error);
+    }
+  };
+
   const copySql = () => {
     const sql = `
--- GARANTIR COLUNA IS_ACTIVE E MAX_STUDENTS
-ALTER TABLE studio_profiles 
-ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE,
-ADD COLUMN IF NOT EXISTS max_students INTEGER;
+-- GARANTIR TABELAS E COLUNAS
+create table if not exists subscription_plans (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  max_students int not null,
+  created_at timestamptz default now()
+);
 
--- Função Helper para pegar ID por email (Segurança)
-create or replace function get_user_id_by_email(email_input text)
-returns uuid language plpgsql security definer as $$
-begin
-  return (select id from auth.users where email = email_input);
-end;
-$$;
+alter table studio_profiles 
+add column if not exists is_active BOOLEAN DEFAULT TRUE,
+add column if not exists plan_id uuid references subscription_plans(id);
 
--- Função para atualizar senha (ADMIN RPC)
-create or replace function update_user_password(target_id uuid, new_password text)
-returns void language plpgsql security definer set search_path = extensions, public, auth as $$
-begin
-  update auth.users set encrypted_password = crypt(new_password, gen_salt('bf')) where id = target_id;
-end;
-$$;
+alter table subscription_plans enable row level security;
+create policy "Anyone can read plans" on subscription_plans for select to authenticated using (true);
+create policy "Admins can update plans" on subscription_plans for update to authenticated using (true) with check (true);
+
+-- Insert Default Plans if empty
+insert into subscription_plans (name, max_students) 
+select 'Plano 1', 50 where not exists (select 1 from subscription_plans where name = 'Plano 1');
+insert into subscription_plans (name, max_students) 
+select 'Plano 2', 100 where not exists (select 1 from subscription_plans where name = 'Plano 2');
+insert into subscription_plans (name, max_students) 
+select 'Plano 3', 200 where not exists (select 1 from subscription_plans where name = 'Plano 3');
     `;
     navigator.clipboard.writeText(sql.trim());
-    alert('SQL copiado! Cole no SQL Editor do Supabase para ativar as novas funções.');
+    alert('SQL copiado!');
   };
 
   const filteredUsers = allUsers.filter(u => {
@@ -248,6 +283,8 @@ $$;
 
   // --- DRILL DOWN VIEW (DETALHES DO DONO) ---
   if (viewingOwner) {
+    const currentPlanDetails = plans.find(p => p.id === ownerPlanId);
+    
     return (
       <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in">
         <div className="flex items-center gap-4 border-b pb-4 mb-4">
@@ -263,22 +300,27 @@ $$;
         {/* Plan Settings */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-white flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-brand-600"/> Plano do Studio
+            <Crown className="w-5 h-5 text-yellow-500"/> Assinatura e Limites
           </h3>
-          <div className="flex items-end gap-4 max-w-md">
+          <div className="flex items-end gap-4 max-w-lg">
             <div className="flex-1">
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Limite de Alunos</label>
-              <Input 
-                type="number" 
-                value={ownerPlanLimit || ''} 
-                onChange={e => setOwnerPlanLimit(e.target.value ? parseInt(e.target.value) : undefined)} 
-                placeholder="Ilimitado"
-                className="mb-0"
-              />
-              <p className="text-xs text-slate-500 mt-1">Deixe em branco para ilimitado.</p>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Plano Selecionado</label>
+              <select 
+                className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 focus:ring-2 focus:ring-brand-500 outline-none"
+                value={ownerPlanId || ''}
+                onChange={e => setOwnerPlanId(e.target.value || undefined)}
+              >
+                <option value="">-- Sem Plano Definido --</option>
+                {plans.map(p => (
+                    <option key={p.id} value={p.id}>{p.name} (Max: {p.maxStudents} alunos)</option>
+                ))}
+              </select>
+              {currentPlanDetails && (
+                  <p className="text-xs text-green-600 mt-1 font-medium">Limite atual: {currentPlanDetails.maxStudents} alunos</p>
+              )}
             </div>
-            <Button onClick={handleSavePlanLimit} isLoading={savingPlan}>
-              <Save className="w-4 h-4 mr-2"/> Salvar Limite
+            <Button onClick={handleSavePlanAssignment} isLoading={savingPlan}>
+              <Save className="w-4 h-4 mr-2"/> Salvar Plano
             </Button>
           </div>
         </div>
@@ -308,9 +350,13 @@ $$;
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
             <div className="p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 font-bold flex justify-between">
               <span>Alunos ({linkedStudents.length})</span>
-              <span className={`text-xs px-2 py-1 rounded ${linkedStudents.length >= (ownerPlanLimit || 9999) ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                {linkedStudents.length} / {ownerPlanLimit || '∞'}
-              </span>
+              {currentPlanDetails ? (
+                  <span className={`text-xs px-2 py-1 rounded ${linkedStudents.length >= currentPlanDetails.maxStudents ? 'bg-red-100 text-red-700 font-bold' : 'bg-green-100 text-green-700'}`}>
+                    {linkedStudents.length} / {currentPlanDetails.maxStudents}
+                  </span>
+              ) : (
+                  <span className="text-xs text-slate-400 font-normal">Sem limite definido</span>
+              )}
             </div>
             <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-96 overflow-y-auto">
               {linkedStudents.length === 0 ? <p className="p-4 text-slate-500 text-sm">Nenhum aluno.</p> : linkedStudents.map(u => (
@@ -333,18 +379,21 @@ $$;
 
   // --- MAIN LIST VIEW ---
   return (
-    <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in">
+    <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in pb-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <ShieldAlert className="h-8 w-8 text-purple-600" /> Painel Admin Global
           </h1>
-          <p className="text-slate-500">Gestão completa de usuários da plataforma.</p>
+          <p className="text-slate-500">Gestão completa de usuários e planos.</p>
         </div>
         
         <div className="flex gap-2">
            <Button size="sm" variant="outline" onClick={copySql}>
-             <Database className="h-3 w-3 mr-2" /> SQL Plans
+             <Database className="h-3 w-3 mr-2" /> SQL Check
+           </Button>
+           <Button size="sm" variant="secondary" onClick={() => setShowPlansModal(true)}>
+             <Crown className="h-3 w-3 mr-2" /> Gerenciar Planos
            </Button>
            <Button onClick={loadData} disabled={loading}>
              {loading ? <Loader2 className="animate-spin h-4 w-4"/> : "Atualizar Lista"}
@@ -418,7 +467,7 @@ $$;
                 <tr>
                   <th className="px-6 py-4">Usuário</th>
                   <th className="px-6 py-4">Tipo</th>
-                  <th className="px-6 py-4">Contato</th>
+                  <th className="px-6 py-4">Info Extra</th>
                   <th className="px-6 py-4 text-center">Status</th>
                   <th className="px-6 py-4 text-right">Ação</th>
                 </tr>
@@ -428,17 +477,21 @@ $$;
                   <tr key={`${u.role}-${u.id}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-bold text-slate-900 dark:text-white text-base">{u.name}</div>
-                      {u.contextInfo && (
-                        <div className="text-xs text-slate-500 mt-0.5">{u.contextInfo}</div>
-                      )}
+                      <div className="flex items-center gap-2 text-slate-500 text-xs mt-0.5"><Mail className="h-3 w-3"/> {u.email}</div>
                     </td>
                     <td className="px-6 py-4">
                       {u.role === 'owner' && <span className="inline-flex items-center gap-1 bg-brand-100 text-brand-700 px-2 py-1 rounded text-xs font-bold"><Building2 className="w-3 h-3"/> Dono</span>}
                       {u.role === 'instructor' && <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold"><BookUser className="w-3 h-3"/> Instrutor</span>}
                       {u.role === 'student' && <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold"><GraduationCap className="w-3 h-3"/> Aluno</span>}
                     </td>
-                    <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                      <div className="flex items-center gap-2"><Mail className="h-3 w-3 text-slate-400"/> {u.email}</div>
+                    <td className="px-6 py-4 text-slate-600 dark:text-slate-300 text-xs">
+                        {u.role === 'owner' ? (
+                            <span className="flex items-center gap-1 font-medium bg-yellow-50 text-yellow-800 px-2 py-1 rounded w-fit">
+                                <Crown className="w-3 h-3"/> {u.planName || 'Sem Plano'}
+                            </span>
+                        ) : (
+                            <span className="opacity-70">{u.contextInfo}</span>
+                        )}
                     </td>
                     <td className="px-6 py-4 text-center">
                       {u.isActive ? (
@@ -520,6 +573,58 @@ $$;
               <Button onClick={handleResetPassword} isLoading={resetting}>Salvar Senha</Button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Plans Management Modal */}
+      {showPlansModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-xl p-6 border border-slate-200 dark:border-slate-800">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <Crown className="w-6 h-6 text-yellow-500"/> Gestão de Planos
+                    </h3>
+                    <button onClick={() => setShowPlansModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-6 h-6"/></button>
+                </div>
+
+                <div className="space-y-4">
+                    {plans.map(plan => (
+                        <div key={plan.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-100 dark:border-slate-800">
+                            <div>
+                                <h4 className="font-bold text-slate-800 dark:text-white">{plan.name}</h4>
+                                <p className="text-sm text-slate-500">ID: {plan.id}</p>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                {editingPlanId === plan.id ? (
+                                    <div className="flex items-center gap-2">
+                                        <input 
+                                            type="number" 
+                                            value={editPlanLimit} 
+                                            onChange={e => setEditPlanLimit(parseInt(e.target.value))}
+                                            className="w-24 p-2 rounded border border-brand-300 focus:ring-2 focus:ring-brand-500 outline-none text-center"
+                                        />
+                                        <Button size="sm" onClick={() => handleUpdatePlanLimit(plan.id)}>Salvar</Button>
+                                        <Button size="sm" variant="ghost" onClick={() => setEditingPlanId(null)}>Cancelar</Button>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-4">
+                                        <span className="font-mono bg-white dark:bg-slate-800 px-3 py-1 rounded border border-slate-200 dark:border-slate-700">
+                                            Max: <strong>{plan.maxStudents}</strong> alunos
+                                        </span>
+                                        <button onClick={() => { setEditingPlanId(plan.id); setEditPlanLimit(plan.maxStudents); }} className="text-brand-600 hover:text-brand-800 font-medium flex items-center gap-1 text-sm">
+                                            <Edit2 className="w-4 h-4"/> Editar
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                
+                <div className="mt-6 text-xs text-slate-400 text-center">
+                    Nota: Para criar novos planos, insira diretamente no banco de dados via SQL.
+                </div>
+            </div>
         </div>
       )}
     </div>

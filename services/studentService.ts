@@ -1,4 +1,5 @@
 
+
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase';
 import { Student } from '../types';
 import { createClient } from '@supabase/supabase-js';
@@ -77,11 +78,26 @@ export const createStudentWithAutoAuth = async (
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     // --- VERIFICAÇÃO DE PLANO DO STUDIO ---
-    // 1. Obter o perfil do studio para ver o limite
-    const profile = await fetchProfile(studioUserId);
-    const maxStudents = profile?.maxStudents;
+    // 1. Obter o perfil do studio E o limite do plano associado
+    const { data: profile, error: profileError } = await supabase
+        .from('studio_profiles')
+        .select('max_students, subscription_plans(max_students)')
+        .eq('user_id', studioUserId)
+        .single();
 
-    if (maxStudents !== undefined && maxStudents !== null) {
+    if (profileError) {
+        return { success: false, error: "Erro ao verificar plano do studio." };
+    }
+
+    // Prioriza o limite do PLANO. Se não tiver plano, usa o limite manual legado.
+    // Se ambos nulos, assume ilimitado (ou defina um padrão hardcoded se preferir).
+    // @ts-ignore
+    let limit = profile?.subscription_plans?.max_students;
+    if (limit === undefined || limit === null) {
+        limit = profile?.max_students;
+    }
+
+    if (limit !== undefined && limit !== null) {
         // 2. Contar alunos atuais
         const { count, error: countError } = await supabase
             .from('students')
@@ -89,13 +105,13 @@ export const createStudentWithAutoAuth = async (
             .eq('user_id', studioUserId);
         
         if (countError) {
-            return { success: false, error: "Erro ao verificar limite do plano." };
+            return { success: false, error: "Erro ao verificar contagem de alunos." };
         }
 
-        if (count !== null && count >= maxStudents) {
+        if (count !== null && count >= limit) {
             return { 
                 success: false, 
-                error: `Limite de alunos atingido (${maxStudents}). Entre em contato com o suporte para aumentar seu plano.` 
+                error: `Limite de alunos atingido (${limit}). Entre em contato com o suporte para alterar seu plano.` 
             };
         }
     }
