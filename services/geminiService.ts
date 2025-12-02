@@ -95,7 +95,7 @@ export const generatePilatesContentStream = async function* (request: ContentReq
         Endereço: ${request.studioInfo?.address || ''}
         Whatsapp: ${request.studioInfo?.whatsapp || ''}
 
-        ${request.modificationPrompt ? `IMPORTANTE - MODIFICAÇÃO SOLICITADA: ${request.modificationPrompt}` : ''}
+        ${request.modificationPrompt ? `IMPORTANTE - ALTERAÇÃO SOLICITADA PELO USUÁRIO: "${request.modificationPrompt}". Reescreva o conteúdo atendendo estritamente a este pedido.` : ''}
 
         Estrutura da Resposta:
         1. Headline (Título Chamativo)
@@ -123,6 +123,10 @@ export const generatePilatesImage = async (request: ContentRequest, dominantColo
 
     let prompt = `Uma foto profissional e inspiradora para um post de Pilates. Estilo: ${request.imageStyle}. Tema: ${request.theme}. Contexto: ${textContext.substring(0, 200)}.`;
     
+    if (request.modificationPrompt) {
+        prompt += ` IMPORTANTE - ALTERAÇÃO VISUAL: ${request.modificationPrompt}.`;
+    }
+
     if (dominantColors && dominantColors.length > 0) {
         prompt += ` Use cores harmoniosas com esta paleta: ${dominantColors.join(', ')}.`;
     }

@@ -29,7 +29,7 @@ import {
 } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Wand2, Calendar, Layout, Loader2, Sparkles, Copy, Trash2, Video, Image as ImageIcon, CheckCircle, Save, UserCircle, Eye, ArrowRight, X, Settings2 } from 'lucide-react';
+import { Wand2, Calendar, Layout, Loader2, Sparkles, Copy, Trash2, Video, Image as ImageIcon, CheckCircle, Save, UserCircle, Eye, ArrowRight, X, Settings2, RefreshCw, MessageSquarePlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 /*
@@ -92,6 +92,7 @@ export const ContentAgent: React.FC = () => {
     const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [loadingMessage, setLoadingMessage] = useState('');
+    const [modificationInput, setModificationInput] = useState('');
     
     // Planner Integration State
     const [generatingFromPlan, setGeneratingFromPlan] = useState<{planId: string, weekIdx: number, ideaIdx: number} | null>(null);
@@ -147,14 +148,16 @@ export const ContentAgent: React.FC = () => {
     };
 
     // --- GENERATOR LOGIC ---
-    const handleGenerate = async () => {
-        if (!request.theme) {
+    const handleGenerate = async (overrideRequest?: ContentRequest) => {
+        const activeRequest = { ...request, ...(overrideRequest || {}) };
+
+        if (!activeRequest.theme) {
             alert('Por favor, defina um tema.');
             return;
         }
         
         // Veo API Key Check for Video
-        if (['Reels', 'Video Curto', 'TikTok'].includes(request.format)) {
+        if (['Reels', 'Video Curto', 'TikTok'].includes(activeRequest.format)) {
             try {
                 if (!(window as any).aistudio || !await (window as any).aistudio.hasSelectedApiKey()) {
                     await (window as any).aistudio.openSelectKey();
@@ -181,7 +184,7 @@ export const ContentAgent: React.FC = () => {
 
         try {
             // Text
-            const stream = generatePilatesContentStream(request, systemInstruction);
+            const stream = generatePilatesContentStream(activeRequest, systemInstruction);
             let fullText = '';
             for await (const chunk of stream) {
                 fullText += chunk;
@@ -189,15 +192,15 @@ export const ContentAgent: React.FC = () => {
             }
 
             // Image
-            if (['Post Estático', 'Carrossel', 'Story'].includes(request.format)) {
+            if (['Post Estático', 'Carrossel', 'Story'].includes(activeRequest.format)) {
                 setLoadingMessage('Criando imagem...');
-                let img = await generatePilatesImage(request, null, fullText);
+                let img = await generatePilatesImage(activeRequest, null, fullText);
                 
                 // Apply Logo if enabled and available
-                if (img && request.logoConfig?.enabled && studioLogoUrl) {
+                if (img && activeRequest.logoConfig?.enabled && studioLogoUrl) {
                     setLoadingMessage('Aplicando logo...');
                     try {
-                        img = await compositeImageWithLogo(img, studioLogoUrl, request.logoConfig);
+                        img = await compositeImageWithLogo(img, studioLogoUrl, activeRequest.logoConfig);
                     } catch (logoErr) {
                         console.error("Failed to apply logo", logoErr);
                     }
@@ -207,7 +210,7 @@ export const ContentAgent: React.FC = () => {
             }
 
             // Video
-            if (['Reels', 'Video Curto', 'TikTok'].includes(request.format)) {
+            if (['Reels', 'Video Curto', 'TikTok'].includes(activeRequest.format)) {
                 setLoadingMessage('Renderizando vídeo (isso pode demorar)...');
                 const vid = await generatePilatesVideo(fullText, (msg) => setLoadingMessage(msg));
                 setGeneratedVideo(vid);
@@ -220,6 +223,14 @@ export const ContentAgent: React.FC = () => {
             setIsGenerating(false);
             setLoadingMessage('');
         }
+    };
+
+    const handleRefine = () => {
+        if (!modificationInput.trim()) return;
+        // Merge modification prompt into a temporary override request
+        const override = { ...request, modificationPrompt: modificationInput };
+        handleGenerate(override);
+        setModificationInput('');
     };
 
     const handleSavePostLocal = async () => {
@@ -582,7 +593,7 @@ export const ContentAgent: React.FC = () => {
                                     )}
                                 </div>
 
-                                <Button onClick={handleGenerate} isLoading={isGenerating} className="w-full mt-4">
+                                <Button onClick={() => handleGenerate()} isLoading={isGenerating} className="w-full mt-4">
                                     {isGenerating ? loadingMessage : <><Sparkles className="w-4 h-4 mr-2"/> Gerar Conteúdo</>}
                                 </Button>
                             </div>
@@ -645,8 +656,29 @@ export const ContentAgent: React.FC = () => {
                                     </div>
                                 )}
 
-                                <div className="prose prose-sm prose-slate dark:prose-invert max-w-none whitespace-pre-wrap bg-slate-50 dark:bg-slate-950 p-4 rounded-lg border border-slate-100 dark:border-slate-800">
+                                <div className="prose prose-sm prose-slate dark:prose-invert max-w-none whitespace-pre-wrap bg-slate-50 dark:bg-slate-950 p-4 rounded-lg border border-slate-100 dark:border-slate-800 mb-6">
                                     {generatedText}
+                                </div>
+
+                                {/* Refinement Section */}
+                                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700">
+                                    <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                                        <MessageSquarePlus className="w-4 h-4"/> Solicitar Ajustes
+                                    </h4>
+                                    <div className="flex gap-2">
+                                        <textarea
+                                            value={modificationInput}
+                                            onChange={(e) => setModificationInput(e.target.value)}
+                                            placeholder="Ex: Deixe o texto mais curto, mude o tom para engraçado, ou troque o fundo da imagem..."
+                                            className="flex-1 p-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none h-16"
+                                        />
+                                        <Button onClick={handleRefine} isLoading={isGenerating} className="h-16 px-4">
+                                            <RefreshCw className="w-4 h-4"/>
+                                        </Button>
+                                    </div>
+                                    <p className="text-xs text-slate-400 mt-2">
+                                        Dica: Descreva o que você quer mudar no texto ou na imagem e clique no botão para regenerar.
+                                    </p>
                                 </div>
                             </div>
                         ) : (
