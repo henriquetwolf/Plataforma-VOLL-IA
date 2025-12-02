@@ -5,7 +5,7 @@ import {
   PathologyResponse, LessonPlanResponse, LessonExercise, ChatMessage, 
   TriageStep, TriageStatus, RecipeResponse, WorkoutResponse, Suggestion, 
   NewsletterAudience, ContentRequest, StudioPersona, ClassEvaluation,
-  StudioInfo
+  StudioInfo, StudentEvolution
 } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -529,5 +529,51 @@ export const generateEvaluationAnalysis = async (
   } catch (e) {
     console.error("Evaluation Analysis Error:", e);
     return `<p>Erro ao gerar análise: ${handleGeminiError(e)}</p>`;
+  }
+};
+
+// --- Evolution Report ---
+
+export const generateEvolutionReport = async (
+  evolutions: StudentEvolution[],
+  context: string
+): Promise<string> => {
+  const summary = evolutions.map(e => ({
+    date: e.date,
+    student: e.studentName,
+    instructor: e.instructorName,
+    stability: e.stability,
+    strength: e.strength,
+    mobility: e.mobility,
+    pain: e.pain ? e.painLocation : "Não",
+    obs: e.observations
+  }));
+
+  const prompt = `
+    Atue como Coordenador Técnico de Pilates. Analise este histórico de evoluções de alunos (${context}).
+    
+    DADOS:
+    ${JSON.stringify(summary)}
+
+    Gere um relatório de progresso técnico em HTML (sem tags html/body) contendo:
+    1. **Visão Geral**: Resumo do período e consistência.
+    2. **Análise de Progresso**: Tendências observadas em Força, Mobilidade e Estabilidade. O aluno está evoluindo? Estagnado?
+    3. **Pontos de Dor/Limitação**: Padrões recorrentes de queixas (se houver).
+    4. **Observações dos Instrutores**: Destaques qualitativos importantes.
+    5. **Recomendações**: Sugestões para as próximas aulas (foco técnico).
+
+    Use uma linguagem profissional e encorajadora.
+  `;
+
+  try {
+    const res = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: { temperature: 0.4 }
+    });
+    return res.text || "<p>Não foi possível gerar o relatório.</p>";
+  } catch (e) {
+    console.error("Evolution Report Error:", e);
+    return `<p>Erro ao gerar relatório: ${handleGeminiError(e)}</p>`;
   }
 };

@@ -109,7 +109,6 @@ export enum AppRoute {
   ROOT = '/'
 }
 
-// ... (Rest of the file remains unchanged)
 export type NewsletterAudience = 'students' | 'instructors' | 'both';
 
 export interface Newsletter {
@@ -558,5 +557,18 @@ export interface StudentEvolution {
   contraindication: boolean;
   contraindicationDetails?: string;
   
+  // 3. Observations
+  observations?: string;
+
+  createdAt: string;
+}
+
+export interface SavedEvolutionReport {
+  id: string;
+  studioId: string;
+  title: string;
+  content: string; // HTML
+  filterDescription: string; // Ex: "Aluno: João, Instrutor: Maria, Fev/2025"
+  recordCount: number;
   createdAt: string;
 }
