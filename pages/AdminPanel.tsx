@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchAllProfiles, toggleUserStatus } from '../services/storage';
@@ -148,11 +149,15 @@ export const AdminPanel: React.FC = () => {
   const copySql = () => {
     const sql = `
 -- =========================================================
--- SCRIPT DE CORREÇÃO DE PERMISSÕES (INTRUTORES & ALUNOS)
+-- SCRIPT DE CORREÇÃO DE ESTRUTURA E PERMISSÕES
 -- Copie e cole no SQL Editor do Supabase
 -- =========================================================
 
--- 1. Helper Function (Segurança para verificar vínculo)
+-- 1. GARANTIR COLUNA IS_ACTIVE PARA STUDIOS
+ALTER TABLE studio_profiles 
+ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+
+-- 2. Helper Function (Segurança para verificar vínculo)
 CREATE OR REPLACE FUNCTION public.is_instructor_at_studio(target_studio_id uuid)
 RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (
@@ -161,19 +166,19 @@ RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
   );
 $$;
 
--- 2. Permitir que Instrutor veja seu próprio perfil (Essencial para Login)
+-- 3. Permitir que Instrutor veja seu próprio perfil (Essencial para Login)
 DROP POLICY IF EXISTS "Instructors can view own profile" ON instructors;
 CREATE POLICY "Instructors can view own profile" ON instructors
   FOR SELECT TO authenticated USING ( auth_user_id = auth.uid() );
 
--- 3. Permitir que Instrutor veja dados básicos do Studio (Nome, Configs)
+-- 4. Permitir que Instrutor veja dados básicos do Studio (Nome, Configs)
 DROP POLICY IF EXISTS "Instructors can view employing studio" ON studio_profiles;
 CREATE POLICY "Instructors can view employing studio" ON studio_profiles
   FOR SELECT TO authenticated USING ( 
     user_id IN (SELECT studio_user_id FROM instructors WHERE auth_user_id = auth.uid())
   );
 
--- 4. ALUNOS: Visualização e Edição por Instrutores
+-- 5. ALUNOS: Visualização e Edição por Instrutores
 DROP POLICY IF EXISTS "Instructors can view studio students" ON students;
 CREATE POLICY "Instructors can view studio students" ON students
   FOR SELECT TO authenticated USING ( is_instructor_at_studio(user_id) );
@@ -186,7 +191,7 @@ DROP POLICY IF EXISTS "Instructors can update studio students" ON students;
 CREATE POLICY "Instructors can update studio students" ON students
   FOR UPDATE TO authenticated USING ( is_instructor_at_studio(user_id) );
 
--- 5. REHAB: Acesso a Aulas e Histórico
+-- 6. REHAB: Acesso a Aulas e Histórico
 DROP POLICY IF EXISTS "Instructors can view studio lessons" ON rehab_lessons;
 CREATE POLICY "Instructors can view studio lessons" ON rehab_lessons
   FOR SELECT TO authenticated USING ( is_instructor_at_studio(user_id) );
@@ -199,12 +204,12 @@ DROP POLICY IF EXISTS "Instructors can delete studio lessons" ON rehab_lessons;
 CREATE POLICY "Instructors can delete studio lessons" ON rehab_lessons
   FOR DELETE TO authenticated USING ( is_instructor_at_studio(user_id) );
 
--- 6. NEWSLETTERS: Visualização
+-- 7. NEWSLETTERS: Visualização
 DROP POLICY IF EXISTS "Instructors can view newsletters" ON newsletters;
 CREATE POLICY "Instructors can view newsletters" ON newsletters
   FOR SELECT TO authenticated USING ( is_instructor_at_studio(studio_id) );
 
--- 7. EXERCÍCIOS: Banco do Studio
+-- 8. EXERCÍCIOS: Banco do Studio
 DROP POLICY IF EXISTS "Instructors can view exercises" ON studio_exercises;
 CREATE POLICY "Instructors can view exercises" ON studio_exercises
   FOR SELECT TO authenticated USING ( is_instructor_at_studio(studio_id) );
@@ -214,7 +219,7 @@ CREATE POLICY "Instructors can create exercises" ON studio_exercises
   FOR INSERT TO authenticated WITH CHECK ( is_instructor_at_studio(studio_id) );
     `;
     navigator.clipboard.writeText(sql.trim());
-    alert('SCRIPT COPIADO! Cole no SQL Editor do Supabase e execute para corrigir todos os erros de permissão.');
+    alert('SCRIPT COPIADO! Cole no SQL Editor do Supabase e execute para garantir que a coluna is_active existe e corrigir permissões.');
   };
 
   const copyStorageSql = () => {

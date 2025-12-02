@@ -37,7 +37,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const student = await getStudentProfile(sessionUser.id);
       if (student) {
         // --- SEGURANÇA EM CASCATA: ALUNO ---
-        // Se o Studio (Dono) estiver bloqueado, o aluno também é bloqueado.
         if (student.user_id) {
             const studioProfile = await fetchProfile(student.user_id);
             // Se o perfil do estúdio existe E está inativo
@@ -66,7 +65,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return userObj;
       }
 
-      // SEGURANÇA: Se tem role de aluno mas não achou perfil (foi desativado/excluído), BLOQUEIA
       if (metaRole === 'student') {
           console.warn("Acesso negado: Aluno desativado ou sem vínculo.");
           await supabase.auth.signOut();
@@ -81,7 +79,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (instructor || isInstructorMeta) {
         const active = instructor ? instructor.active : true;
         
-        // Verifica status individual do instrutor
         if (active === false) {
            console.warn("Acesso negado: Instrutor inativo.");
            await supabase.auth.signOut();
@@ -89,7 +86,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
            return null;
         }
 
-        // Se não achou perfil de instrutor mas tem a role, bloqueia por segurança
         if (!instructor && isInstructorMeta) {
            console.warn("Acesso negado: Instrutor sem perfil vinculado.");
            await supabase.auth.signOut();
@@ -98,7 +94,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         // --- SEGURANÇA EM CASCATA: INSTRUTOR ---
-        // Se o Studio (Dono) estiver bloqueado, o instrutor também é bloqueado.
         const parentStudioId = instructor?.studio_user_id || sessionUser.user_metadata?.studio_id;
         if (parentStudioId) {
             const studioProfile = await fetchProfile(parentStudioId);
@@ -130,24 +125,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 3. Verifica DONO (STUDIO)
       const profile = await fetchProfile(sessionUser.id);
       
-      // SEGURANÇA CRÍTICA: Se não achou perfil de dono, mas o usuário tem role de 'student' ou 'instructor'
-      // SIGNIFICA QUE É UM USUÁRIO REMOVIDO/DESATIVADO. NÃO PERMITIR FALLBACK PARA DONO.
-      if (!profile && (metaRole === 'student' || metaRole === 'instructor')) {
-          console.warn(`Acesso negado: Usuário orfão com role '${metaRole}'.`);
-          await supabase.auth.signOut();
-          setState({ user: null, isAuthenticated: false, isLoading: false });
-          return null;
-      }
-
-      // --- BLOQUEIO PRINCIPAL DO STUDIO ---
-      // Se o perfil existe e isActive é false, BLOQUEIA O LOGIN
+      // SEGURANÇA CRÍTICA: Bloqueio explícito se isActive for falso
       if (profile && profile.isActive === false) {
           console.warn("Acesso negado: Studio (Dono) desativado pelo Administrador.");
           await supabase.auth.signOut();
           setState({ user: null, isAuthenticated: false, isLoading: false });
           return null;
       }
-      // ------------------------------------
+
+      // Verifica se é um usuário "orfão" com role errada
+      if (!profile && (metaRole === 'student' || metaRole === 'instructor')) {
+          console.warn(`Acesso negado: Usuário orfão com role '${metaRole}'.`);
+          await supabase.auth.signOut();
+          setState({ user: null, isAuthenticated: false, isLoading: false });
+          return null;
+      }
 
       const userObj: User = {
           id: sessionUser.id,
@@ -206,13 +198,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) return { success: false, error: error.message };
 
       if (data.session?.user) {
+        // Força recarregamento do perfil para garantir status atualizado
         const loadedUser = await loadUser(data.session.user);
         
-        // VERIFICAÇÃO CRÍTICA PÓS-LOGIN
-        // Se loadUser retornou null, significa que o usuário foi bloqueado (isActive: false)
-        // ou não tem permissão. Devemos impedir o fluxo de sucesso.
         if (!loadedUser) {
-            return { success: false, error: 'Acesso suspenso. Entre em contato com o administrador.' };
+            // Se loadUser retornou null, o usuário foi bloqueado ou houve erro
+            return { success: false, error: 'Acesso suspenso ou não autorizado. Entre em contato com o suporte.' };
         }
         
         return { success: true, user: loadedUser };

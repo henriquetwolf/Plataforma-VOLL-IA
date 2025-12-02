@@ -59,6 +59,10 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
     }
   };
 
+  // Lógica defensiva para is_active
+  // Se for explicitamente false, é false. Se for null/undefined/true, é true.
+  const isActive = dbProfile.is_active !== false;
+
   return {
     id: dbProfile.id || '',
     userId: dbProfile.user_id,
@@ -73,7 +77,7 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
     logoUrl: dbProfile.logo_url || '',
     brandColor: dbProfile.brand_color || '#14b8a6',
     isAdmin: dbProfile.is_admin || false,
-    isActive: dbProfile.is_active !== false, // Default true se undefined
+    isActive: isActive, 
     settings: settings
   };
 };
@@ -109,6 +113,10 @@ export const fetchProfile = async (userId: string): Promise<StudioProfile | null
 export const upsertProfile = async (userId: string, profile: Partial<StudioProfile>): Promise<{ success: boolean; error?: string }> => {
   try {
     const dbPayload = toDBProfile(profile);
+    
+    // Garantir que is_active não seja sobrescrito acidentalmente se não for passado
+    // No entanto, upsert normalmente faz merge se configurado, mas aqui estamos passando o payload completo de update.
+    // Se profile.isActive for undefined, toDBProfile retorna undefined, o que é bom.
     
     const { error } = await supabase
       .from('studio_profiles')
@@ -179,6 +187,7 @@ export const fetchAllProfiles = async (): Promise<{ data: StudioProfile[], error
 
 export const toggleUserStatus = async (userId: string, isActive: boolean): Promise<{ success: boolean; error?: string }> => {
   try {
+    // Atualiza APENAS o campo is_active para evitar sobrescrever outros dados
     const { error, data } = await supabase
       .from('studio_profiles')
       .update({ is_active: isActive })
