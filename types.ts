@@ -1,6 +1,7 @@
 
 export interface User {
   id: string;
+  dbId?: string; // ID interno do banco de dados (PK da tabela students/instructors)
   email: string;
   name: string;
   password: string;

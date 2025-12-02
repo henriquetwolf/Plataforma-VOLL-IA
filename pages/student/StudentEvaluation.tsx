@@ -56,12 +56,16 @@ export const StudentEvaluation: React.FC = () => {
       return;
     }
 
+    // IMPORTANT: Check if dbId is available (it should be for loaded students)
+    // Fallback to user.id if dbId is missing, though this will likely cause the FK error if tables aren't synced.
+    const studentTableId = user.dbId || user.id;
+
     const selectedInstructor = instructors.find(i => i.id === selectedInstructorId);
 
     setSubmitting(true);
     const result = await saveEvaluation({
       studioId: user.studioId,
-      studentId: user.id,
+      studentId: studentTableId,
       studentName: user.name,
       instructorId: selectedInstructorId,
       instructorName: selectedInstructor?.name || 'Instrutor',

@@ -3,52 +3,56 @@ import { supabase } from './supabase';
 import { ClassEvaluation, Instructor } from '../types';
 
 /*
-  SQL ATUALIZADO E SEGURO (CORREÇÃO DE ERRO "ALREADY EXISTS"):
-  Rode este bloco completo no Supabase SQL Editor para configurar as tabelas sem erros.
+  ⚠️ SQL PARA CORREÇÃO DE PERMISSÕES (Rode no Supabase SQL Editor)
+  
+  Se você encontrar erros como "policy already exists" ou "permission denied", 
+  selecione todo o bloco abaixo e execute. Ele limpa as regras antigas e recria as corretas.
 
-  -- 1. Limpeza: Remove políticas antigas se existirem
-  drop policy if exists "Students can insert evaluations" on class_evaluations;
-  drop policy if exists "Owners can view evaluations" on class_evaluations;
-  drop policy if exists "Owners can delete evaluations" on class_evaluations;
-  drop policy if exists "Students can view studio instructors" on instructors;
+  -- 1. Limpeza de Políticas Antigas
+  DROP POLICY IF EXISTS "Students can insert evaluations" ON class_evaluations;
+  DROP POLICY IF EXISTS "Owners can view evaluations" ON class_evaluations;
+  DROP POLICY IF EXISTS "Owners can delete evaluations" ON class_evaluations;
+  DROP POLICY IF EXISTS "Students can view studio instructors" ON instructors;
 
-  -- 2. Tabela de Avaliações
-  create table if not exists class_evaluations (
-    id uuid primary key default gen_random_uuid(),
-    studio_id uuid references studio_profiles(user_id) on delete cascade,
-    student_id uuid references students(id) on delete set null,
-    instructor_id uuid references instructors(id) on delete set null,
+  -- 2. Garantir Tabela e RLS
+  CREATE TABLE IF NOT EXISTS class_evaluations (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    studio_id uuid REFERENCES studio_profiles(user_id) ON DELETE CASCADE,
+    student_id uuid REFERENCES students(id) ON DELETE SET NULL,
+    instructor_id uuid REFERENCES instructors(id) ON DELETE SET NULL,
     student_name text,
     instructor_name text,
-    class_date date not null,
-    rating int not null,
+    class_date date NOT NULL,
+    rating int NOT NULL,
     feeling text,
     pace text,
     discomfort text,
     suggestions text,
-    created_at timestamptz default now()
+    created_at timestamptz DEFAULT now()
   );
 
-  -- 3. Habilitar RLS
-  alter table class_evaluations enable row level security;
+  ALTER TABLE class_evaluations ENABLE ROW LEVEL SECURITY;
 
-  -- 4. Políticas de Acesso
-  create policy "Students can insert evaluations" on class_evaluations
-    for insert to authenticated with check (true);
+  -- 3. Recriar Políticas de Acesso
+  
+  -- Alunos podem criar (inserir) avaliações
+  CREATE POLICY "Students can insert evaluations" ON class_evaluations
+    FOR INSERT TO authenticated WITH CHECK (true);
 
-  create policy "Owners can view evaluations" on class_evaluations
-    for select to authenticated using (auth.uid() = studio_id);
+  -- Donos podem ver todas as avaliações do seu studio
+  CREATE POLICY "Owners can view evaluations" ON class_evaluations
+    FOR SELECT TO authenticated USING (auth.uid() = studio_id);
     
-  create policy "Owners can delete evaluations" on class_evaluations
-    for delete to authenticated using (auth.uid() = studio_id);
+  -- Donos podem EXCLUIR avaliações (Correção para o botão de delete)
+  CREATE POLICY "Owners can delete evaluations" ON class_evaluations
+    FOR DELETE TO authenticated USING (auth.uid() = studio_id);
 
-  -- 5. Permitir que Alunos vejam a lista de Instrutores (Dropdown)
-  create policy "Students can view studio instructors" on instructors
-    for select
-    to authenticated
-    using (
-      studio_user_id in (
-        select user_id from students where auth_user_id = auth.uid()
+  -- Alunos podem ver lista de instrutores para selecionar no formulário
+  CREATE POLICY "Students can view studio instructors" ON instructors
+    FOR SELECT TO authenticated
+    USING (
+      studio_user_id IN (
+        SELECT user_id FROM students WHERE auth_user_id = auth.uid()
       )
     );
 */
@@ -118,6 +122,20 @@ export const fetchEvaluationsByStudio = async (studioId: string): Promise<ClassE
   } catch (err) {
     console.error('Unexpected error fetching evaluations:', err);
     return [];
+  }
+};
+
+export const deleteEvaluation = async (id: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { error } = await supabase
+      .from('class_evaluations')
+      .delete()
+      .eq('id', id);
+
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
   }
 };
 

@@ -18,7 +18,10 @@ export const StudentSuggestions: React.FC = () => {
     if (!user || !user.isStudent || !user.studioId || !suggestion.trim()) return;
 
     setIsSubmitting(true);
-    const result = await sendSuggestion(user.studioId, user.id, user.name, suggestion);
+    // Use user.dbId if available (Student Table ID), fallback to user.id (Auth ID)
+    const studentTableId = user.dbId || user.id;
+    
+    const result = await sendSuggestion(user.studioId, studentTableId, user.name, suggestion);
     setIsSubmitting(false);
 
     if (result.success) {

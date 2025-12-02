@@ -36,6 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (student) {
         const userObj: User = {
           id: sessionUser.id,
+          dbId: student.id, // Primary Key from students table
           email: sessionUser.email || '',
           name: student.name,
           password: '',
@@ -59,6 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         const userObj: User = {
           id: sessionUser.id,
+          dbId: instructor.id, // Primary Key from instructors table
           email: sessionUser.email || '',
           name: instructor.name,
           password: '',
@@ -85,6 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const userObj: User = {
           id: sessionUser.id,
+          dbId: profile?.id, // Primary Key from studio_profiles (if exists)
           email: sessionUser.email || '',
           name: profile?.ownerName || sessionUser.user_metadata?.name || 'Dono do Studio',
           password: '',
