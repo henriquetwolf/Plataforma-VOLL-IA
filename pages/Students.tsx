@@ -230,11 +230,16 @@ export const Students: React.FC = () => {
     setIsCreatingAccess(false);
 
     if (result.success) {
-      alert(`Acesso criado com sucesso para ${accessStudent.name}!\n\nLogin: ${accessStudent.email}\nSenha: ${accessPassword}`);
+      if (result.message) {
+          // Mensagem especial de reativação
+          alert(result.message);
+      } else {
+          alert(`Acesso criado com sucesso para ${accessStudent.name}!\n\nLogin: ${accessStudent.email}\nSenha: ${accessPassword}`);
+      }
       setAccessModalOpen(false);
       loadStudents();
     } else {
-      alert(`Erro ao criar acesso: ${result.error}`);
+      alert(`Erro ao ativar acesso: ${result.error}`);
     }
   };
 

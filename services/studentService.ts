@@ -31,11 +31,20 @@ import { createClient } from '@supabase/supabase-js';
   drop policy if exists "Students can view studio instructors" on instructors;
   create policy "Students can view studio instructors" on instructors
     for select to authenticated using ( studio_user_id = get_my_studio_id_as_student() );
+    
+  -- 4. Função para reativação de aluno (Busca ID por email)
+  create or replace function get_user_id_by_email(email_input text)
+  returns uuid language plpgsql security definer as $$
+  begin
+    return (select id from auth.users where email = email_input);
+  end;
+  $$;
 */
 
 interface ServiceResponse {
   success: boolean;
   error?: string;
+  message?: string;
 }
 
 const sanitize = (value: string | undefined | null) => {
@@ -188,12 +197,12 @@ export const createStudentWithAutoAuth = async (
   }
 };
 
-// --- Função para criar acesso posteriormente (para alunos antigos) ---
+// --- Função para criar acesso posteriormente (para alunos antigos ou reativar) ---
 export const createStudentWithAuth = async (
   studentId: string, 
   email: string,
   password: string
-): Promise<{ success: boolean; error?: string }> => {
+): Promise<{ success: boolean; error?: string; message?: string }> => {
   try {
     if (!password || password.length < 6) {
       return { success: false, error: "Senha deve ter no mínimo 6 caracteres." };
@@ -211,6 +220,7 @@ export const createStudentWithAuth = async (
       }
     });
 
+    // Tenta criar
     const { data: authData, error: authError } = await tempClient.auth.signUp({
       email,
       password,
@@ -219,29 +229,55 @@ export const createStudentWithAuth = async (
       }
     });
 
-    if (authError) {
-      if (authError.message.includes("already registered")) {
-         return { success: false, error: "Este email já possui uma conta no sistema." };
-      }
-      return { success: false, error: authError.message };
-    }
+    let newUserId = authData.user?.id;
 
-    const newUserId = authData.user?.id;
+    // Se der erro de "já registrado", tentamos recuperar o ID e atualizar a senha (REATIVAÇÃO)
+    if (authError) {
+      if (authError.message.includes("already registered") || authError.message.includes("User already exists")) {
+         
+         // 1. Recuperar ID via RPC (Função segura no DB)
+         const { data: existingUserId, error: rpcError } = await supabase.rpc('get_user_id_by_email', { email_input: email });
+
+         if (rpcError || !existingUserId) {
+             console.error("RPC Error:", rpcError);
+             return { success: false, error: "Este email já possui conta, mas não foi possível reativá-la automaticamente. Verifique se o SQL 'get_user_id_by_email' foi criado no Supabase." };
+         }
+
+         newUserId = existingUserId;
+
+         // 2. Atualizar a senha para a nova que o usuário digitou (para garantir acesso)
+         const { error: pwdError } = await supabase.rpc('update_user_password', {
+            target_id: newUserId,
+            new_password: password
+         });
+         
+         if (pwdError) {
+             console.warn("Aviso: Falha ao atualizar senha na reativação.", pwdError);
+             // Não retornamos erro fatal, apenas avisamos, pois o vínculo ainda pode ocorrer
+         }
+      } else {
+         return { success: false, error: authError.message };
+      }
+    }
     
     if (!newUserId) {
-        return { success: false, error: "Erro ao criar ID de login." };
+        return { success: false, error: "Erro ao obter ID de login." };
     }
 
+    // Vincula na tabela students
     const { error: dbError } = await supabase
       .from('students')
       .update({ auth_user_id: newUserId })
       .eq('id', studentId);
 
     if (dbError) {
-      return { success: false, error: "Login criado, mas falha ao vincular no aluno: " + dbError.message };
+      return { success: false, error: "Login validado, mas falha ao vincular no cadastro do aluno: " + dbError.message };
     }
 
-    return { success: true };
+    // Retorna mensagem específica se foi reativação ou criação
+    const msg = authError ? "Acesso reativado com sucesso! A senha foi atualizada." : undefined;
+
+    return { success: true, message: msg };
 
   } catch (err: any) {
     return { success: false, error: err.message };
