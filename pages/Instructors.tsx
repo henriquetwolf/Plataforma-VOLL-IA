@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Instructor } from '../types';
@@ -24,15 +25,17 @@ export const Instructors: React.FC = () => {
   });
 
   const loadData = async () => {
+    if (!user?.id) return;
     setIsLoading(true);
-    const data = await fetchInstructors();
+    // Explicitly pass the user ID (Owner ID) to fetch only this studio's instructors
+    const data = await fetchInstructors(user.id);
     setInstructors(data);
     setIsLoading(false);
   };
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [user]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

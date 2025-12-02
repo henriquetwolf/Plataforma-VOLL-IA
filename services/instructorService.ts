@@ -3,12 +3,15 @@ import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase'; // Impor
 import { Instructor } from '../types';
 import { createClient } from '@supabase/supabase-js';
 
-export const fetchInstructors = async (): Promise<Instructor[]> => {
+export const fetchInstructors = async (studioId?: string): Promise<Instructor[]> => {
   try {
-    const { data, error } = await supabase
-      .from('instructors')
-      .select('*')
-      .order('created_at', { ascending: false });
+    let query = supabase.from('instructors').select('*');
+
+    if (studioId) {
+      query = query.eq('studio_user_id', studioId);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
       // Improved error logging

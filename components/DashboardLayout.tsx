@@ -55,14 +55,8 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         { label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.STUDENT_NEWSLETTERS },
       ];
     } else if (isInstructor) {
-      // MENU INSTRUTOR
-      items = [
-        { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
-        { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
-        { label: 'Criador Newsletter', icon: Newspaper, path: AppRoute.NEWSLETTER_AGENT },
-        { label: 'Mural de Avisos', icon: MessageSquare, path: AppRoute.INSTRUCTOR_NEWSLETTERS },
-        { label: 'Perfil do Studio', icon: UserCircle, path: AppRoute.PROFILE },
-      ];
+      // MENU INSTRUTOR - COMPLETAMENTE EM BRANCO
+      items = [];
     } else if (isOwner) {
       items = [
         { label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.DASHBOARD },
@@ -100,20 +94,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {isInstructor && (
-            <Link
-              to={AppRoute.INSTRUCTOR_DASHBOARD}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors mb-1 ${
-                location.pathname === AppRoute.INSTRUCTOR_DASHBOARD
-                  ? 'bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300' 
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <Home className={`h-5 w-5 ${location.pathname === AppRoute.INSTRUCTOR_DASHBOARD ? 'text-brand-500 dark:text-brand-400' : 'text-slate-400 dark:text-slate-500'}`} />
-              Inicial
-            </Link>
-          )}
-
+          {/* Links do Menu */}
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
