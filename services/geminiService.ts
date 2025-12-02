@@ -12,15 +12,18 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // Helper to handle JSON parsing from Gemini response
 const cleanAndParseJSON = (text: string) => {
+  if (!text) return null;
   try {
-    // Remove markdown code blocks if present
+    // 1. Remove markdown code blocks
     let cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    // Sometimes models return text before/after json
+    
+    // 2. Find the outer-most brackets to isolate JSON
     const firstBrace = cleanText.indexOf('{');
     const lastBrace = cleanText.lastIndexOf('}');
     const firstBracket = cleanText.indexOf('[');
     const lastBracket = cleanText.lastIndexOf(']');
     
+    // Determine if it's an object or an array and slice accordingly
     if (firstBrace !== -1 && lastBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
        cleanText = cleanText.substring(firstBrace, lastBrace + 1);
     } else if (firstBracket !== -1 && lastBracket !== -1) {
@@ -262,17 +265,18 @@ export const regenerateSingleExercise = async (query: string, oldExercise: Lesso
 
 export const generateHealthyRecipe = async (goal: string, restrictions: string): Promise<RecipeResponse | null> => {
     const prompt = `
-    Crie uma receita saudável.
-    Objetivo: ${goal}.
+    Atue como Nutricionista Esportiva e Chef. Crie uma receita saudável e saborosa.
+    Objetivo do aluno: ${goal}.
     Restrições/Preferências: ${restrictions}.
     
-    Retorne JSON:
+    IMPORTANTE: Retorne APENAS um objeto JSON válido, sem texto adicional.
+    Formato:
     {
-      "title": "Nome Criativo",
-      "ingredients": ["ingrediente 1", "ingrediente 2"],
-      "instructions": ["passo 1", "passo 2"],
-      "benefits": "Por que essa receita ajuda no objetivo?",
-      "calories": "Estimativa calórica"
+      "title": "Nome Criativo da Receita",
+      "ingredients": ["1 xícara de aveia", "1 banana amassada"],
+      "instructions": ["Passo 1: Misture tudo...", "Passo 2: Asse por 15 min..."],
+      "benefits": "Esta receita é rica em fibras e potássio, ótima para energia...",
+      "calories": "Aprox. 250 kcal"
     }
     `;
     
@@ -286,11 +290,19 @@ export const generateHealthyRecipe = async (goal: string, restrictions: string):
 
 export const generateRecipeFromIngredients = async (ingredients: string[], extraInfo: string): Promise<RecipeResponse | null> => {
     const prompt = `
-    Crie uma receita saudável usando estes ingredientes: ${ingredients.join(', ')}.
-    Info extra: ${extraInfo}.
-    Pode adicionar temperos básicos (sal, azeite, etc).
+    Atue como Nutricionista Chef. Crie uma receita saudável usando PRINCIPALMENTE estes ingredientes: ${ingredients.join(', ')}.
+    Você pode adicionar itens básicos de despensa (sal, azeite, temperos, água).
+    Info extra do aluno: ${extraInfo}.
     
-    Retorne JSON (mesmo formato anterior).
+    IMPORTANTE: Retorne APENAS um objeto JSON válido, sem texto adicional.
+    Formato:
+    {
+      "title": "Nome Criativo",
+      "ingredients": ["Lista completa dos ingredientes usados e quantidades"],
+      "instructions": ["Passo a passo numerado e claro"],
+      "benefits": "Explicação curta dos benefícios nutricionais",
+      "calories": "Estimativa calórica por porção"
+    }
     `;
     
     const response = await ai.models.generateContent({
