@@ -15,17 +15,22 @@ const cleanAndParseJSON = (text: string) => {
     if (!text) return null;
     // Remove markdown code blocks if present
     let cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    // Locate the first '{' or '[' and last '}' or ']' to handle potential preamble text
-    const firstBrace = cleanText.search(/[\{\[]/);
-    const lastBrace = cleanText.search(/[\}\]]$/); // Simple check, might need reverse search logic if strict
     
-    // Better reverse search for last brace
+    // Locate the first '{' or '[' and last '}' or ']' to handle potential preamble text
+    const firstCurly = cleanText.indexOf('{');
+    const firstSquare = cleanText.indexOf('[');
+    
+    let firstIndex = -1;
+    if (firstCurly !== -1 && firstSquare !== -1) firstIndex = Math.min(firstCurly, firstSquare);
+    else if (firstCurly !== -1) firstIndex = firstCurly;
+    else if (firstSquare !== -1) firstIndex = firstSquare;
+
     const lastCurly = cleanText.lastIndexOf('}');
     const lastSquare = cleanText.lastIndexOf(']');
     const lastIndex = Math.max(lastCurly, lastSquare);
 
-    if (firstBrace !== -1 && lastIndex !== -1) {
-      cleanText = cleanText.substring(firstBrace, lastIndex + 1);
+    if (firstIndex !== -1 && lastIndex !== -1) {
+      cleanText = cleanText.substring(firstIndex, lastIndex + 1);
     }
     
     return JSON.parse(cleanText);
@@ -183,29 +188,30 @@ export const generatePilatesVideo = async (script: string, onProgress: (msg: str
 export const generateContentPlan = async (goals: any, persona: StudioPersona, weeks: number) => {
     if (!apiKey) return [];
     
-    // Simplificar o prompt para garantir que o modelo siga a estrutura JSON estrita
+    // Prompt otimizado para evitar problemas de JSON em longos períodos (12/16 semanas)
     const prompt = `
         Atue como estrategista de marketing para Studios de Pilates.
-        Crie um plano de conteúdo detalhado para **${weeks} semanas**.
+        Crie um plano de conteúdo para **${weeks} semanas**.
         
-        Objetivos do Studio: ${goals.mainObjective}
+        Objetivos: ${goals.mainObjective}
         Público: ${goals.targetAudience.join(', ')}
-        Persona/Filosofia: ${persona.philosophy}
+        Persona: ${persona.philosophy}
         
-        REQUISITOS IMPORTANTES:
-        1. Gere exatamente ${weeks} semanas.
-        2. Para cada semana, sugira 3 posts (ex: Segunda, Quarta, Sexta).
-        3. A resposta DEVE ser um ARRAY JSON válido. Sem markdown, sem texto antes ou depois.
+        REQUISITOS OBRIGATÓRIOS:
+        1. Gere EXATAMENTE ${weeks} semanas.
+        2. Para cada semana, sugira 3 posts (Segunda, Quarta, Sexta).
+        3. SEJA CONCISO. Mantenha 'theme' e 'objective' curtos para o JSON não cortar.
+        4. Responda APENAS com o JSON. Sem texto extra.
         
-        Estrutura do JSON Esperada:
+        Estrutura JSON:
         [
             {
                 "week": "Semana 1",
                 "theme": "Foco da semana",
                 "ideas": [
-                    {"day": "Segunda", "theme": "...", "format": "Reels", "objective": "Educação"},
-                    {"day": "Quarta", "theme": "...", "format": "Post", "objective": "Conexão"},
-                    {"day": "Sexta", "theme": "...", "format": "Carrossel", "objective": "Venda"}
+                    {"day": "Segunda", "theme": "Tema Curto", "format": "Reels", "objective": "Educação"},
+                    {"day": "Quarta", "theme": "Tema Curto", "format": "Post", "objective": "Conexão"},
+                    {"day": "Sexta", "theme": "Tema Curto", "format": "Carrossel", "objective": "Venda"}
                 ]
             }
         ]
@@ -223,7 +229,7 @@ export const generateContentPlan = async (goals: any, persona: StudioPersona, we
         
         const result = cleanAndParseJSON(res.text || '[]');
         if (!Array.isArray(result)) {
-            console.error("Resultado do plano não é um array:", result);
+            console.error("Resultado do plano não é um array válido:", result);
             return [];
         }
         return result;

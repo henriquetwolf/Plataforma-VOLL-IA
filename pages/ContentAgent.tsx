@@ -203,8 +203,8 @@ export const ContentAgent: React.FC = () => {
     };
 
     const handleOpenSavedPost = (post: SavedPost) => {
-        // Load data into generator
-        setRequest(post.request);
+        // Load data into generator safely, merging with initial defaults to prevent missing fields
+        setRequest({ ...INITIAL_REQUEST, ...post.request });
         setGeneratedText(post.content);
         setGeneratedImage(post.imageUrl || null);
         setGeneratedVideo(post.videoUrl || null);
@@ -217,6 +217,12 @@ export const ContentAgent: React.FC = () => {
     // --- PLANNER LOGIC ---
     const handleGeneratePlan = async () => {
         if (!user?.id || !persona) return;
+        
+        if (!planGoals.mainObjective) {
+            alert("Defina o objetivo principal.");
+            return;
+        }
+
         setIsGenerating(true);
         try {
             const rawPlan = await generateContentPlan({
@@ -225,7 +231,7 @@ export const ContentAgent: React.FC = () => {
                 toneOfVoice: ['Inspirador'] // default
             }, persona, planDuration);
 
-            if (!rawPlan || rawPlan.length === 0) {
+            if (!rawPlan || !Array.isArray(rawPlan) || rawPlan.length === 0) {
                 throw new Error("Falha ao gerar plano (JSON inválido)");
             }
 
@@ -239,7 +245,8 @@ export const ContentAgent: React.FC = () => {
             await saveContentPlan(user.id, newPlan);
             setPlans([newPlan, ...plans]);
         } catch (e) {
-            alert("Erro ao gerar plano. Tente novamente ou simplifique os objetivos.");
+            console.error("Plan Error:", e);
+            alert("Erro ao gerar plano. Tente simplificar o objetivo ou reduza a duração.");
         } finally {
             setIsGenerating(false);
         }
@@ -395,7 +402,7 @@ export const ContentAgent: React.FC = () => {
                                 {savedPosts.slice(0, 5).map(post => (
                                     <div key={post.id} className="p-3 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-100 dark:border-slate-800 flex justify-between items-center">
                                         <div>
-                                            <p className="font-bold text-sm text-slate-800 dark:text-white truncate w-40">{post.request.theme}</p>
+                                            <p className="font-bold text-sm text-slate-800 dark:text-white truncate w-40">{post.request.theme || 'Sem tema'}</p>
                                             <p className="text-xs text-slate-500">{new Date(post.createdAt).toLocaleDateString()}</p>
                                         </div>
                                         <div className="flex gap-1">
@@ -509,34 +516,42 @@ export const ContentAgent: React.FC = () => {
                                     <div key={plan.id} className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                                         <div className="flex justify-between items-start mb-4 border-b border-slate-100 dark:border-slate-800 pb-4">
                                             <div>
-                                                <h4 className="font-bold text-brand-700 text-lg">Plano Estratégico ({plan.weeks.length} semanas)</h4>
+                                                <h4 className="font-bold text-brand-700 text-lg">Plano Estratégico ({plan.weeks?.length || 0} semanas)</h4>
                                                 <p className="text-sm text-slate-500">Criado em {new Date(plan.createdAt).toLocaleDateString()}</p>
                                             </div>
                                             <button onClick={() => deleteContentPlan(plan.id).then(() => setPlans(plans.filter(p => p.id !== plan.id)))} className="text-slate-400 hover:text-red-500"><Trash2 className="w-5 h-5"/></button>
                                         </div>
                                         <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                                            {plan.weeks.map((week, idx) => (
-                                                <div key={idx} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-lg">
-                                                    <h5 className="font-bold text-slate-800 dark:text-white mb-2">{week.week}: {week.theme}</h5>
-                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                                        {week.ideas.map((idea, i) => (
-                                                            <div key={i} className="text-sm border border-slate-200 dark:border-slate-800 p-2 rounded bg-white dark:bg-slate-900">
-                                                                <span className="font-bold text-brand-600">{idea.day}:</span> {idea.theme} <span className="text-xs text-slate-400">({idea.format})</span>
-                                                                <button 
-                                                                    onClick={() => {
-                                                                        setRequest({ ...INITIAL_REQUEST, theme: idea.theme, format: idea.format, objective: idea.objective });
-                                                                        setActiveTab('generator');
-                                                                        window.scrollTo({top: 0, behavior: 'smooth'});
-                                                                    }}
-                                                                    className="block mt-2 text-xs text-blue-600 hover:underline"
-                                                                >
-                                                                    Gerar este Post →
-                                                                </button>
-                                                            </div>
-                                                        ))}
+                                            {/* Safety check: ensure weeks exists and is an array */}
+                                            {plan.weeks && Array.isArray(plan.weeks) ? (
+                                                plan.weeks.map((week, idx) => (
+                                                    <div key={idx} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-lg">
+                                                        <h5 className="font-bold text-slate-800 dark:text-white mb-2">{week.week}: {week.theme}</h5>
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                                            {week.ideas && week.ideas.map((idea, i) => (
+                                                                <div key={i} className="text-sm border border-slate-200 dark:border-slate-800 p-2 rounded bg-white dark:bg-slate-900">
+                                                                    <span className="font-bold text-brand-600">{idea.day}:</span> {idea.theme} <span className="text-xs text-slate-400">({idea.format})</span>
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            // Passa os dados do plano para o gerador
+                                                                            setRequest({ ...INITIAL_REQUEST, theme: idea.theme, format: idea.format, objective: idea.objective });
+                                                                            setActiveTab('generator');
+                                                                            window.scrollTo({top: 0, behavior: 'smooth'});
+                                                                        }}
+                                                                        className="block mt-2 text-xs text-blue-600 hover:underline"
+                                                                    >
+                                                                        Gerar este Post →
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-red-500 text-sm p-4 bg-red-50 rounded">
+                                                    Erro: Dados do plano corrompidos ou inválidos. Tente gerar novamente.
                                                 </div>
-                                            ))}
+                                            )}
                                         </div>
                                     </div>
                                 ))}
