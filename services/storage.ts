@@ -35,7 +35,8 @@ const toDBProfile = (profile: Partial<StudioProfile>): Partial<DBProfile> => {
     logo_url: profile.logoUrl,
     brand_color: profile.brandColor,
     is_admin: profile.isAdmin,
-    is_active: profile.isActive,
+    // REMOVIDO: is_active não deve ser atualizado por aqui para evitar que 
+    // o usuário sobrescreva o bloqueio do admin ao salvar o perfil.
     settings: profile.settings
   };
 };

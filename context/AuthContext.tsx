@@ -37,9 +37,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const student = await getStudentProfile(sessionUser.id);
       if (student) {
         // --- SEGURANÇA EM CASCATA: ALUNO ---
+        // Se o Studio dono da conta estiver desativado, o aluno não entra.
         if (student.user_id) {
             const studioProfile = await fetchProfile(student.user_id);
-            // Se o perfil do estúdio existe E está inativo
             if (studioProfile && studioProfile.isActive === false) {
                 console.warn(`Bloqueio de Segurança: O Studio deste aluno (${student.user_id}) está desativado.`);
                 await supabase.auth.signOut();
@@ -77,8 +77,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const instructor = await getInstructorProfile(sessionUser.id, sessionUser.email);
       
       if (instructor || isInstructorMeta) {
+        // Verifica se o instrutor está ativo individualmente
         const active = instructor ? instructor.active : true;
-        
         if (active === false) {
            console.warn("Acesso negado: Instrutor inativo.");
            await supabase.auth.signOut();
@@ -94,7 +94,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         // --- SEGURANÇA EM CASCATA: INSTRUTOR ---
-        const parentStudioId = instructor?.studio_user_id || sessionUser.user_metadata?.studio_id;
+        // Se o Studio contratante estiver desativado, o instrutor não entra.
+        const parentStudioId = instructor?.studioUserId || sessionUser.user_metadata?.studio_id;
         if (parentStudioId) {
             const studioProfile = await fetchProfile(parentStudioId);
             if (studioProfile && studioProfile.isActive === false) {
@@ -126,6 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const profile = await fetchProfile(sessionUser.id);
       
       // SEGURANÇA CRÍTICA: Bloqueio explícito se isActive for falso
+      // Isso impede que um dono bloqueado consiga acessar mesmo que tente via login de instrutor (se falhar verificação acima)
       if (profile && profile.isActive === false) {
           console.warn("Acesso negado: Studio (Dono) desativado pelo Administrador.");
           await supabase.auth.signOut();
