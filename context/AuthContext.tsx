@@ -31,6 +31,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadUser = async (sessionUser: any): Promise<User | null> => {
     try {
+      const metaRole = sessionUser.user_metadata?.role;
+
       // 1. Verifica ALUNO (Prioridade)
       const student = await getStudentProfile(sessionUser.id);
       if (student) {
@@ -50,9 +52,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return userObj;
       }
 
+      // SEGURANÇA: Se tem role de aluno mas não achou perfil (foi desativado), BLOQUEIA
+      if (metaRole === 'student') {
+          console.warn("Acesso negado: Aluno desativado ou sem vínculo.");
+          await supabase.auth.signOut();
+          setState({ user: null, isAuthenticated: false, isLoading: false });
+          return null;
+      }
+
       // 2. Verifica INSTRUTOR
       // Verifica primeiro via Metadata (mais rápido e seguro se setado)
-      const isInstructorMeta = sessionUser.user_metadata?.role === 'instructor';
+      const isInstructorMeta = metaRole === 'instructor';
       
       const instructor = await getInstructorProfile(sessionUser.id, sessionUser.email);
       
@@ -65,6 +75,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
            setState({ user: null, isAuthenticated: false, isLoading: false });
            return null;
         }
+
+        // Se por algum motivo o perfil do banco não veio mas é instrutor (ex: erro RLS), bloqueia por segurança
+        // para evitar acesso parcial, a menos que tenhamos certeza.
+        // Aqui assumimos que se instructor é null mas role é instructor, pode ser uma falha.
+        // Mas para manter compatibilidade, se tiver instructor object, usamos.
 
         const userObj: User = {
           id: sessionUser.id,
@@ -85,7 +100,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // 3. Verifica DONO
       const profile = await fetchProfile(sessionUser.id);
-      // Se achou perfil E o ID bate, é dono. Se não achou perfil mas logou, assumimos que é um dono novo/sem perfil ainda.
+      
+      // SEGURANÇA CRÍTICA: Se não achou perfil de dono, mas o usuário tem role de 'student' ou 'instructor' (que passou pelos checks acima e falhou),
+      // SIGNIFICA QUE É UM USUÁRIO REMOVIDO/DESATIVADO. NÃO PERMITIR FALLBACK PARA DONO.
+      if (!profile && (metaRole === 'student' || metaRole === 'instructor')) {
+          console.warn(`Acesso negado: Usuário orfão com role '${metaRole}'.`);
+          await supabase.auth.signOut();
+          setState({ user: null, isAuthenticated: false, isLoading: false });
+          return null;
+      }
+
+      // Se achou perfil E o ID bate, é dono. Se não achou perfil mas logou (e não é aluno/instrutor), assumimos que é um dono novo.
       const isOwner = (profile && profile.userId === sessionUser.id) || !profile; 
 
       if (profile && profile.isActive === false) {
