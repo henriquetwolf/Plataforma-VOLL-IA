@@ -3,9 +3,11 @@ import React, { useState } from 'react';
 import { generateHealthyRecipe, generateRecipeFromIngredients } from '../../services/geminiService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Utensils, Sparkles, ArrowLeft, ShoppingBasket, Target, Check, RotateCcw } from 'lucide-react';
+import { Utensils, Sparkles, ArrowLeft, ShoppingBasket, Target, Check, RotateCcw, Download, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AppRoute, RecipeResponse } from '../../types';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 // Lista de Alimentos Expandida
 const INGREDIENTS_DB = {
@@ -91,6 +93,10 @@ export const StudentRecipes: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Download States
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isDownloadingImg, setIsDownloadingImg] = useState(false);
+
   const handleToggleIngredient = (name: string) => {
     setSelectedIngredients(prev => 
       prev.includes(name) 
@@ -131,6 +137,60 @@ export const StudentRecipes: React.FC = () => {
       setError('Erro ao conectar com a IA de receitas.');
     }
     setLoading(false);
+  };
+
+  const downloadPdf = async () => {
+    const element = document.getElementById('recipe-card');
+    if (!element || !recipe) return;
+
+    setIsDownloadingPdf(true);
+    try {
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
+
+      pdf.save(`Receita_${recipe.title.replace(/\s+/g, '_')}.pdf`);
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao baixar PDF");
+    }
+    setIsDownloadingPdf(false);
+  };
+
+  const downloadImage = async () => {
+    const element = document.getElementById('recipe-card');
+    if (!element || !recipe) return;
+
+    setIsDownloadingImg(true);
+    try {
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+      const link = document.createElement('a');
+      link.download = `Receita_${recipe.title.replace(/\s+/g, '_')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao baixar imagem");
+    }
+    setIsDownloadingImg(false);
   };
 
   return (
@@ -238,48 +298,67 @@ export const StudentRecipes: React.FC = () => {
       </div>
 
       {recipe && (
-        <div className="bg-white p-8 rounded-xl border border-green-100 shadow-xl animate-in slide-in-from-bottom-8">
-          <div className="text-center mb-6">
-             <span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">Receita Gerada</span>
-             <h2 className="text-3xl font-bold text-green-800 mt-2 mb-1">{recipe.title || 'Receita Sugerida'}</h2>
-             {recipe.calories && <p className="text-sm text-slate-500 font-medium">~ {recipe.calories}</p>}
+        <div className="animate-in slide-in-from-bottom-8 space-y-4">
+          {/* Action Bar */}
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" size="sm" onClick={downloadImage} isLoading={isDownloadingImg} className="bg-white border-slate-200 text-slate-600">
+              {isDownloadingImg ? <Loader2 className="w-4 h-4 animate-spin"/> : <ImageIcon className="w-4 h-4 mr-2"/>}
+              Baixar Imagem
+            </Button>
+            <Button variant="outline" size="sm" onClick={downloadPdf} isLoading={isDownloadingPdf} className="bg-white border-slate-200 text-slate-600">
+              {isDownloadingPdf ? <Loader2 className="w-4 h-4 animate-spin"/> : <Download className="w-4 h-4 mr-2"/>}
+              Baixar PDF
+            </Button>
           </div>
 
-          {recipe.benefits && (
-            <div className="p-4 bg-green-50 rounded-lg text-green-800 italic text-center mb-6 text-sm">
-               "{recipe.benefits}"
-            </div>
-          )}
-          
-          <div className="grid md:grid-cols-2 gap-8">
-            <div>
-              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 border-b pb-2">
-                <ShoppingBasket className="w-5 h-5 text-green-600"/> Ingredientes
-              </h3>
-              <ul className="space-y-2 text-slate-600">
-                {(recipe.ingredients || []).map((ing, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="w-1.5 h-1.5 bg-green-400 rounded-full mt-2 flex-shrink-0"/>
-                    <span>{ing}</span>
-                  </li>
-                ))}
-                {(!recipe.ingredients || recipe.ingredients.length === 0) && <li>Ingredientes no texto abaixo.</li>}
-              </ul>
+          {/* Printable Recipe Card */}
+          <div id="recipe-card" className="bg-white p-8 rounded-xl border border-green-100 shadow-xl">
+            <div className="text-center mb-6">
+              <span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">Receita Gerada</span>
+              <h2 className="text-3xl font-bold text-green-800 mt-2 mb-1">{recipe.title || 'Receita Sugerida'}</h2>
+              {recipe.calories && <p className="text-sm text-slate-500 font-medium">~ {recipe.calories}</p>}
             </div>
 
-            <div>
-              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 border-b pb-2">
-                <Utensils className="w-5 h-5 text-green-600"/> Modo de Preparo
-              </h3>
-              <ol className="space-y-4 text-slate-600">
-                {(recipe.instructions || []).map((inst, i) => (
-                  <li key={i} className="flex gap-3">
-                    <span className="flex-shrink-0 w-6 h-6 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center font-bold text-xs border border-slate-200">{i+1}</span>
-                    <span className="mt-0.5">{inst}</span>
-                  </li>
-                ))}
-                {(!recipe.instructions || recipe.instructions.length === 0) && <li>Instruções não detalhadas.</li>}
-              </ol>
+            {recipe.benefits && (
+              <div className="p-4 bg-green-50 rounded-lg text-green-800 italic text-center mb-6 text-sm">
+                "{recipe.benefits}"
+              </div>
+            )}
+            
+            <div className="grid md:grid-cols-2 gap-8">
+              <div>
+                <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 border-b pb-2">
+                  <ShoppingBasket className="w-5 h-5 text-green-600"/> Ingredientes
+                </h3>
+                <ul className="space-y-2 text-slate-600">
+                  {(recipe.ingredients || []).map((ing, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="w-1.5 h-1.5 bg-green-400 rounded-full mt-2 flex-shrink-0"/>
+                      <span>{ing}</span>
+                    </li>
+                  ))}
+                  {(!recipe.ingredients || recipe.ingredients.length === 0) && <li>Ingredientes no texto abaixo.</li>}
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 border-b pb-2">
+                  <Utensils className="w-5 h-5 text-green-600"/> Modo de Preparo
+                </h3>
+                <ol className="space-y-4 text-slate-600">
+                  {(recipe.instructions || []).map((inst, i) => (
+                    <li key={i} className="flex gap-3">
+                      <span className="flex-shrink-0 w-6 h-6 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center font-bold text-xs border border-slate-200">{i+1}</span>
+                      <span className="mt-0.5">{inst}</span>
+                    </li>
+                  ))}
+                  {(!recipe.instructions || recipe.instructions.length === 0) && <li>Instruções não detalhadas.</li>}
+                </ol>
+              </div>
+            </div>
+            
+            <div className="mt-8 pt-4 border-t border-slate-100 text-center">
+               <p className="text-xs text-slate-400 font-medium">Gerado por Plataforma VOLL IA</p>
             </div>
           </div>
         </div>
