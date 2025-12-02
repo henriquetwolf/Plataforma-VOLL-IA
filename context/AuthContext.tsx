@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const studioProfile = await fetchProfile(student.user_id);
             if (studioProfile && studioProfile.isActive === false) {
                 console.warn(`Bloqueio de Segurança: O Studio deste aluno (${student.user_id}) está desativado.`);
-                await supabase.auth.signOut();
+                await supabase.auth.signOut(); // KILL SESSION
                 setState({ user: null, isAuthenticated: false, isLoading: false });
                 return null;
             }
@@ -100,7 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const studioProfile = await fetchProfile(parentStudioId);
             if (studioProfile && studioProfile.isActive === false) {
                 console.warn(`Bloqueio de Segurança: O Studio deste instrutor (${parentStudioId}) está desativado.`);
-                await supabase.auth.signOut();
+                await supabase.auth.signOut(); // KILL SESSION
                 setState({ user: null, isAuthenticated: false, isLoading: false });
                 return null;
             }
@@ -130,7 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Isso impede que um dono bloqueado consiga acessar mesmo que tente via login de instrutor (se falhar verificação acima)
       if (profile && profile.isActive === false) {
           console.warn("Acesso negado: Studio (Dono) desativado pelo Administrador.");
-          await supabase.auth.signOut();
+          await supabase.auth.signOut(); // KILL SESSION
           setState({ user: null, isAuthenticated: false, isLoading: false });
           return null;
       }
@@ -159,7 +159,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     } catch (e) {
       console.error("Erro no loadUser:", e);
-      setState(prev => ({ ...prev, isLoading: false }));
+      // Em caso de erro, desloga por segurança
+      await supabase.auth.signOut();
+      setState({ user: null, isAuthenticated: false, isLoading: false });
       return null;
     }
   };
@@ -204,7 +206,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const loadedUser = await loadUser(data.session.user);
         
         if (!loadedUser) {
-            // Se loadUser retornou null, o usuário foi bloqueado ou houve erro
+            // CRÍTICO: Se loadUser retornou null, significa que foi barrado pela segurança.
+            // Precisamos garantir que a sessão criada pelo signInWithPassword seja DESTRUÍDA.
+            await supabase.auth.signOut();
             return { success: false, error: 'Acesso suspenso ou não autorizado. Entre em contato com o suporte.' };
         }
         
