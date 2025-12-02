@@ -7,7 +7,7 @@ import { saveNewsletter, fetchNewslettersByStudio, deleteNewsletter } from '../s
 import { NewsletterAudience, Newsletter, AppRoute } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Newspaper, Send, Save, Trash2, RotateCcw, Users, User, Layout, Wand2, ArrowRight, AlertTriangle, ArrowLeft, Home, MessageCircle } from 'lucide-react';
+import { Newspaper, Send, Save, Trash2, RotateCcw, Users, User, Layout, Wand2, ArrowRight, AlertTriangle, ArrowLeft, Home, MessageCircle, Mail } from 'lucide-react';
 
 export const NewsletterAgent: React.FC = () => {
   const { user } = useAuth();
@@ -94,29 +94,34 @@ export const NewsletterAgent: React.FC = () => {
     }
   };
 
-  // Function to convert HTML to WhatsApp-friendly text
-  const handleWhatsAppShare = () => {
-    if (!generatedContent) return;
-
-    // 1. Create a temporary DOM element to handle HTML parsing
+  // Helper to convert HTML to Text
+  const convertHtmlToText = (html: string) => {
     const tempDiv = document.createElement('div');
-    
-    // 2. Pre-process specific tags for better formatting before stripping
-    let processedHtml = generatedContent.content
+    let processedHtml = html
       .replace(/<br\s*\/?>/gi, '\n') // Replace <br> with newline
       .replace(/<\/p>/gi, '\n\n')    // Replace </p> with double newline
       .replace(/<li>/gi, '• ');      // Add bullet point to list items
 
     tempDiv.innerHTML = processedHtml;
+    return tempDiv.textContent || tempDiv.innerText || "";
+  };
 
-    // 3. Get text content (strips tags)
-    const bodyText = tempDiv.textContent || tempDiv.innerText || "";
-
-    // 4. Format for WhatsApp (Bold Title + Body)
+  const handleWhatsAppShare = () => {
+    if (!generatedContent) return;
+    const bodyText = convertHtmlToText(generatedContent.content);
     const whatsappMessage = `*${generatedContent.title}*\n\n${bodyText.trim()}`;
-
-    // 5. Open WhatsApp API
     const url = `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`;
+    window.open(url, '_blank');
+  };
+
+  const handleEmailShare = () => {
+    if (!generatedContent) return;
+    const bodyText = convertHtmlToText(generatedContent.content);
+    const subject = generatedContent.title;
+    const body = bodyText.trim();
+    
+    // Open Gmail Compose
+    const url = `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.open(url, '_blank');
   };
 
@@ -274,9 +279,13 @@ export const NewsletterAgent: React.FC = () => {
                       </div>
                    </div>
                    
-                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                   <div className="grid grid-cols-2 gap-3">
                      <Button variant="outline" onClick={() => setGeneratedContent(null)}>
                        <RotateCcw className="h-4 w-4 mr-2" /> Descartar
+                     </Button>
+
+                     <Button className="bg-brand-600 hover:bg-brand-700 text-white" onClick={handleSave} isLoading={isSaving}>
+                       <Save className="h-4 w-4 mr-2" /> Salvar
                      </Button>
                      
                      <Button 
@@ -286,8 +295,11 @@ export const NewsletterAgent: React.FC = () => {
                        <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp
                      </Button>
 
-                     <Button className="bg-brand-600 hover:bg-brand-700 text-white md:col-span-1 col-span-2" onClick={handleSave} isLoading={isSaving}>
-                       <Save className="h-4 w-4 mr-2" /> Salvar
+                     <Button 
+                       className="bg-red-600 hover:bg-red-700 text-white border-transparent" 
+                       onClick={handleEmailShare}
+                     >
+                       <Mail className="h-4 w-4 mr-2" /> Email
                      </Button>
                    </div>
                  </div>
