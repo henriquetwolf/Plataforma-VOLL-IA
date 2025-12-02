@@ -26,7 +26,7 @@ import {
 } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Wand2, Calendar, Layout, Loader2, Sparkles, Copy, Trash2, Video, Image as ImageIcon, CheckCircle, Save, UserCircle } from 'lucide-react';
+import { Wand2, Calendar, Layout, Loader2, Sparkles, Copy, Trash2, Video, Image as ImageIcon, CheckCircle, Save, UserCircle, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 /*
@@ -84,6 +84,7 @@ export const ContentAgent: React.FC = () => {
     const [loadingMessage, setLoadingMessage] = useState('');
     
     // Planner States
+    const [planDuration, setPlanDuration] = useState<number>(4);
     const [planGoals, setPlanGoals] = useState({
         mainObjective: '',
         targetAudience: '',
@@ -201,6 +202,18 @@ export const ContentAgent: React.FC = () => {
         alert('Post salvo!');
     };
 
+    const handleOpenSavedPost = (post: SavedPost) => {
+        // Load data into generator
+        setRequest(post.request);
+        setGeneratedText(post.content);
+        setGeneratedImage(post.imageUrl || null);
+        setGeneratedVideo(post.videoUrl || null);
+        
+        // Switch tab and scroll up
+        setActiveTab('generator');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
     // --- PLANNER LOGIC ---
     const handleGeneratePlan = async () => {
         if (!user?.id || !persona) return;
@@ -210,7 +223,11 @@ export const ContentAgent: React.FC = () => {
                 ...planGoals,
                 targetAudience: [planGoals.targetAudience],
                 toneOfVoice: ['Inspirador'] // default
-            }, persona);
+            }, persona, planDuration);
+
+            if (!rawPlan || rawPlan.length === 0) {
+                throw new Error("Falha ao gerar plano (JSON inválido)");
+            }
 
             const newPlan: StrategicContentPlan = {
                 id: crypto.randomUUID(),
@@ -222,7 +239,7 @@ export const ContentAgent: React.FC = () => {
             await saveContentPlan(user.id, newPlan);
             setPlans([newPlan, ...plans]);
         } catch (e) {
-            alert("Erro ao gerar plano.");
+            alert("Erro ao gerar plano. Tente novamente ou simplifique os objetivos.");
         } finally {
             setIsGenerating(false);
         }
@@ -381,9 +398,14 @@ export const ContentAgent: React.FC = () => {
                                             <p className="font-bold text-sm text-slate-800 dark:text-white truncate w-40">{post.request.theme}</p>
                                             <p className="text-xs text-slate-500">{new Date(post.createdAt).toLocaleDateString()}</p>
                                         </div>
-                                        <button onClick={() => deleteSavedPost(post.id).then(() => setSavedPosts(savedPosts.filter(p => p.id !== post.id)))} className="text-slate-400 hover:text-red-500">
-                                            <Trash2 className="w-4 h-4"/>
-                                        </button>
+                                        <div className="flex gap-1">
+                                            <Button variant="ghost" size="sm" onClick={() => handleOpenSavedPost(post)} className="h-8 w-8 p-0" title="Visualizar / Editar">
+                                                <Eye className="w-4 h-4 text-brand-600"/>
+                                            </Button>
+                                            <button onClick={() => deleteSavedPost(post.id).then(() => setSavedPosts(savedPosts.filter(p => p.id !== post.id)))} className="p-2 text-slate-400 hover:text-red-500 rounded-lg" title="Excluir">
+                                                <Trash2 className="w-4 h-4"/>
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                                 {savedPosts.length === 0 && <p className="text-slate-400 text-sm">Nenhum post salvo.</p>}
@@ -451,13 +473,31 @@ export const ContentAgent: React.FC = () => {
                 <div className="space-y-8">
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                         <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-white">Gerar Novo Plano Estratégico</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <Input label="Objetivo Principal" value={planGoals.mainObjective} onChange={e => setPlanGoals({...planGoals, mainObjective: e.target.value})} placeholder="Ex: Lotar turmas da manhã" />
-                            <Input label="Público Alvo" value={planGoals.targetAudience} onChange={e => setPlanGoals({...planGoals, targetAudience: e.target.value})} placeholder="Ex: Mulheres 30-50 anos" />
-                            <Input label="Temas Chave" value={planGoals.keyThemes} onChange={e => setPlanGoals({...planGoals, keyThemes: e.target.value})} placeholder="Ex: Dor lombar, Postura" />
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="md:col-span-1">
+                                <Input label="Objetivo Principal" value={planGoals.mainObjective} onChange={e => setPlanGoals({...planGoals, mainObjective: e.target.value})} placeholder="Ex: Lotar turmas da manhã" />
+                            </div>
+                            <div className="md:col-span-1">
+                                <Input label="Público Alvo" value={planGoals.targetAudience} onChange={e => setPlanGoals({...planGoals, targetAudience: e.target.value})} placeholder="Ex: Mulheres 30-50 anos" />
+                            </div>
+                            <div className="md:col-span-1">
+                                <Input label="Temas Chave" value={planGoals.keyThemes} onChange={e => setPlanGoals({...planGoals, keyThemes: e.target.value})} placeholder="Ex: Dor lombar, Postura" />
+                            </div>
+                            <div className="md:col-span-1">
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Duração do Plano</label>
+                                <select 
+                                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 h-[42px]"
+                                    value={planDuration}
+                                    onChange={e => setPlanDuration(Number(e.target.value))}
+                                >
+                                    <option value={4}>4 Semanas</option>
+                                    <option value={12}>12 Semanas (Trimestral)</option>
+                                    <option value={16}>16 Semanas (Quadrimestral)</option>
+                                </select>
+                            </div>
                         </div>
-                        <Button onClick={handleGeneratePlan} isLoading={isGenerating} className="mt-4">
-                            <Calendar className="w-4 h-4 mr-2"/> Gerar Calendário de 4 Semanas
+                        <Button onClick={handleGeneratePlan} isLoading={isGenerating} className="mt-4 w-full md:w-auto">
+                            <Calendar className="w-4 h-4 mr-2"/> Gerar Calendário ({planDuration} Semanas)
                         </Button>
                     </div>
 
@@ -469,12 +509,12 @@ export const ContentAgent: React.FC = () => {
                                     <div key={plan.id} className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                                         <div className="flex justify-between items-start mb-4 border-b border-slate-100 dark:border-slate-800 pb-4">
                                             <div>
-                                                <h4 className="font-bold text-brand-700 text-lg">Plano Estratégico</h4>
+                                                <h4 className="font-bold text-brand-700 text-lg">Plano Estratégico ({plan.weeks.length} semanas)</h4>
                                                 <p className="text-sm text-slate-500">Criado em {new Date(plan.createdAt).toLocaleDateString()}</p>
                                             </div>
                                             <button onClick={() => deleteContentPlan(plan.id).then(() => setPlans(plans.filter(p => p.id !== plan.id)))} className="text-slate-400 hover:text-red-500"><Trash2 className="w-5 h-5"/></button>
                                         </div>
-                                        <div className="space-y-4">
+                                        <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                                             {plan.weeks.map((week, idx) => (
                                                 <div key={idx} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-lg">
                                                     <h5 className="font-bold text-slate-800 dark:text-white mb-2">{week.week}: {week.theme}</h5>

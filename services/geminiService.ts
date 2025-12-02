@@ -15,12 +15,17 @@ const cleanAndParseJSON = (text: string) => {
     if (!text) return null;
     // Remove markdown code blocks if present
     let cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    // Locate the first '{' and last '}' to handle potential preamble text
-    const firstBrace = cleanText.indexOf('{');
-    const lastBrace = cleanText.lastIndexOf('}');
+    // Locate the first '{' or '[' and last '}' or ']' to handle potential preamble text
+    const firstBrace = cleanText.search(/[\{\[]/);
+    const lastBrace = cleanText.search(/[\}\]]$/); // Simple check, might need reverse search logic if strict
     
-    if (firstBrace !== -1 && lastBrace !== -1) {
-      cleanText = cleanText.substring(firstBrace, lastBrace + 1);
+    // Better reverse search for last brace
+    const lastCurly = cleanText.lastIndexOf('}');
+    const lastSquare = cleanText.lastIndexOf(']');
+    const lastIndex = Math.max(lastCurly, lastSquare);
+
+    if (firstBrace !== -1 && lastIndex !== -1) {
+      cleanText = cleanText.substring(firstBrace, lastIndex + 1);
     }
     
     return JSON.parse(cleanText);
@@ -175,18 +180,24 @@ export const generatePilatesVideo = async (script: string, onProgress: (msg: str
     }
 };
 
-export const generateContentPlan = async (goals: any, persona: StudioPersona) => {
+export const generateContentPlan = async (goals: any, persona: StudioPersona, weeks: number) => {
     if (!apiKey) return [];
     
+    // Simplificar o prompt para garantir que o modelo siga a estrutura JSON estrita
     const prompt = `
         Atue como estrategista de marketing para Studios de Pilates.
-        Crie um plano de conteúdo de 4 semanas.
+        Crie um plano de conteúdo detalhado para **${weeks} semanas**.
         
         Objetivos do Studio: ${goals.mainObjective}
         Público: ${goals.targetAudience.join(', ')}
         Persona/Filosofia: ${persona.philosophy}
         
-        Retorne um JSON com esta estrutura:
+        REQUISITOS IMPORTANTES:
+        1. Gere exatamente ${weeks} semanas.
+        2. Para cada semana, sugira 3 posts (ex: Segunda, Quarta, Sexta).
+        3. A resposta DEVE ser um ARRAY JSON válido. Sem markdown, sem texto antes ou depois.
+        
+        Estrutura do JSON Esperada:
         [
             {
                 "week": "Semana 1",
@@ -196,8 +207,7 @@ export const generateContentPlan = async (goals: any, persona: StudioPersona) =>
                     {"day": "Quarta", "theme": "...", "format": "Post", "objective": "Conexão"},
                     {"day": "Sexta", "theme": "...", "format": "Carrossel", "objective": "Venda"}
                 ]
-            },
-            ... (para 4 semanas)
+            }
         ]
     `;
 
@@ -205,9 +215,18 @@ export const generateContentPlan = async (goals: any, persona: StudioPersona) =>
         const res = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
-            config: { responseMimeType: 'application/json' }
+            config: { 
+                responseMimeType: 'application/json',
+                temperature: 0.7
+            }
         });
-        return cleanAndParseJSON(res.text || '[]');
+        
+        const result = cleanAndParseJSON(res.text || '[]');
+        if (!Array.isArray(result)) {
+            console.error("Resultado do plano não é um array:", result);
+            return [];
+        }
+        return result;
     } catch (e) {
         console.error("Plan Gen Error:", e);
         return [];
