@@ -3,6 +3,25 @@ import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase'; // Impor
 import { Instructor } from '../types';
 import { createClient } from '@supabase/supabase-js';
 
+/*
+  ⚠️ SQL NECESSÁRIO PARA ALTERAÇÃO DE SENHA NA EDIÇÃO:
+  
+  Execute este comando no SQL Editor do Supabase para permitir que o dono altere a senha do instrutor:
+
+  create or replace function update_user_password(target_id uuid, new_password text)
+  returns void
+  language plpgsql
+  security definer
+  set search_path = extensions, public, auth
+  as $$
+  begin
+    update auth.users
+    set encrypted_password = crypt(new_password, gen_salt('bf'))
+    where id = target_id;
+  end;
+  $$;
+*/
+
 export const fetchInstructors = async (studioId?: string): Promise<Instructor[]> => {
   try {
     let query = supabase.from('instructors').select('*');
@@ -119,8 +138,13 @@ export const createInstructorWithAuth = async (
   }
 };
 
-export const updateInstructor = async (id: string, updates: Partial<Instructor>): Promise<{ success: boolean; error?: string }> => {
+export const updateInstructor = async (
+  id: string, 
+  updates: Partial<Instructor>,
+  newPassword?: string // Parâmetro opcional para atualização de senha
+): Promise<{ success: boolean; error?: string }> => {
   try {
+    // 1. Atualizar dados cadastrais
     const payload: any = {};
     if (updates.name) payload.name = updates.name;
     if (updates.email) payload.email = updates.email;
@@ -135,6 +159,33 @@ export const updateInstructor = async (id: string, updates: Partial<Instructor>)
       .eq('id', id);
 
     if (error) throw error;
+
+    // 2. Atualizar Senha (Se fornecida e válida)
+    if (newPassword && newPassword.trim().length >= 6) {
+        // Primeiro, precisamos do ID de Auth (auth_user_id) deste instrutor
+        const { data: instructorData, error: fetchError } = await supabase
+            .from('instructors')
+            .select('auth_user_id')
+            .eq('id', id)
+            .single();
+            
+        if (fetchError || !instructorData?.auth_user_id) {
+            console.warn("Não foi possível encontrar o vínculo de login para alterar a senha.");
+            // Não retornamos erro fatal aqui para não bloquear a atualização dos outros dados
+        } else {
+            // Chamada RPC para a função SQL criada
+            const { error: rpcError } = await supabase.rpc('update_user_password', {
+                target_id: instructorData.auth_user_id,
+                new_password: newPassword
+            });
+
+            if (rpcError) {
+                console.error("Erro ao atualizar senha via RPC:", rpcError);
+                return { success: true, error: "Dados salvos, mas houve erro ao atualizar a senha: " + rpcError.message };
+            }
+        }
+    }
+
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };

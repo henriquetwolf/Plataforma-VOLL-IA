@@ -61,9 +61,9 @@ export const Instructors: React.FC = () => {
       name: inst.name,
       email: inst.email,
       cpf: inst.cpf || '',
-      phone: inst.phone,
-      address: inst.address,
-      password: '' // Password not editable/viewable
+      phone: inst.phone || '',
+      address: inst.address || '',
+      password: '' // Password starts blank on edit
     });
     setEditingId(inst.id);
     setShowForm(true);
@@ -80,26 +80,37 @@ export const Instructors: React.FC = () => {
     e.preventDefault();
     if (!user?.id || !formData.name || !formData.email) return;
 
-    if (!editingId && (!formData.password || formData.password.length < 6)) {
+    // Password validation
+    if (formData.password && formData.password.length < 6) {
       alert("A senha deve ter no mínimo 6 caracteres.");
       return;
+    }
+    
+    // Se for criação, a senha é obrigatória
+    if (!editingId && !formData.password) {
+        alert("A senha é obrigatória para novos cadastros.");
+        return;
     }
 
     setIsSubmitting(true);
     
     let result;
     if (editingId) {
-      // Atualização normal
-      result = await updateInstructor(editingId, {
-        name: formData.name,
-        email: formData.email,
-        cpf: formData.cpf,
-        phone: formData.phone,
-        address: formData.address
-      });
+      // Atualização: Passa a senha (se houver) como terceiro argumento
+      result = await updateInstructor(
+        editingId, 
+        {
+          name: formData.name,
+          email: formData.email,
+          cpf: formData.cpf,
+          phone: formData.phone,
+          address: formData.address
+        },
+        formData.password // Passa a nova senha para o serviço tratar
+      );
+      
     } else {
       // Criação completa: Banco + Auth (Senha Manual)
-      // Omitimos a senha do objeto de dados do instrutor, passamos como argumento separado
       const instructorData = {
           name: formData.name,
           email: formData.email,
@@ -111,11 +122,18 @@ export const Instructors: React.FC = () => {
     }
     
     if (result.success) {
+      if (result.error) {
+          // Caso de sucesso parcial (update ok, password fail)
+          alert(result.error);
+      } else {
+          if (!editingId) {
+            alert(`Instrutor ${formData.name} cadastrado com sucesso!`);
+          } else {
+            alert(`Dados de ${formData.name} atualizados com sucesso!${formData.password ? ' A senha também foi alterada.' : ''}`);
+          }
+      }
       handleCancel();
       await loadData();
-      if (!editingId) {
-        alert(`Instrutor ${formData.name} cadastrado com sucesso!`);
-      }
     } else {
       alert(`Erro ao salvar: ${result.error}`);
     }
@@ -205,7 +223,7 @@ export const Instructors: React.FC = () => {
               onChange={handleInputChange}
               required
               placeholder="email@exemplo.com"
-              disabled={!!editingId}
+              // Removed disabled prop to allow editing
             />
             
             <Input
@@ -218,17 +236,15 @@ export const Instructors: React.FC = () => {
                 maxLength={14}
             />
 
-            {!editingId && (
-                <Input
-                    label="Senha de Acesso *"
-                    name="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="Mínimo 6 caracteres"
-                />
-            )}
+            <Input
+                label={editingId ? "Nova Senha (Opcional)" : "Senha de Acesso *"}
+                name="password"
+                type="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                required={!editingId}
+                placeholder={editingId ? "Deixe em branco para manter a atual" : "Mínimo 6 caracteres"}
+            />
 
             <Input
               label="Telefone / WhatsApp"
