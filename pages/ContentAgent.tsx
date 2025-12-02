@@ -17,16 +17,19 @@ import {
     fetchContentPlans,
     deleteContentPlan
 } from '../services/contentService';
+import { fetchProfile } from '../services/storage';
+import { compositeImageWithLogo } from '../services/imageService';
 import { 
     ContentRequest, 
     StudioPersona, 
     SavedPost, 
     StrategicContentPlan,
+    LogoConfig,
     AppRoute
 } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Wand2, Calendar, Layout, Loader2, Sparkles, Copy, Trash2, Video, Image as ImageIcon, CheckCircle, Save, UserCircle, Eye, ArrowRight, X } from 'lucide-react';
+import { Wand2, Calendar, Layout, Loader2, Sparkles, Copy, Trash2, Video, Image as ImageIcon, CheckCircle, Save, UserCircle, Eye, ArrowRight, X, Settings2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 /*
@@ -62,7 +65,13 @@ const INITIAL_REQUEST: ContentRequest = {
     theme: '',
     audience: 'Alunos Iniciantes',
     tone: 'Inspirador',
-    imageStyle: 'Fotorealista'
+    imageStyle: 'Fotorealista',
+    logoConfig: {
+        enabled: false,
+        type: 'normal',
+        position: 'bottom-right',
+        size: 'small'
+    }
 };
 
 export const ContentAgent: React.FC = () => {
@@ -74,6 +83,7 @@ export const ContentAgent: React.FC = () => {
     const [persona, setPersona] = useState<StudioPersona | null>(null);
     const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);
     const [plans, setPlans] = useState<StrategicContentPlan[]>([]);
+    const [studioLogoUrl, setStudioLogoUrl] = useState<string | null>(null);
     
     // Generator States
     const [request, setRequest] = useState<ContentRequest>(INITIAL_REQUEST);
@@ -82,6 +92,9 @@ export const ContentAgent: React.FC = () => {
     const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [loadingMessage, setLoadingMessage] = useState('');
+    
+    // Planner Integration State
+    const [generatingFromPlan, setGeneratingFromPlan] = useState<{planId: string, weekIdx: number, ideaIdx: number} | null>(null);
     
     // Planner States
     const [planDuration, setPlanDuration] = useState<number>(4);
@@ -101,10 +114,19 @@ export const ContentAgent: React.FC = () => {
 
     const loadInitialData = async () => {
         if (!user?.id) return;
+        
+        // Load Persona
         const p = await fetchStudioPersona(user.id);
         setPersona(p);
-        if (!p) setActiveTab('persona'); // Redirect to onboarding if no persona
+        if (!p) setActiveTab('persona'); 
 
+        // Load Logo from Profile
+        const profile = await fetchProfile(user.id);
+        if (profile?.logoUrl) {
+            setStudioLogoUrl(profile.logoUrl);
+        }
+
+        // Load Posts & Plans
         const posts = await fetchSavedPosts(user.id);
         setSavedPosts(posts);
 
@@ -169,7 +191,18 @@ export const ContentAgent: React.FC = () => {
             // Image
             if (['Post Estático', 'Carrossel', 'Story'].includes(request.format)) {
                 setLoadingMessage('Criando imagem...');
-                const img = await generatePilatesImage(request, null, fullText);
+                let img = await generatePilatesImage(request, null, fullText);
+                
+                // Apply Logo if enabled and available
+                if (img && request.logoConfig?.enabled && studioLogoUrl) {
+                    setLoadingMessage('Aplicando logo...');
+                    try {
+                        img = await compositeImageWithLogo(img, studioLogoUrl, request.logoConfig);
+                    } catch (logoErr) {
+                        console.error("Failed to apply logo", logoErr);
+                    }
+                }
+                
                 setGeneratedImage(img);
             }
 
@@ -201,7 +234,26 @@ export const ContentAgent: React.FC = () => {
         };
         await savePost(user.id, newPost);
         setSavedPosts([newPost, ...savedPosts]);
-        alert('Post salvo!');
+
+        // If generated from plan, update the plan
+        if (generatingFromPlan) {
+            const planToUpdate = plans.find(p => p.id === generatingFromPlan.planId);
+            if (planToUpdate && planToUpdate.weeks) {
+                const updatedWeeks = [...planToUpdate.weeks];
+                if (updatedWeeks[generatingFromPlan.weekIdx]?.ideas[generatingFromPlan.ideaIdx]) {
+                    updatedWeeks[generatingFromPlan.weekIdx].ideas[generatingFromPlan.ideaIdx].generatedPostId = newPost.id;
+                    
+                    const updatedPlan = { ...planToUpdate, weeks: updatedWeeks };
+                    await saveContentPlan(user.id, updatedPlan);
+                    
+                    // Update local state
+                    setPlans(plans.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+                }
+            }
+            setGeneratingFromPlan(null); // Clear context
+        }
+
+        alert('Post salvo com sucesso!');
     };
 
     const handleOpenSavedPost = (post: SavedPost) => {
@@ -212,7 +264,18 @@ export const ContentAgent: React.FC = () => {
         setGeneratedVideo(post.videoUrl || null);
         
         setActiveTab('generator');
+        setGeneratingFromPlan(null); // Clear context if viewing old post
         window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const updateLogoConfig = (key: keyof LogoConfig, value: any) => {
+        setRequest(prev => ({
+            ...prev,
+            logoConfig: {
+                ...prev.logoConfig!,
+                [key]: value
+            }
+        }));
     };
 
     // --- PLANNER LOGIC ---
@@ -255,49 +318,58 @@ export const ContentAgent: React.FC = () => {
         }
     };
 
-    const getPostDate = (startStr: string | undefined, weekIndex: number, dayIndex: number) => {
-        if (!startStr) return "";
+    // Helper to calculate specific date for a post idea
+    const getCalculatedDate = (startStr: string | undefined, weekIndex: number, dayName: string) => {
+        if (!startStr) return "Data não definida";
+        
         const start = new Date(startStr);
-        // Calcula a data aproximada baseada na semana e na ordem do post
-        // Assumindo que os posts são distribuidos na semana
-        // Simplificação: Semana começa na data de inicio + (weekIndex * 7)
-        // O dia exato depende da logica, mas vamos estimar:
-        const weekStart = new Date(start);
-        weekStart.setDate(start.getDate() + (weekIndex * 7));
-        
-        // Distribuição simples: Se 3x na semana (seg, qua, sex) -> dia 0, 2, 4 da semana
-        // Mas a IA pode retornar "Segunda", "Quarta".
-        // Vamos exibir apenas a data de inicio da semana para referência visual no card
-        return weekStart.toLocaleDateString();
-    };
-
-    const calculateDateForIdea = (startStr: string | undefined, weekIdx: number, dayName: string) => {
-        if (!startStr) return "";
-        const start = new Date(startStr);
-        // Ajusta para o inicio da semana correta
-        start.setDate(start.getDate() + (weekIdx * 7));
-        
-        // Tenta mapear o nome do dia para adicionar dias
-        const map: {[key:string]: number} = {
-            'domingo': 0, 'segunda': 1, 'terça': 2, 'quarta': 3, 'quinta': 4, 'sexta': 5, 'sábado': 6,
-            'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4, 'friday': 5, 'saturday': 6, 'sunday': 0
-        };
-        
+        // Normalize day name
         const dayLower = dayName.toLowerCase();
-        let addDays = 0;
         
-        for (const key in map) {
+        const dayMap: {[key:string]: number} = {
+            'domingo': 0, 'segunda': 1, 'terça': 2, 'quarta': 3, 'quinta': 4, 'sexta': 5, 'sábado': 6,
+            'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4, 'friday': 5, 'saturday': 6
+        };
+
+        // Find match
+        let targetDay = -1;
+        for (const key in dayMap) {
             if (dayLower.includes(key)) {
-                // Se a data de inicio não for Domingo, precisamos ajustar o offset
-                // Mas simplificando: Vamos assumir que a data calculada é Start + WeekOffset + DayOffset (0..6)
-                // Onde DayOffset é baseado no dia da semana.
-                // Mas se o Start Date for Quarta, e o post for Segunda, tecnicamente é na proxima segunda?
-                // Vamos simplificar: Data do Post = StartDate + (WeekIdx * 7) + Index do Array (0, 2, 4...)
-                break; 
+                targetDay = dayMap[key];
+                break;
             }
         }
-        // Fallback: Apenas mostra a semana
-        return start.toLocaleDateString();
+
+        if (targetDay === -1) {
+            // Fallback: Just return generic week range
+            return `Semana ${weekIndex + 1}`;
+        }
+
+        // Calculate date
+        // Logic: Start Date is the anchor. 
+        // We move to the specific week (weekIndex * 7).
+        // Then we assume the days in the week structure are sequential relative to that week's start.
+        // However, a smarter way for "Weekly Plan" is:
+        // Week 1 starts on StartDate.
+        // If StartDate is Wed (3) and target is Mon (1), that Mon is next week? Or did user pick start date as Monday?
+        // Let's assume StartDate aligns with the beginning of the plan cycle.
+        // We calculate the date of the "Target Day" that falls within that specific week.
+        
+        const currentWeekStart = new Date(start);
+        currentWeekStart.setDate(start.getDate() + (weekIndex * 7));
+        
+        // Adjust to find the specific day of week relative to currentWeekStart
+        // Simple approach: Iterate forward from currentWeekStart until we hit targetDay
+        // BUT: if StartDate is Friday, and first post is Monday, is it the Monday before or after?
+        // Usually plans start "From this day forward".
+        // So we look for the next occurrence of targetDay from currentWeekStart (inclusive).
+        
+        const date = new Date(currentWeekStart);
+        while (date.getDay() !== targetDay) {
+            date.setDate(date.getDate() + 1);
+        }
+        
+        return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', weekday: 'long' });
     };
 
     return (
@@ -369,6 +441,13 @@ export const ContentAgent: React.FC = () => {
                         <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                             <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-white">O que vamos criar hoje?</h3>
                             
+                            {generatingFromPlan && (
+                                <div className="mb-4 p-3 bg-brand-50 border border-brand-100 rounded-lg text-sm text-brand-800 flex items-center justify-between">
+                                    <span>Criando a partir do Plano Estratégico</span>
+                                    <button onClick={() => setGeneratingFromPlan(null)} className="text-brand-600 hover:text-brand-900"><X className="w-4 h-4"/></button>
+                                </div>
+                            )}
+
                             <div className="space-y-4">
                                 <Input 
                                     label="Tema do Conteúdo" 
@@ -435,6 +514,72 @@ export const ContentAgent: React.FC = () => {
                                             <option>Cinematográfico</option>
                                         </select>
                                     </div>
+                                </div>
+
+                                {/* LOGO SETTINGS */}
+                                <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                            <Settings2 className="w-4 h-4" /> Configuração de Logo
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-slate-500">{request.logoConfig?.enabled ? 'Ativado' : 'Desativado'}</span>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={request.logoConfig?.enabled} 
+                                                onChange={e => updateLogoConfig('enabled', e.target.checked)}
+                                                disabled={!studioLogoUrl}
+                                                className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    {!studioLogoUrl && (
+                                        <p className="text-xs text-red-500 mb-2">
+                                            ⚠️ Adicione uma logo no "Perfil do Studio" para usar este recurso.
+                                        </p>
+                                    )}
+
+                                    {request.logoConfig?.enabled && (
+                                        <div className="grid grid-cols-3 gap-3 bg-slate-50 dark:bg-slate-950 p-3 rounded-lg text-xs">
+                                            <div>
+                                                <label className="block mb-1 font-medium">Tipo</label>
+                                                <select 
+                                                    value={request.logoConfig.type} 
+                                                    onChange={e => updateLogoConfig('type', e.target.value)}
+                                                    className="w-full p-1 border rounded bg-white dark:bg-slate-800"
+                                                >
+                                                    <option value="normal">Normal</option>
+                                                    <option value="watermark">Marca D'água</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block mb-1 font-medium">Tamanho</label>
+                                                <select 
+                                                    value={request.logoConfig.size} 
+                                                    onChange={e => updateLogoConfig('size', e.target.value)}
+                                                    className="w-full p-1 border rounded bg-white dark:bg-slate-800"
+                                                >
+                                                    <option value="small">Pequeno (5%)</option>
+                                                    <option value="medium">Médio (10%)</option>
+                                                    <option value="large">Grande (20%)</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block mb-1 font-medium">Posição</label>
+                                                <select 
+                                                    value={request.logoConfig.position} 
+                                                    onChange={e => updateLogoConfig('position', e.target.value)}
+                                                    className="w-full p-1 border rounded bg-white dark:bg-slate-800"
+                                                >
+                                                    <option value="top-left">Sup. Esq.</option>
+                                                    <option value="top-right">Sup. Dir.</option>
+                                                    <option value="bottom-left">Inf. Esq.</option>
+                                                    <option value="bottom-right">Inf. Dir.</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <Button onClick={handleGenerate} isLoading={isGenerating} className="w-full mt-4">
@@ -585,7 +730,7 @@ export const ContentAgent: React.FC = () => {
                                         <div className="flex justify-between items-start mb-4 border-b border-slate-100 dark:border-slate-800 pb-4">
                                             <div>
                                                 <h4 className="font-bold text-brand-700 text-lg">Plano Estratégico ({plan.weeks?.length || 0} semanas)</h4>
-                                                <p className="text-sm text-slate-500">Criado em {new Date(plan.createdAt).toLocaleDateString()}</p>
+                                                <p className="text-sm text-slate-500">Início: {new Date(plan.startDate || plan.createdAt).toLocaleDateString()}</p>
                                             </div>
                                             <button onClick={() => deleteContentPlan(plan.id).then(() => setPlans(plans.filter(p => p.id !== plan.id)))} className="text-slate-400 hover:text-red-500"><Trash2 className="w-5 h-5"/></button>
                                         </div>
@@ -599,29 +744,52 @@ export const ContentAgent: React.FC = () => {
                                                         </h5>
                                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                                                             {week.ideas && week.ideas.map((idea, i) => (
-                                                                <div key={i} className="text-sm border border-slate-200 dark:border-slate-800 p-3 rounded bg-white dark:bg-slate-900 shadow-sm relative group">
-                                                                    <div className="flex justify-between items-start mb-1">
-                                                                        <span className="font-bold text-brand-600 bg-brand-50 dark:bg-brand-900/20 px-2 py-0.5 rounded text-xs">
-                                                                            {idea.day}
-                                                                        </span>
-                                                                        <span className="text-xs text-slate-400 font-mono border border-slate-200 dark:border-slate-700 px-1 rounded">
-                                                                            {idea.format}
-                                                                        </span>
+                                                                <div key={i} className="text-sm border border-slate-200 dark:border-slate-800 p-3 rounded bg-white dark:bg-slate-900 shadow-sm relative group flex flex-col justify-between">
+                                                                    <div>
+                                                                        <div className="flex justify-between items-start mb-2">
+                                                                            <span className="font-bold text-brand-600 bg-brand-50 dark:bg-brand-900/20 px-2 py-0.5 rounded text-xs flex flex-col">
+                                                                                <span>{idea.day}</span>
+                                                                                <span className="text-[10px] text-brand-400 mt-0.5">
+                                                                                    {getCalculatedDate(plan.startDate, idx, idea.day)}
+                                                                                </span>
+                                                                            </span>
+                                                                            <span className="text-xs text-slate-400 font-mono border border-slate-200 dark:border-slate-700 px-1 rounded">
+                                                                                {idea.format}
+                                                                            </span>
+                                                                        </div>
+                                                                        <p className="text-slate-700 dark:text-slate-300 font-medium mb-1 leading-snug">{idea.theme}</p>
+                                                                        <p className="text-xs text-slate-500 mb-3">{idea.objective}</p>
                                                                     </div>
-                                                                    <p className="text-slate-700 dark:text-slate-300 font-medium mb-1 leading-snug">{idea.theme}</p>
-                                                                    <p className="text-xs text-slate-500">{idea.objective}</p>
                                                                     
-                                                                    <button 
-                                                                        onClick={() => {
-                                                                            // Passa os dados do plano para o gerador
-                                                                            setRequest({ ...INITIAL_REQUEST, theme: idea.theme, format: idea.format, objective: idea.objective });
-                                                                            setActiveTab('generator');
-                                                                            window.scrollTo({top: 0, behavior: 'smooth'});
-                                                                        }}
-                                                                        className="w-full mt-3 text-center text-xs text-blue-600 font-bold hover:bg-blue-50 py-1.5 rounded transition-colors flex items-center justify-center gap-1"
-                                                                    >
-                                                                        Gerar este Post <ArrowRight className="w-3 h-3"/>
-                                                                    </button>
+                                                                    {idea.generatedPostId ? (
+                                                                        <button 
+                                                                            onClick={() => {
+                                                                                const post = savedPosts.find(p => p.id === idea.generatedPostId);
+                                                                                if (post) {
+                                                                                    handleOpenSavedPost(post);
+                                                                                } else {
+                                                                                    alert("Post não encontrado. Pode ter sido excluído.");
+                                                                                }
+                                                                            }}
+                                                                            className="w-full mt-auto text-center text-xs text-white bg-green-600 hover:bg-green-700 font-bold py-1.5 rounded transition-colors flex items-center justify-center gap-1"
+                                                                        >
+                                                                            <Eye className="w-3 h-3"/> Visualizar Post
+                                                                        </button>
+                                                                    ) : (
+                                                                        <button 
+                                                                            onClick={() => {
+                                                                                // Set Planner Context
+                                                                                setGeneratingFromPlan({ planId: plan.id, weekIdx: idx, ideaIdx: i });
+                                                                                // Pass Idea to Generator
+                                                                                setRequest({ ...INITIAL_REQUEST, theme: idea.theme, format: idea.format, objective: idea.objective });
+                                                                                setActiveTab('generator');
+                                                                                window.scrollTo({top: 0, behavior: 'smooth'});
+                                                                            }}
+                                                                            className="w-full mt-auto text-center text-xs text-blue-600 font-bold hover:bg-blue-50 py-1.5 rounded transition-colors flex items-center justify-center gap-1 border border-blue-100"
+                                                                        >
+                                                                            Gerar este Post <ArrowRight className="w-3 h-3"/>
+                                                                        </button>
+                                                                    )}
                                                                 </div>
                                                             ))}
                                                         </div>

@@ -432,6 +432,13 @@ export interface StudioInfo {
     whatsapp?: string;
 }
 
+export interface LogoConfig {
+    enabled: boolean;
+    type: 'normal' | 'watermark';
+    position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+    size: 'small' | 'medium' | 'large';
+}
+
 export interface ContentRequest {
     format: string;
     objective: string;
@@ -443,6 +450,7 @@ export interface ContentRequest {
     imageStyle: string;
     studioInfo?: StudioInfo;
     modificationPrompt?: string;
+    logoConfig?: LogoConfig;
 }
 
 export interface PerformanceMetrics {
@@ -486,6 +494,7 @@ export interface StrategicContentPlan {
             theme: string;
             format: string;
             objective: string;
+            generatedPostId?: string; // Links to SavedPost ID
         }[];
     }[];
 }
