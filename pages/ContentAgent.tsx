@@ -663,13 +663,13 @@ export const ContentAgent: React.FC = () => {
                                 {/* Refinement Section */}
                                 <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700">
                                     <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                                        <MessageSquarePlus className="w-4 h-4"/> Solicitar Ajustes
+                                        <MessageSquarePlus className="w-4 h-4"/> Observações
                                     </h4>
                                     <div className="flex gap-2">
                                         <textarea
                                             value={modificationInput}
                                             onChange={(e) => setModificationInput(e.target.value)}
-                                            placeholder="Ex: Deixe o texto mais curto, mude o tom para engraçado, ou troque o fundo da imagem..."
+                                            placeholder="Ex: Caso queira solicitar alguma mudança no texto ou imagem..."
                                             className="flex-1 p-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none h-16"
                                         />
                                         <Button onClick={handleRefine} isLoading={isGenerating} className="h-16 px-4">
@@ -677,7 +677,7 @@ export const ContentAgent: React.FC = () => {
                                         </Button>
                                     </div>
                                     <p className="text-xs text-slate-400 mt-2">
-                                        Dica: Descreva o que você quer mudar no texto ou na imagem e clique no botão para regenerar.
+                                        Dica: Descreva o que você quer mudar e clique no botão para regenerar.
                                     </p>
                                 </div>
                             </div>

@@ -1,3 +1,4 @@
+
 import { LogoConfig } from "../types";
 
 export const compositeImageWithLogo = async (
@@ -65,6 +66,10 @@ export const compositeImageWithLogo = async (
         } else {
           y = canvas.height - logoHeight - padding;
         }
+
+        // Safety: Ensure logo is fully within canvas bounds (never cropped)
+        x = Math.max(0, Math.min(x, canvas.width - logoWidth));
+        y = Math.max(0, Math.min(y, canvas.height - logoHeight));
 
         // Apply Opacity/Watermark
         ctx.globalAlpha = config.type === 'watermark' ? 0.5 : 1.0; 
