@@ -3,8 +3,16 @@ import { supabase } from './supabase';
 import { ClassEvaluation, Instructor } from '../types';
 
 /*
-  SQL Requirement for Supabase:
-  
+  SQL ATUALIZADO E SEGURO (CORREÇÃO DE ERRO "ALREADY EXISTS"):
+  Rode este bloco completo no Supabase SQL Editor para configurar as tabelas sem erros.
+
+  -- 1. Limpeza: Remove políticas antigas se existirem
+  drop policy if exists "Students can insert evaluations" on class_evaluations;
+  drop policy if exists "Owners can view evaluations" on class_evaluations;
+  drop policy if exists "Owners can delete evaluations" on class_evaluations;
+  drop policy if exists "Students can view studio instructors" on instructors;
+
+  -- 2. Tabela de Avaliações
   create table if not exists class_evaluations (
     id uuid primary key default gen_random_uuid(),
     studio_id uuid references studio_profiles(user_id) on delete cascade,
@@ -21,8 +29,10 @@ import { ClassEvaluation, Instructor } from '../types';
     created_at timestamptz default now()
   );
 
+  -- 3. Habilitar RLS
   alter table class_evaluations enable row level security;
 
+  -- 4. Políticas de Acesso
   create policy "Students can insert evaluations" on class_evaluations
     for insert to authenticated with check (true);
 
@@ -31,6 +41,16 @@ import { ClassEvaluation, Instructor } from '../types';
     
   create policy "Owners can delete evaluations" on class_evaluations
     for delete to authenticated using (auth.uid() = studio_id);
+
+  -- 5. Permitir que Alunos vejam a lista de Instrutores (Dropdown)
+  create policy "Students can view studio instructors" on instructors
+    for select
+    to authenticated
+    using (
+      studio_user_id in (
+        select user_id from students where auth_user_id = auth.uid()
+      )
+    );
 */
 
 export const saveEvaluation = async (
@@ -55,11 +75,15 @@ export const saveEvaluation = async (
       .from('class_evaluations')
       .insert(payload);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error saving evaluation:', error);
+      return { success: false, error: error.message || JSON.stringify(error) };
+    }
     return { success: true };
   } catch (err: any) {
-    console.error('Error saving evaluation:', err);
-    return { success: false, error: err.message };
+    console.error('Unexpected error saving evaluation:', err);
+    const msg = err instanceof Error ? err.message : JSON.stringify(err);
+    return { success: false, error: msg };
   }
 };
 
@@ -71,7 +95,10 @@ export const fetchEvaluationsByStudio = async (studioId: string): Promise<ClassE
       .eq('studio_id', studioId)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+        console.error('Error fetching evaluations:', error.message);
+        return [];
+    }
 
     return data.map((item: any) => ({
       id: item.id,
@@ -89,13 +116,16 @@ export const fetchEvaluationsByStudio = async (studioId: string): Promise<ClassE
       createdAt: item.created_at
     }));
   } catch (err) {
-    console.error('Error fetching evaluations:', err);
+    console.error('Unexpected error fetching evaluations:', err);
     return [];
   }
 };
 
 export const fetchInstructorsForStudent = async (studioId: string): Promise<Instructor[]> => {
   try {
+    if (!studioId) return [];
+
+    // Busca instrutores ativos vinculados ao dono do estúdio
     const { data, error } = await supabase
       .from('instructors')
       .select('*')
@@ -103,7 +133,10 @@ export const fetchInstructorsForStudent = async (studioId: string): Promise<Inst
       .eq('active', true)
       .order('name', { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+        console.error("Supabase Error fetching instructors (Check RLS Policy):", error.message);
+        return [];
+    }
 
     return data.map((item: any) => ({
       id: item.id,

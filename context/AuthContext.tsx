@@ -10,6 +10,7 @@ interface AuthResult {
   success: boolean;
   error?: string;
   data?: any;
+  user?: User | null; // Adicionado para retornar o usuário detectado
 }
 
 interface AuthContextType extends AuthState {
@@ -28,28 +29,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading: true,
   });
 
-  const loadUser = async (sessionUser: any) => {
+  const loadUser = async (sessionUser: any): Promise<User | null> => {
     try {
-      // 1. Verifica ALUNO (Prioridade para evitar conflito com email de instrutor)
+      // 1. Verifica ALUNO (Prioridade)
       const student = await getStudentProfile(sessionUser.id);
       if (student) {
-        console.log("Login de Aluno Detectado:", student.name);
-        setState({
-          user: {
-            id: sessionUser.id,
-            email: sessionUser.email || '',
-            name: student.name,
-            password: '',
-            isAdmin: false,
-            isInstructor: false,
-            isStudent: true, 
-            isOwner: false,
-            studioId: student.user_id 
-          },
-          isAuthenticated: true,
-          isLoading: false,
-        });
-        return;
+        const userObj: User = {
+          id: sessionUser.id,
+          email: sessionUser.email || '',
+          name: student.name,
+          password: '',
+          isAdmin: false,
+          isInstructor: false,
+          isStudent: true, 
+          isOwner: false,
+          studioId: student.user_id 
+        };
+        setState({ user: userObj, isAuthenticated: true, isLoading: false });
+        return userObj;
       }
 
       // 2. Verifica INSTRUTOR
@@ -57,70 +54,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (instructor) {
         if (instructor.active === false) {
            await supabase.auth.signOut();
-           return { error: 'Seu acesso foi desativado pelo estúdio.' };
+           setState({ user: null, isAuthenticated: false, isLoading: false });
+           return null;
         }
-        setState({
-          user: {
-            id: sessionUser.id,
-            email: sessionUser.email || '',
-            name: instructor.name,
-            password: '',
-            isAdmin: false,
-            isInstructor: true, 
-            isOwner: false,
-            isStudent: false,
-            studioId: instructor.studio_user_id 
-          },
-          isAuthenticated: true,
-          isLoading: false,
-        });
-        return;
+        const userObj: User = {
+          id: sessionUser.id,
+          email: sessionUser.email || '',
+          name: instructor.name,
+          password: '',
+          isAdmin: false,
+          isInstructor: true, 
+          isOwner: false,
+          isStudent: false,
+          studioId: instructor.studio_user_id 
+        };
+        setState({ user: userObj, isAuthenticated: true, isLoading: false });
+        return userObj;
       }
 
       // 3. Verifica DONO
       const profile = await fetchProfile(sessionUser.id);
-      const isOwner = profile && profile.userId === sessionUser.id;
+      // Se achou perfil E o ID bate, é dono. Se não achou perfil mas logou, assumimos que é um dono novo/sem perfil ainda.
+      const isOwner = (profile && profile.userId === sessionUser.id) || !profile; 
 
-      if (isOwner && profile) {
-        if (profile.isActive === false) {
+      if (profile && profile.isActive === false) {
           await supabase.auth.signOut();
-          return { error: 'Conta desativada pelo administrador.' };
-        }
-
-        setState({
-          user: {
-            id: sessionUser.id,
-            email: sessionUser.email || '',
-            name: profile.ownerName || sessionUser.user_metadata?.name || 'Usuário',
-            password: '',
-            isAdmin: profile.isAdmin,
-            isInstructor: false,
-            isStudent: false,
-            isOwner: true // Confirmação de dono
-          },
-          isAuthenticated: true,
-          isLoading: false,
-        });
-      } else {
-        // Nem Dono, Nem Instrutor, Nem Aluno (Visitante ou Erro)
-        setState({
-          user: {
-            id: sessionUser.id,
-            email: sessionUser.email || '',
-            name: sessionUser.user_metadata?.name || 'Visitante',
-            password: '',
-            isAdmin: false,
-            isInstructor: false,
-            isStudent: false,
-            isOwner: false // Explicitamente não dono
-          },
-          isAuthenticated: true,
-          isLoading: false,
-        });
+          setState({ user: null, isAuthenticated: false, isLoading: false });
+          return null;
       }
+
+      const userObj: User = {
+          id: sessionUser.id,
+          email: sessionUser.email || '',
+          name: profile?.ownerName || sessionUser.user_metadata?.name || 'Dono do Studio',
+          password: '',
+          isAdmin: profile?.isAdmin || false,
+          isInstructor: false,
+          isStudent: false,
+          isOwner: true 
+      };
+      setState({ user: userObj, isAuthenticated: true, isLoading: false });
+      return userObj;
+
     } catch (e) {
       console.error("Erro no loadUser:", e);
       setState(prev => ({ ...prev, isLoading: false }));
+      return null;
     }
   };
 
@@ -135,7 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-         if (session?.user && (!state.user || state.user.id !== session.user.id)) {
+         if (session?.user) { // Removido check de estado duplicado para garantir atualização
             loadUser(session.user);
          }
       } else if (event === 'SIGNED_OUT') {
@@ -160,7 +139,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) return { success: false, error: error.message };
 
       if (data.session?.user) {
-        await loadUser(data.session.user);
+        const loadedUser = await loadUser(data.session.user);
+        if (!loadedUser) {
+            return { success: false, error: 'Acesso não autorizado ou conta desativada.' };
+        }
+        return { success: true, user: loadedUser };
       }
 
       return { success: true };

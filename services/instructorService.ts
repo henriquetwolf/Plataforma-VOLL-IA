@@ -11,7 +11,8 @@ export const fetchInstructors = async (): Promise<Instructor[]> => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching instructors:', error);
+      // Improved error logging
+      console.error('Error fetching instructors:', error.message || error);
       return [];
     }
 
@@ -26,8 +27,8 @@ export const fetchInstructors = async (): Promise<Instructor[]> => {
       active: item.active,
       createdAt: item.created_at
     }));
-  } catch (err) {
-    console.error('Unexpected error fetching instructors:', err);
+  } catch (err: any) {
+    console.error('Unexpected error fetching instructors:', err.message || err);
     return [];
   }
 };

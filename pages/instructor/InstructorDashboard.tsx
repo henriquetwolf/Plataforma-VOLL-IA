@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AppRoute } from '../../types';
 import { Users, Activity, Newspaper, ArrowRight, User } from 'lucide-react';
 import { fetchProfile } from '../../services/storage';
@@ -9,9 +9,17 @@ import { StudioProfile } from '../../types';
 
 export const InstructorDashboard: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [studioProfile, setStudioProfile] = useState<StudioProfile | null>(null);
 
   useEffect(() => {
+    // Redirecionamento de Segurança
+    if (user && !user.isInstructor) {
+        if (user.isStudent) navigate(AppRoute.STUDENT_DASHBOARD);
+        else navigate(AppRoute.DASHBOARD);
+        return;
+    }
+
     const loadStudioData = async () => {
       if (user?.studioId) {
         const profile = await fetchProfile(user.studioId);
@@ -19,7 +27,10 @@ export const InstructorDashboard: React.FC = () => {
       }
     };
     loadStudioData();
-  }, [user]);
+  }, [user, navigate]);
+
+  // Se não for instrutor, não renderiza nada enquanto redireciona
+  if (user && !user.isInstructor) return null;
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4">

@@ -1,12 +1,23 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AppRoute } from '../../types';
 import { Utensils, Activity, ArrowRight, LogOut, Star } from 'lucide-react';
 
 export const StudentDashboard: React.FC = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Redirecionamento de Segurança
+    if (user && !user.isStudent) {
+        if (user.isInstructor) navigate(AppRoute.INSTRUCTOR_DASHBOARD);
+        else navigate(AppRoute.DASHBOARD);
+    }
+  }, [user, navigate]);
+
+  if (user && !user.isStudent) return null;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in p-4">

@@ -3,6 +3,36 @@ import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase';
 import { Student } from '../types';
 import { createClient } from '@supabase/supabase-js';
 
+/*
+  ⚠️ CORREÇÃO DE RECURSÃO INFINITA (ERROR 42P17)
+  
+  Se você encontrar o erro "infinite recursion detected", execute este SQL no Supabase:
+
+  -- 1. Função segura para checar se é instrutor (SECURITY DEFINER)
+  create or replace function is_instructor_at_studio(target_studio_id uuid)
+  returns boolean language sql security definer set search_path = public as $$
+    select exists (
+      select 1 from instructors
+      where auth_user_id = auth.uid() and studio_user_id = target_studio_id
+    );
+  $$;
+
+  -- 2. Função segura para pegar ID do studio do aluno (SECURITY DEFINER)
+  create or replace function get_my_studio_id_as_student()
+  returns uuid language sql security definer set search_path = public as $$
+    select user_id from students where auth_user_id = auth.uid() limit 1;
+  $$;
+
+  -- 3. Atualizar Políticas para usar as funções
+  drop policy if exists "Instructors can view studio students" on students;
+  create policy "Instructors can view studio students" on students
+    for select to authenticated using ( is_instructor_at_studio(user_id) );
+
+  drop policy if exists "Students can view studio instructors" on instructors;
+  create policy "Students can view studio instructors" on instructors
+    for select to authenticated using ( studio_user_id = get_my_studio_id_as_student() );
+*/
+
 interface ServiceResponse {
   success: boolean;
   error?: string;
@@ -26,7 +56,11 @@ export const fetchStudents = async (studioId?: string): Promise<Student[]> => {
     const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching students:', error);
+      if (error.code === '42P17') {
+         console.error("🚨 ERRO CRÍTICO DE RECURSÃO (RLS). Execute o SQL que está no topo de services/studentService.ts no Supabase.");
+      }
+      // Log formatted error message instead of JSON string to avoid confusion
+      console.error('Error fetching students:', error.message || error);
       return [];
     }
 
@@ -40,8 +74,8 @@ export const fetchStudents = async (studioId?: string): Promise<Student[]> => {
       observations: item.observations || '',
       createdAt: item.created_at
     }));
-  } catch (err) {
-    console.error('Unexpected error fetching students:', err);
+  } catch (err: any) {
+    console.error('Unexpected error fetching students:', err.message || err);
     return [];
   }
 };
@@ -61,7 +95,7 @@ export const addStudent = async (userId: string, student: Omit<Student, 'id' | '
       .insert(payload);
 
     if (error) {
-      console.error('Error adding student:', error);
+      console.error('Error adding student:', error.message);
       return { success: false, error: error.message || 'Erro desconhecido ao adicionar aluno' };
     }
     return { success: true };
@@ -144,7 +178,7 @@ export const revokeStudentAccess = async (studentId: string): Promise<{ success:
       .select();
 
     if (error) {
-      console.error("Erro ao revogar acesso do aluno:", error);
+      console.error("Erro ao revogar acesso do aluno:", error.message);
       return { success: false, error: error.message };
     }
 
@@ -172,7 +206,7 @@ export const updateStudent = async (studentId: string, updates: Partial<Student>
       .eq('id', studentId);
 
     if (error) {
-      console.error('Error updating student:', error);
+      console.error('Error updating student:', error.message);
       return { success: false, error: error.message };
     }
     return { success: true };
@@ -189,6 +223,7 @@ export const deleteStudent = async (studentId: string): Promise<ServiceResponse>
       .eq('id', studentId);
 
     if (error) {
+      console.error('Error deleting student:', error.message);
       return { success: false, error: error.message };
     }
     return { success: true };
@@ -207,9 +242,15 @@ export const getStudentProfile = async (authUserId: string) => {
       .eq('auth_user_id', authUserId)
       .maybeSingle();
       
+    if (error) {
+        // Log discreto para não poluir, mas ajuda a debugar RLS
+        console.warn("getStudentProfile fetch error (RLS likely):", error.message);
+        return null;
+    }
     if (data) return data;
     return null;
   } catch (err) {
+    console.error("getStudentProfile exception:", err);
     return null;
   }
 };

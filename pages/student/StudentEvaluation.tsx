@@ -4,8 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { fetchInstructorsForStudent, saveEvaluation } from '../../services/evaluationService';
 import { Instructor, AppRoute } from '../../types';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-import { Star, ArrowLeft, CheckCircle, Calendar, User, Activity, Heart, AlertCircle } from 'lucide-react';
+import { Star, ArrowLeft, CheckCircle, Calendar, Heart, Activity, AlertCircle, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 const FEELING_OPTIONS = ['Muito melhor', 'Melhor', 'Neutro', 'Cansado', 'Desconfortável'];
@@ -16,7 +15,8 @@ export const StudentEvaluation: React.FC = () => {
   const navigate = useNavigate();
   
   const [instructors, setInstructors] = useState<Instructor[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingInstructors, setLoadingInstructors] = useState(true);
+  const [loading, setLoading] = useState(true); 
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -31,10 +31,17 @@ export const StudentEvaluation: React.FC = () => {
 
   useEffect(() => {
     const loadInstructors = async () => {
+      setLoadingInstructors(true);
       if (user?.studioId) {
         const data = await fetchInstructorsForStudent(user.studioId);
         setInstructors(data);
+        
+        // Auto-select if only one instructor
+        if (data.length === 1) {
+            setSelectedInstructorId(data[0].id);
+        }
       }
+      setLoadingInstructors(false);
       setLoading(false);
     };
     loadInstructors();
@@ -57,7 +64,7 @@ export const StudentEvaluation: React.FC = () => {
       studentId: user.id,
       studentName: user.name,
       instructorId: selectedInstructorId,
-      instructorName: selectedInstructor?.name || 'Desconhecido',
+      instructorName: selectedInstructor?.name || 'Instrutor',
       classDate,
       rating,
       feeling,
@@ -101,7 +108,10 @@ export const StudentEvaluation: React.FC = () => {
 
       <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
         {loading ? (
-          <div className="text-center py-12 text-slate-500">Carregando formulário...</div>
+          <div className="text-center py-12 text-slate-500">
+             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-brand-600" />
+             Carregando formulário...
+          </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-8">
             
@@ -114,16 +124,23 @@ export const StudentEvaluation: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Instrutor</label>
                   <select 
-                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-brand-500"
+                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
                     value={selectedInstructorId}
                     onChange={e => setSelectedInstructorId(e.target.value)}
                     required
+                    disabled={loadingInstructors}
                   >
-                    <option value="">Selecione...</option>
+                    <option value="">{loadingInstructors ? 'Carregando...' : 'Selecione...'}</option>
                     {instructors.map(inst => (
                       <option key={inst.id} value={inst.id}>{inst.name}</option>
                     ))}
+                    {!loadingInstructors && instructors.length === 0 && (
+                      <option value="" disabled>Nenhum instrutor encontrado</option>
+                    )}
                   </select>
+                  {!loadingInstructors && instructors.length === 0 && (
+                    <p className="text-xs text-orange-500 mt-1">Peça ao estúdio para cadastrar instrutores.</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Data</label>

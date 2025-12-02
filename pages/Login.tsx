@@ -4,37 +4,17 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { ArrowRight, ShieldCheck, User, BookUser, GraduationCap } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import { AppRoute } from '../types';
-import { getInstructorProfile } from '../services/instructorService';
-import { getStudentProfile } from '../services/studentService'; 
-import { fetchProfile } from '../services/storage';
-import { supabase } from '../services/supabase';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loginMode, setLoginMode] = useState<'studio' | 'admin' | 'instructor' | 'student'>('studio');
-  const [isChecking, setIsChecking] = useState(false);
   
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
-
-  const checkUserRole = async (uid: string, email: string) => {
-    // Ordem importante: Aluno primeiro para evitar que instrutores pendentes (por email) capturem o login
-    
-    const student = await getStudentProfile(uid);
-    if (student) return 'student';
-
-    const instructor = await getInstructorProfile(uid, email);
-    if (instructor) return 'instructor';
-    
-    const profile = await fetchProfile(uid);
-    if (profile && profile.userId === uid) return 'studio';
-
-    return 'unknown';
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,55 +25,43 @@ export const Login: React.FC = () => {
       return;
     }
 
-    setIsChecking(true);
-
     try {
-      const { data, error: loginError } = await supabase.auth.signInWithPassword({ email, password });
-
-      if (loginError || !data.user) {
-        setIsChecking(false);
-        if (loginError?.message.includes('Invalid login credentials')) {
-           if (loginMode === 'student') setError('Dados incorretos. Peça para seu estúdio criar seu acesso.');
-           else setError('Email ou senha incorretos.');
-        } else {
-           setError('Erro ao entrar. Verifique suas credenciais.');
-        }
-        return;
-      }
-
-      const role = await checkUserRole(data.user.id, data.user.email || '');
-      
-      // Validação de Aba Correta
-      if (loginMode === 'studio' && role !== 'studio') {
-         await supabase.auth.signOut();
-         setError(`Você não é Dono de Studio. Tente a aba "${role === 'instructor' ? 'Sou Instrutor' : 'Sou Aluno'}".`);
-         setLoginMode(role === 'instructor' ? 'instructor' : 'student');
-         setIsChecking(false);
-         return;
-      }
-      if (loginMode === 'student' && role !== 'student') {
-         await supabase.auth.signOut();
-         setError('Este login não é de aluno.');
-         setIsChecking(false);
-         return;
-      }
-
       const result = await login(email, password);
       
-      if (result.success) {
-         if (loginMode === 'admin') navigate(AppRoute.ADMIN);
-         else if (loginMode === 'student') navigate(AppRoute.STUDENT_DASHBOARD);
-         else if (loginMode === 'instructor') navigate(AppRoute.INSTRUCTOR_DASHBOARD); // Redireciona para o Dashboard do Instrutor
-         else navigate(AppRoute.DASHBOARD);
+      if (result.success && result.user) {
+         // REDIRECIONAMENTO AUTOMÁTICO INTELIGENTE
+         // Ignora a aba selecionada e manda para o lugar certo
+         
+         if (result.user.email === 'henriquetwolf@gmail.com') {
+             navigate(AppRoute.ADMIN);
+             return;
+         }
+
+         if (result.user.isStudent) {
+             navigate(AppRoute.STUDENT_DASHBOARD);
+             return;
+         }
+
+         if (result.user.isInstructor) {
+             navigate(AppRoute.INSTRUCTOR_DASHBOARD);
+             return;
+         }
+
+         if (result.user.isOwner) {
+             navigate(AppRoute.DASHBOARD);
+             return;
+         }
+         
+         // Fallback
+         navigate(AppRoute.DASHBOARD);
+
       } else {
-         setError(result.error || 'Erro ao finalizar login.');
+         setError(result.error || 'Email ou senha incorretos.');
       }
 
     } catch (err) {
       console.error(err);
-      setError('Erro inesperado.');
-    } finally {
-      setIsChecking(false);
+      setError('Erro inesperado ao conectar.');
     }
   };
 
@@ -114,7 +82,7 @@ export const Login: React.FC = () => {
           </p>
         </div>
 
-        {/* Tabs de Modo */}
+        {/* Tabs de Modo (Visual Only now) */}
         <div className="flex p-1 bg-slate-100 rounded-lg mb-6">
           <button onClick={() => { setLoginMode('studio'); setError(''); }} className={`flex-1 py-2 text-xs font-medium rounded-md transition-all ${loginMode === 'studio' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}>Studio</button>
           <button onClick={() => { setLoginMode('instructor'); setError(''); }} className={`flex-1 py-2 text-xs font-medium rounded-md transition-all ${loginMode === 'instructor' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}>Instrutor</button>
@@ -127,7 +95,7 @@ export const Login: React.FC = () => {
           
           {error && <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 animate-in fade-in">{error}</div>}
 
-          <Button type="submit" className={`w-full transition-all ${loginMode === 'student' ? 'bg-green-600 hover:bg-green-700' : ''}`} isLoading={isLoading || isChecking}>
+          <Button type="submit" className={`w-full transition-all ${loginMode === 'student' ? 'bg-green-600 hover:bg-green-700' : ''}`} isLoading={isLoading}>
             Entrar {loginMode === 'student' && 'como Aluno'}
           </Button>
         </form>
