@@ -43,17 +43,15 @@ const toDBProfile = (profile: Partial<StudioProfile>): Partial<DBProfile> => {
 // Converter do DB (snake_case) para o App (camelCase)
 const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
   const defaultSettings = { 
-    sender_email: '', // Default value for email
+    sender_email: '', 
     instructor_permissions: { rehab: true, newsletters: true, students: true } 
   };
 
   const dbSettings = dbProfile.settings || {};
 
-  // Merge robusto (Deep Merge) para garantir que todas as chaves existam e não sejam undefined
   const settings = {
     ...defaultSettings,
     ...dbSettings,
-    // Garante que sender_email exista mesmo se dbSettings tiver outras chaves
     sender_email: dbSettings.sender_email || defaultSettings.sender_email,
     instructor_permissions: {
       ...defaultSettings.instructor_permissions,
@@ -75,7 +73,7 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
     logoUrl: dbProfile.logo_url || '',
     brandColor: dbProfile.brand_color || '#14b8a6',
     isAdmin: dbProfile.is_admin || false,
-    isActive: dbProfile.is_active !== false,
+    isActive: dbProfile.is_active !== false, // Default true se undefined
     settings: settings
   };
 };
@@ -86,20 +84,18 @@ export const fetchProfile = async (userId: string): Promise<StudioProfile | null
       .from('studio_profiles')
       .select('*')
       .eq('user_id', userId)
-      .maybeSingle(); // maybeSingle retorna null em vez de erro se não achar
+      .maybeSingle();
 
     if (error) {
       if (error.code === '42P17') {
         console.warn('Infinite recursion in RLS policy detected. Check Supabase policies.');
         return null;
       }
-      // Log detalhado para debug de permissão
       console.error('Error fetching profile for user', userId, ':', JSON.stringify(error));
       return null;
     }
 
     if (!data) {
-      console.log(`Perfil não encontrado para ID: ${userId}. Verifique se a política RLS "Instructors view studio profile" está ativa.`);
       return null;
     }
 
@@ -183,9 +179,6 @@ export const fetchAllProfiles = async (): Promise<{ data: StudioProfile[], error
 
 export const toggleUserStatus = async (userId: string, isActive: boolean): Promise<{ success: boolean; error?: string }> => {
   try {
-    console.log(`Tentando atualizar status do usuário ${userId} para ${isActive}...`);
-    
-    // IMPORTANTE: .select() é crucial para verificar se o RLS permitiu a atualização
     const { error, data } = await supabase
       .from('studio_profiles')
       .update({ is_active: isActive })
@@ -193,20 +186,15 @@ export const toggleUserStatus = async (userId: string, isActive: boolean): Promi
       .select(); 
 
     if (error) {
-      console.error("Erro no toggleUserStatus:", error.message);
       return { success: false, error: error.message };
     }
 
     if (!data || data.length === 0) {
-      const msg = "Nenhum registro foi atualizado. O Supabase RLS pode estar bloqueando a escrita do Admin.";
-      console.warn(msg);
-      return { success: false, error: msg };
+      return { success: false, error: "Registro não encontrado ou bloqueado por RLS." };
     }
 
-    console.log("Status atualizado com sucesso:", data);
     return { success: true };
   } catch (err: any) {
-    console.error("Exceção no toggleUserStatus:", err);
     return { success: false, error: err.message };
   }
 };

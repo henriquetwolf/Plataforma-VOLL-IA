@@ -3,11 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Student, AppRoute } from '../types';
-import { fetchStudents, addStudent, createStudentWithAutoAuth, updateStudent, deleteStudent, createStudentWithAuth, revokeStudentAccess } from '../services/studentService';
+import { fetchStudents, createStudentWithAutoAuth, updateStudent, deleteStudent, createStudentWithAuth, revokeStudentAccess } from '../services/studentService';
 import { fetchRehabLessonsByStudent } from '../services/rehabService'; 
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Users, Plus, Trash2, Search, Pencil, Activity, X, Key, CheckCircle, Home, Building2, ArrowLeft, AlertCircle, RefreshCw, Terminal, Ban } from 'lucide-react';
+import { Users, Plus, Trash2, Search, Pencil, Activity, X, Key, CheckCircle, Home, Building2, ArrowLeft, AlertCircle, Ban } from 'lucide-react';
 
 export const Students: React.FC = () => {
   const { user } = useAuth();
@@ -22,10 +22,13 @@ export const Students: React.FC = () => {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [studentLessons, setStudentLessons] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  
+  // Modal de Acesso (Reativação)
   const [accessModalOpen, setAccessModalOpen] = useState(false);
   const [accessStudent, setAccessStudent] = useState<Student | null>(null);
   const [accessPassword, setAccessPassword] = useState('');
   const [isCreatingAccess, setIsCreatingAccess] = useState(false);
+  
   const [permissionError, setPermissionError] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -34,7 +37,7 @@ export const Students: React.FC = () => {
     address: '',
     phone: '',
     observations: '',
-    password: '' // For creating access or editing password
+    password: '' // Obrigatório no cadastro, opcional na edição
   });
 
   const isInstructor = user?.isInstructor;
@@ -45,7 +48,6 @@ export const Students: React.FC = () => {
     const targetId = user.isInstructor ? user.studioId : user.id;
     
     if (!targetId) {
-        console.warn("Nenhum ID de estúdio encontrado.");
         if (isInstructor) setPermissionError(true);
         setIsLoading(false);
         return;
@@ -93,7 +95,7 @@ export const Students: React.FC = () => {
       address: student.address || '',
       phone: student.phone || '',
       observations: student.observations || '',
-      password: '' // Reset password field
+      password: '' // Reset password field for edit
     });
     setEditingId(student.id);
     setShowForm(true);
@@ -123,11 +125,11 @@ export const Students: React.FC = () => {
     // Se for novo cadastro, senha e email são obrigatórios para o acesso automático
     if (!editingId) {
         if (!formData.email) {
-            alert("O email é obrigatório para novos cadastros.");
+            alert("O email é obrigatório para novos cadastros (será o login do aluno).");
             return;
         }
         if (!formData.password || formData.password.length < 6) {
-            alert("Uma senha de acesso (mínimo 6 caracteres) é obrigatória para o novo aluno.");
+            alert("Uma senha de acesso (mínimo 6 caracteres) é obrigatória para cadastrar e liberar o acesso do aluno.");
             return;
         }
     }
@@ -144,7 +146,7 @@ export const Students: React.FC = () => {
     if (editingId) {
       result = await updateStudent(editingId, formData, formData.password);
     } else {
-      // Usar a nova função que cria banco + auth
+      // Usar a nova função que cria banco + auth simultaneamente
       result = await createStudentWithAutoAuth(ownerId, formData, formData.password);
     }
     
@@ -152,7 +154,7 @@ export const Students: React.FC = () => {
       handleCancel();
       await loadStudents();
       if (!editingId) {
-          alert(`Aluno ${formData.name} cadastrado com acesso liberado!\n\nLogin: ${formData.email}\nSenha: ${formData.password}`);
+          alert(`Aluno cadastrado e acesso liberado com sucesso!\n\nLogin: ${formData.email}\nSenha: ${formData.password}`);
       } else {
           alert("Dados do aluno atualizados com sucesso!");
       }
@@ -164,10 +166,10 @@ export const Students: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     if (isInstructor) {
-        alert("Apenas o proprietário pode excluir alunos permanentemente. Você pode editar os dados.");
+        alert("Apenas o proprietário pode excluir alunos permanentemente.");
         return;
     }
-    if (window.confirm('Tem certeza que deseja remover este aluno?')) {
+    if (window.confirm('Tem certeza que deseja remover este aluno? Todos os dados serão perdidos.')) {
       const result = await deleteStudent(id);
       if (result.success) {
         await loadStudents();
@@ -177,26 +179,10 @@ export const Students: React.FC = () => {
     }
   };
 
-  // Função para desativar acesso na view de detalhes
-  const handleToggleAccessDetails = async (student: Student) => {
-      if (!student.authUserId) return;
-      if (window.confirm(`Deseja desativar o acesso de ${student.name}? O aluno não conseguirá mais fazer login.`)) {
-          const result = await revokeStudentAccess(student.id);
-          if (result.success) {
-              alert("Acesso desativado com sucesso.");
-              loadStudents();
-              setSelectedStudent(prev => prev ? { ...prev, authUserId: undefined } : null);
-          } else {
-              alert("Erro ao desativar acesso: " + result.error);
-          }
-      }
-  };
-
-  // Função para desativar acesso na lista principal
-  const handleToggleAccessList = async (student: Student) => {
+  const handleToggleAccess = async (student: Student) => {
     if (student.authUserId) {
         // Fluxo de Desativar
-        if (window.confirm(`Tem certeza que deseja BLOQUEAR o acesso de ${student.name}?`)) {
+        if (window.confirm(`Tem certeza que deseja REVOGAR o acesso de ${student.name}? O aluno não conseguirá mais logar.`)) {
             const result = await revokeStudentAccess(student.id);
             if (result.success) {
                 await loadStudents();
@@ -205,15 +191,15 @@ export const Students: React.FC = () => {
             }
         }
     } else {
-        // Fluxo de Ativar (Abre modal para criar senha)
-        openAccessModal(student);
+        // Fluxo de Ativar (Abre modal)
+        if (!student.email) {
+            alert("Edite o aluno e adicione um email antes de ativar o acesso.");
+            return;
+        }
+        setAccessStudent(student);
+        setAccessPassword('');
+        setAccessModalOpen(true);
     }
-  };
-
-  const openAccessModal = (student: Student) => {
-    setAccessStudent(student);
-    setAccessPassword('');
-    setAccessModalOpen(true);
   };
 
   const handleCreateAccess = async (e: React.FormEvent) => {
@@ -226,15 +212,15 @@ export const Students: React.FC = () => {
     }
 
     setIsCreatingAccess(true);
+    // Chama a função de criação manual (que lida com reativação se o email já existir)
     const result = await createStudentWithAuth(accessStudent.id, accessStudent.email, accessPassword);
     setIsCreatingAccess(false);
 
     if (result.success) {
       if (result.message) {
-          // Mensagem especial de reativação
-          alert(result.message);
+          alert(result.message); // Mensagem customizada de reativação
       } else {
-          alert(`Acesso criado com sucesso para ${accessStudent.name}!\n\nLogin: ${accessStudent.email}\nSenha: ${accessPassword}`);
+          alert(`Acesso criado com sucesso!\nLogin: ${accessStudent.email}\nSenha: ${accessPassword}`);
       }
       setAccessModalOpen(false);
       loadStudents();
@@ -243,106 +229,11 @@ export const Students: React.FC = () => {
     }
   };
 
-  const copyFixSQL = () => {
-    const sql = `
--- HELPER FUNCTION (SECURITY DEFINER)
-CREATE OR REPLACE FUNCTION public.is_instructor_at_studio(target_studio_id uuid)
-RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM instructors
-    WHERE auth_user_id = auth.uid() AND studio_user_id = target_studio_id
-  );
-$$;
-
--- INSTRUCTORS VIEW OWN PROFILE
-DROP POLICY IF EXISTS "Instructors can view own profile" ON instructors;
-CREATE POLICY "Instructors can view own profile" ON instructors
-  FOR SELECT TO authenticated USING ( auth_user_id = auth.uid() );
-
--- STUDENTS ACCESS
-DROP POLICY IF EXISTS "Instructors can view studio students" ON students;
-CREATE POLICY "Instructors can view studio students" ON students
-  FOR SELECT TO authenticated USING ( is_instructor_at_studio(user_id) );
-    `;
-    navigator.clipboard.writeText(sql.trim());
-    alert("Código SQL copiado! Envie para o administrador do sistema rodar no Supabase.");
-  };
-
   const filteredStudents = students.filter(student => 
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.cpf?.includes(searchTerm)
   );
-
-  // Modal de Detalhes
-  if (selectedStudent) {
-    return (
-      <div className="space-y-6 animate-in fade-in">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={() => setSelectedStudent(null)}>
-            <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
-          </Button>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedStudent.name}</h1>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800">
-            <h3 className="font-bold mb-4 text-slate-800 dark:text-white">Dados Pessoais</h3>
-            <p className="text-slate-600 dark:text-slate-400 mb-2"><strong>Email:</strong> {selectedStudent.email || '-'}</p>
-            <p className="text-slate-600 dark:text-slate-400 mb-2"><strong>CPF:</strong> {selectedStudent.cpf || '-'}</p>
-            <p className="text-slate-600 dark:text-slate-400 mb-2"><strong>Telefone:</strong> {selectedStudent.phone || '-'}</p>
-            <p className="text-slate-600 dark:text-slate-400 mb-2"><strong>Endereço:</strong> {selectedStudent.address || '-'}</p>
-            <p className="text-slate-600 dark:text-slate-400"><strong>Obs:</strong> {selectedStudent.observations || '-'}</p>
-            
-            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-               <p className="text-sm font-bold mb-2 text-slate-700 dark:text-slate-300">Status do Acesso:</p>
-               {selectedStudent.authUserId ? (
-                  <div className="flex items-center gap-4">
-                      <span className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
-                        <CheckCircle className="w-4 h-4"/> Acesso Ativo
-                      </span>
-                      <button 
-                        onClick={() => handleToggleAccessDetails(selectedStudent)}
-                        className="text-red-600 hover:text-red-800 text-sm font-medium flex items-center gap-1 hover:underline"
-                      >
-                        <Ban className="w-4 h-4"/> Desativar
-                      </button>
-                  </div>
-               ) : (
-                  <button 
-                      onClick={() => openAccessModal(selectedStudent)}
-                      className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-2 hover:underline"
-                      disabled={!selectedStudent.email}
-                  >
-                      <Key className="w-4 h-4"/> {selectedStudent.email ? 'Criar Acesso ao Portal' : 'Adicione um email para criar acesso'}
-                  </button>
-               )}
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800">
-            <h3 className="font-bold mb-4 text-slate-800 dark:text-white flex items-center gap-2">
-              <Activity className="h-5 w-5 text-brand-600"/> Histórico Clínico (Rehab)
-            </h3>
-            {loadingHistory ? (
-              <p>Carregando...</p>
-            ) : studentLessons.length === 0 ? (
-              <p className="text-slate-500 text-sm">Nenhum plano de reabilitação salvo.</p>
-            ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {studentLessons.map(lesson => (
-                  <div key={lesson.id} className="p-3 bg-slate-50 dark:bg-slate-800 rounded border border-slate-100 dark:border-slate-700">
-                    <p className="font-bold text-sm text-brand-700 dark:text-brand-400">{lesson.pathologyName}</p>
-                    <p className="text-xs text-slate-500">{new Date(lesson.createdAt).toLocaleDateString()}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -361,9 +252,8 @@ CREATE POLICY "Instructors can view studio students" ON students
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
               {isInstructor ? 'Alunos do Studio' : 'Meus Alunos'} 
-              {isInstructor && <span className="text-xs font-normal bg-brand-100 text-brand-700 px-2 py-1 rounded-full ml-2 flex items-center gap-1"><Building2 className="w-3 h-3"/> Base Completa</span>}
             </h1>
-            <p className="text-slate-500 dark:text-slate-400">Gerencie o cadastro e histórico dos alunos.</p>
+            <p className="text-slate-500 dark:text-slate-400">Gerencie o cadastro e acesso ao portal.</p>
           </div>
         </div>
         
@@ -376,26 +266,8 @@ CREATE POLICY "Instructors can view studio students" ON students
       </div>
 
       {permissionError && (
-        <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-r-lg shadow-sm animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
-            <div className="flex-1">
-              <h3 className="font-bold text-red-800 dark:text-red-300 text-sm">Erro de Permissão (Missing Studio ID)</h3>
-              <p className="text-red-700 dark:text-red-400 text-xs mt-1">
-                O sistema não conseguiu identificar o estúdio vinculado.
-              </p>
-              <div className="flex gap-2 mt-3">
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="bg-white text-slate-600 border-slate-200 hover:bg-slate-50 h-8 text-xs"
-                  onClick={copyFixSQL}
-                >
-                  <Terminal className="w-3 h-3 mr-2"/> Copiar SQL de Correção
-                </Button>
-              </div>
-            </div>
-          </div>
+        <div className="bg-red-50 p-4 rounded-lg text-red-700">
+          Erro de permissão. Seu usuário instrutor não está vinculado corretamente ao studio.
         </div>
       )}
 
@@ -427,7 +299,7 @@ CREATE POLICY "Instructors can view studio students" ON students
               value={formData.email}
               onChange={handleInputChange}
               required
-              disabled={!!editingId} // Não permite mudar email após criar (login)
+              disabled={!!editingId} // Email é chave de login, melhor não editar diretamente
             />
             
             <Input
@@ -460,13 +332,12 @@ CREATE POLICY "Instructors can view studio students" ON students
                 name="address"
                 value={formData.address}
                 onChange={handleInputChange}
-                placeholder="Rua, Número, Bairro..."
               />
             </div>
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Observações Clínicas / Objetivos
+                Observações Clínicas
               </label>
               <textarea
                 name="observations"
@@ -491,7 +362,7 @@ CREATE POLICY "Instructors can view studio students" ON students
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar aluno (Nome, CPF...)"
+              placeholder="Buscar aluno..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
@@ -513,7 +384,6 @@ CREATE POLICY "Instructors can view studio students" ON students
                 <tr>
                   <th className="px-6 py-3">Nome</th>
                   <th className="px-6 py-3">Contato</th>
-                  <th className="px-6 py-3">CPF</th>
                   <th className="px-6 py-3 text-center">Acesso</th>
                   <th className="px-6 py-3 text-right">Ações</th>
                 </tr>
@@ -523,12 +393,11 @@ CREATE POLICY "Instructors can view studio students" ON students
                   <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{student.name}</td>
                     <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{student.email || student.phone || '-'}</td>
-                    <td className="px-6 py-4 text-slate-500 dark:text-slate-400 font-mono text-xs">{student.cpf || '-'}</td>
                     <td className="px-6 py-4 text-center">
                        <button 
-                          onClick={() => handleToggleAccessList(student)}
-                          title={student.authUserId ? "Clique para BLOQUEAR o acesso" : "Clique para CRIAR acesso"}
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border transition-all min-w-[80px] justify-center ${
+                          onClick={() => handleToggleAccess(student)}
+                          title={student.authUserId ? "Clique para BLOQUEAR" : "Clique para LIBERAR acesso"}
+                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border transition-all min-w-[90px] justify-center ${
                             student.authUserId
                               ? 'bg-green-100 text-green-700 border-green-200 hover:bg-red-100 hover:text-red-700 hover:border-red-200'
                               : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-blue-100 hover:text-blue-700 hover:border-blue-200'
@@ -566,7 +435,7 @@ CREATE POLICY "Instructors can view studio students" ON students
         )}
       </div>
 
-      {/* Access Modal (Only needed for re-activation of existing students without login) */}
+      {/* Modal para criar senha ao ativar acesso manual */}
       {accessModalOpen && accessStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-xl p-6 shadow-xl border border-slate-200 dark:border-slate-800">
@@ -591,6 +460,45 @@ CREATE POLICY "Instructors can view studio students" ON students
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Modal de Detalhes (Visualização Rápida) */}
+      {selectedStudent && (
+        <div className="fixed inset-0 z-50 bg-white dark:bg-slate-950 overflow-y-auto animate-in slide-in-from-right">
+           <div className="max-w-4xl mx-auto p-6 space-y-6">
+              <div className="flex items-center gap-4 mb-6">
+                <Button variant="outline" onClick={() => setSelectedStudent(null)}>
+                  <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
+                </Button>
+                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedStudent.name}</h1>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <h3 className="font-bold mb-4">Dados Pessoais</h3>
+                  <p><strong>Email:</strong> {selectedStudent.email}</p>
+                  <p><strong>Telefone:</strong> {selectedStudent.phone}</p>
+                  <p><strong>Endereço:</strong> {selectedStudent.address}</p>
+                  <p><strong>Obs:</strong> {selectedStudent.observations}</p>
+                </div>
+                
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800">
+                   <h3 className="font-bold mb-4 flex items-center gap-2"><Activity className="w-5 h-5"/> Histórico Clínico</h3>
+                   {loadingHistory ? <p>Carregando...</p> : (
+                      studentLessons.length > 0 ? (
+                        <ul className="space-y-2">
+                           {studentLessons.map(l => (
+                             <li key={l.id} className="p-2 border rounded bg-slate-50 dark:bg-slate-800">
+                                <strong>{l.pathologyName}</strong> - {new Date(l.createdAt).toLocaleDateString()}
+                             </li>
+                           ))}
+                        </ul>
+                      ) : <p className="text-slate-500">Nenhum plano salvo.</p>
+                   )}
+                </div>
+              </div>
+           </div>
         </div>
       )}
     </div>

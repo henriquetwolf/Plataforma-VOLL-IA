@@ -10,7 +10,7 @@ interface AuthResult {
   success: boolean;
   error?: string;
   data?: any;
-  user?: User | null; // Adicionado para retornar o usuário detectado
+  user?: User | null;
 }
 
 interface AuthContextType extends AuthState {
@@ -38,7 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (student) {
         const userObj: User = {
           id: sessionUser.id,
-          dbId: student.id, // Primary Key from students table
+          dbId: student.id, 
           email: sessionUser.email || '',
           name: student.name,
           password: '',
@@ -61,25 +61,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // 2. Verifica INSTRUTOR
-      // Verifica primeiro via Metadata (mais rápido e seguro se setado)
       const isInstructorMeta = metaRole === 'instructor';
-      
       const instructor = await getInstructorProfile(sessionUser.id, sessionUser.email);
       
       if (instructor || isInstructorMeta) {
-        // Se achou no banco, usa os dados do banco. Se não, usa metadata + sessão (fallback)
         const active = instructor ? instructor.active : true;
         
         if (active === false) {
+           console.warn("Acesso negado: Instrutor inativo.");
            await supabase.auth.signOut();
            setState({ user: null, isAuthenticated: false, isLoading: false });
            return null;
         }
 
-        // Se por algum motivo o perfil do banco não veio mas é instrutor (ex: erro RLS), bloqueia por segurança
-        // para evitar acesso parcial, a menos que tenhamos certeza.
-        // Aqui assumimos que se instructor é null mas role é instructor, pode ser uma falha.
-        // Mas para manter compatibilidade, se tiver instructor object, usamos.
+        // Se não achou perfil de instrutor mas tem a role, bloqueia por segurança
+        if (!instructor && isInstructorMeta) {
+           console.warn("Acesso negado: Instrutor sem perfil vinculado.");
+           await supabase.auth.signOut();
+           setState({ user: null, isAuthenticated: false, isLoading: false });
+           return null;
+        }
 
         const userObj: User = {
           id: sessionUser.id,
@@ -91,7 +92,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isInstructor: true, 
           isOwner: false,
           isStudent: false,
-          // Tenta pegar do banco, se falhar (RLS), tenta metadata
           studioId: instructor?.studio_user_id || sessionUser.user_metadata?.studio_id
         };
         setState({ user: userObj, isAuthenticated: true, isLoading: false });
@@ -101,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 3. Verifica DONO
       const profile = await fetchProfile(sessionUser.id);
       
-      // SEGURANÇA CRÍTICA: Se não achou perfil de dono, mas o usuário tem role de 'student' ou 'instructor' (que passou pelos checks acima e falhou),
+      // SEGURANÇA CRÍTICA: Se não achou perfil de dono, mas o usuário tem role de 'student' ou 'instructor'
       // SIGNIFICA QUE É UM USUÁRIO REMOVIDO/DESATIVADO. NÃO PERMITIR FALLBACK PARA DONO.
       if (!profile && (metaRole === 'student' || metaRole === 'instructor')) {
           console.warn(`Acesso negado: Usuário orfão com role '${metaRole}'.`);
@@ -110,10 +110,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return null;
       }
 
-      // Se achou perfil E o ID bate, é dono. Se não achou perfil mas logou (e não é aluno/instrutor), assumimos que é um dono novo.
-      const isOwner = (profile && profile.userId === sessionUser.id) || !profile; 
-
       if (profile && profile.isActive === false) {
+          console.warn("Acesso negado: Studio inativo.");
           await supabase.auth.signOut();
           setState({ user: null, isAuthenticated: false, isLoading: false });
           return null;
@@ -121,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const userObj: User = {
           id: sessionUser.id,
-          dbId: profile?.id, // Primary Key from studio_profiles (if exists)
+          dbId: profile?.id, 
           email: sessionUser.email || '',
           name: profile?.ownerName || sessionUser.user_metadata?.name || 'Dono do Studio',
           password: '',
@@ -151,7 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-         if (session?.user) { // Removido check de estado duplicado para garantir atualização
+         if (session?.user) {
             loadUser(session.user);
          }
       } else if (event === 'SIGNED_OUT') {
@@ -178,7 +176,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.session?.user) {
         const loadedUser = await loadUser(data.session.user);
         if (!loadedUser) {
-            return { success: false, error: 'Acesso não autorizado ou conta desativada.' };
+            // Se loadUser retornou null, significa que foi bloqueado por segurança
+            return { success: false, error: 'Acesso negado. Conta desativada ou perfil não encontrado.' };
         }
         return { success: true, user: loadedUser };
       }
@@ -212,11 +211,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const createInstructorLogin = async (email: string, password: string, instructorId: string): Promise<AuthResult> => {
-    try {
-      return { success: false, error: "Feature indisponível." };
-    } catch (err) {
-      return { success: false, error: 'Erro.' };
-    }
+    return { success: false, error: "Feature indisponível." };
   };
 
   const logout = async () => {

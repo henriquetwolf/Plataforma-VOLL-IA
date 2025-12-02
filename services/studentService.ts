@@ -4,39 +4,21 @@ import { Student } from '../types';
 import { createClient } from '@supabase/supabase-js';
 
 /*
-  ⚠️ CORREÇÃO DE RECURSÃO INFINITA (ERROR 42P17)
-  
-  Se você encontrar o erro "infinite recursion detected", execute este SQL no Supabase:
+  ⚠️ SQL NECESSÁRIO NO SUPABASE (Execute no SQL Editor):
 
-  -- 1. Função segura para checar se é instrutor (SECURITY DEFINER)
-  create or replace function is_instructor_at_studio(target_studio_id uuid)
-  returns boolean language sql security definer set search_path = public as $$
-    select exists (
-      select 1 from instructors
-      where auth_user_id = auth.uid() and studio_user_id = target_studio_id
-    );
-  $$;
-
-  -- 2. Função segura para pegar ID do studio do aluno (SECURITY DEFINER)
-  create or replace function get_my_studio_id_as_student()
-  returns uuid language sql security definer set search_path = public as $$
-    select user_id from students where auth_user_id = auth.uid() limit 1;
-  $$;
-
-  -- 3. Atualizar Políticas para usar as funções
-  drop policy if exists "Instructors can view studio students" on students;
-  create policy "Instructors can view studio students" on students
-    for select to authenticated using ( is_instructor_at_studio(user_id) );
-
-  drop policy if exists "Students can view studio instructors" on instructors;
-  create policy "Students can view studio instructors" on instructors
-    for select to authenticated using ( studio_user_id = get_my_studio_id_as_student() );
-    
-  -- 4. Função para reativação de aluno (Busca ID por email)
+  -- 1. Função para reativação de aluno (Busca ID por email de forma segura)
   create or replace function get_user_id_by_email(email_input text)
   returns uuid language plpgsql security definer as $$
   begin
     return (select id from auth.users where email = email_input);
+  end;
+  $$;
+
+  -- 2. Função para atualizar senha (caso não exista)
+  create or replace function update_user_password(target_id uuid, new_password text)
+  returns void language plpgsql security definer set search_path = extensions, public, auth as $$
+  begin
+    update auth.users set encrypted_password = crypt(new_password, gen_salt('bf')) where id = target_id;
   end;
   $$;
 */
@@ -57,7 +39,6 @@ export const fetchStudents = async (studioId?: string): Promise<Student[]> => {
   try {
     let query = supabase.from('students').select('*');
     
-    // Filter by studio owner ID if provided (for instructors seeing owner's students)
     if (studioId) {
         query = query.eq('user_id', studioId);
     }
@@ -65,10 +46,6 @@ export const fetchStudents = async (studioId?: string): Promise<Student[]> => {
     const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
-      if (error.code === '42P17') {
-         console.error("🚨 ERRO CRÍTICO DE RECURSÃO (RLS). Execute o SQL que está no topo de services/studentService.ts no Supabase.");
-      }
-      // Log formatted error message instead of JSON string to avoid confusion
       console.error('Error fetching students:', error.message || error);
       return [];
     }
@@ -91,35 +68,7 @@ export const fetchStudents = async (studioId?: string): Promise<Student[]> => {
   }
 };
 
-// --- FUNÇÃO ANTIGA (SEM AUTH AUTOMÁTICO) - Mantida para fallback ---
-export const addStudent = async (userId: string, student: Omit<Student, 'id' | 'userId'>): Promise<ServiceResponse> => {
-  try {
-    const payload = {
-      user_id: userId,
-      name: student.name.trim(),
-      email: sanitize(student.email),
-      cpf: sanitize(student.cpf),
-      address: sanitize(student.address),
-      phone: sanitize(student.phone),
-      observations: sanitize(student.observations)
-    };
-
-    const { error } = await supabase
-      .from('students')
-      .insert(payload);
-
-    if (error) {
-      console.error('Error adding student:', error.message);
-      return { success: false, error: error.message || 'Erro desconhecido ao adicionar aluno' };
-    }
-    return { success: true };
-  } catch (err: any) {
-    console.error('Unexpected error adding student:', err);
-    return { success: false, error: err.message || JSON.stringify(err) };
-  }
-};
-
-// --- NOVA FUNÇÃO: CRIAR ALUNO COM ACESSO AUTOMÁTICO ---
+// --- NOVA FUNÇÃO: CRIAR ALUNO COM ACESSO AUTOMÁTICO (NOVO CADASTRO) ---
 export const createStudentWithAutoAuth = async (
   studioUserId: string,
   student: Omit<Student, 'id' | 'userId' | 'authUserId'>,
@@ -150,15 +99,15 @@ export const createStudentWithAutoAuth = async (
       options: {
         data: {
           name: student.name,
-          role: 'student', // Marcação importante
-          studio_id: studioUserId // Vínculo de backup
+          role: 'student', // Marcação importante para AuthContext
+          studio_id: studioUserId
         }
       }
     });
 
     if (authError) {
       if (authError.message.includes("already registered")) {
-         return { success: false, error: "Este email já possui uma conta no sistema." };
+         return { success: false, error: "Este email já possui uma conta no sistema. Use a opção de ativar acesso na lista de alunos." };
       }
       return { success: false, error: "Erro ao criar login: " + authError.message };
     }
@@ -197,7 +146,7 @@ export const createStudentWithAutoAuth = async (
   }
 };
 
-// --- Função para criar acesso posteriormente (para alunos antigos ou reativar) ---
+// --- FUNÇÃO PARA ATIVAR ACESSO (ALUNO JÁ EXISTENTE OU REATIVAÇÃO) ---
 export const createStudentWithAuth = async (
   studentId: string, 
   email: string,
@@ -220,7 +169,7 @@ export const createStudentWithAuth = async (
       }
     });
 
-    // Tenta criar
+    // Tenta criar usuário novo
     const { data: authData, error: authError } = await tempClient.auth.signUp({
       email,
       password,
@@ -230,6 +179,7 @@ export const createStudentWithAuth = async (
     });
 
     let newUserId = authData.user?.id;
+    let isReactivation = false;
 
     // Se der erro de "já registrado", tentamos recuperar o ID e atualizar a senha (REATIVAÇÃO)
     if (authError) {
@@ -240,10 +190,11 @@ export const createStudentWithAuth = async (
 
          if (rpcError || !existingUserId) {
              console.error("RPC Error:", rpcError);
-             return { success: false, error: "Este email já possui conta, mas não foi possível reativá-la automaticamente. Verifique se o SQL 'get_user_id_by_email' foi criado no Supabase." };
+             return { success: false, error: "Este email já possui conta, mas não foi possível recuperar o ID. Peça ao administrador para verificar a função 'get_user_id_by_email'." };
          }
 
          newUserId = existingUserId;
+         isReactivation = true;
 
          // 2. Atualizar a senha para a nova que o usuário digitou (para garantir acesso)
          const { error: pwdError } = await supabase.rpc('update_user_password', {
@@ -253,7 +204,6 @@ export const createStudentWithAuth = async (
          
          if (pwdError) {
              console.warn("Aviso: Falha ao atualizar senha na reativação.", pwdError);
-             // Não retornamos erro fatal, apenas avisamos, pois o vínculo ainda pode ocorrer
          }
       } else {
          return { success: false, error: authError.message };
@@ -274,8 +224,8 @@ export const createStudentWithAuth = async (
       return { success: false, error: "Login validado, mas falha ao vincular no cadastro do aluno: " + dbError.message };
     }
 
-    // Retorna mensagem específica se foi reativação ou criação
-    const msg = authError ? "Acesso reativado com sucesso! A senha foi atualizada." : undefined;
+    // Retorna mensagem específica se foi reativação
+    const msg = isReactivation ? "Acesso REATIVADO com sucesso! A senha foi atualizada para a nova definida." : undefined;
 
     return { success: true, message: msg };
 
@@ -286,7 +236,8 @@ export const createStudentWithAuth = async (
 
 export const revokeStudentAccess = async (studentId: string): Promise<{ success: boolean; error?: string }> => {
   try {
-    // 1. Remove o vínculo auth_user_id da tabela students
+    // Apenas remove o vínculo auth_user_id da tabela students.
+    // O usuário no Auth continua existindo, mas sem vínculo, o AuthContext bloqueia o acesso.
     const { error, data } = await supabase
       .from('students')
       .update({ auth_user_id: null })
@@ -296,10 +247,6 @@ export const revokeStudentAccess = async (studentId: string): Promise<{ success:
     if (error) {
       console.error("Erro ao revogar acesso do aluno:", error.message);
       return { success: false, error: error.message };
-    }
-
-    if (!data || data.length === 0) {
-        return { success: false, error: "Registro não encontrado ou permissão negada (RLS)." };
     }
 
     return { success: true };
@@ -343,7 +290,6 @@ export const updateStudent = async (studentId: string, updates: Partial<Student>
             });
             
             if (rpcError) {
-                console.error("Error updating password:", rpcError);
                 return { success: true, error: "Dados salvos, mas erro ao atualizar senha: " + rpcError.message };
             }
         }
@@ -381,13 +327,11 @@ export const getStudentProfile = async (authUserId: string) => {
       .maybeSingle();
       
     if (error) {
-        console.warn("getStudentProfile fetch error (RLS likely):", error.message);
+        console.warn("getStudentProfile fetch error:", error.message);
         return null;
     }
-    if (data) return data;
-    return null;
+    return data;
   } catch (err) {
-    console.error("getStudentProfile exception:", err);
     return null;
   }
 };
