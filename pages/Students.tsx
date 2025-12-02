@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -7,7 +6,7 @@ import { fetchStudents, addStudent, updateStudent, deleteStudent, createStudentW
 import { fetchRehabLessonsByStudent } from '../services/rehabService'; 
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Users, Plus, Trash2, Search, Pencil, Activity, X, Key, CheckCircle, Home, Building2, ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react';
+import { Users, Plus, Trash2, Search, Pencil, Activity, X, Key, CheckCircle, Home, Building2, ArrowLeft, AlertCircle, RefreshCw, Copy, Terminal } from 'lucide-react';
 
 export const Students: React.FC = () => {
   const { user } = useAuth();
@@ -167,6 +166,31 @@ export const Students: React.FC = () => {
     }
   };
 
+  const copyFixSQL = () => {
+    const sql = `
+-- HELPER FUNCTION (SECURITY DEFINER)
+CREATE OR REPLACE FUNCTION public.is_instructor_at_studio(target_studio_id uuid)
+RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM instructors
+    WHERE auth_user_id = auth.uid() AND studio_user_id = target_studio_id
+  );
+$$;
+
+-- INSTRUCTORS VIEW OWN PROFILE
+DROP POLICY IF EXISTS "Instructors can view own profile" ON instructors;
+CREATE POLICY "Instructors can view own profile" ON instructors
+  FOR SELECT TO authenticated USING ( auth_user_id = auth.uid() );
+
+-- STUDENTS ACCESS
+DROP POLICY IF EXISTS "Instructors can view studio students" ON students;
+CREATE POLICY "Instructors can view studio students" ON students
+  FOR SELECT TO authenticated USING ( is_instructor_at_studio(user_id) );
+    `;
+    navigator.clipboard.writeText(sql.trim());
+    alert("Código SQL copiado! Envie para o administrador do sistema rodar no Supabase.");
+  };
+
   const filteredStudents = students.filter(student => 
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.email?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -275,14 +299,24 @@ export const Students: React.FC = () => {
                 <br/>
                 <strong>Ação Necessária:</strong> O proprietário deve rodar o "SQL de Correção de Permissões" no painel Admin.
               </p>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="mt-3 bg-white text-red-600 border-red-200 hover:bg-red-50 h-8 text-xs"
-                onClick={loadStudents}
-              >
-                <RefreshCw className="w-3 h-3 mr-2"/> Tentar Novamente
-              </Button>
+              <div className="flex gap-2 mt-3">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="bg-white text-red-600 border-red-200 hover:bg-red-50 h-8 text-xs"
+                  onClick={loadStudents}
+                >
+                  <RefreshCw className="w-3 h-3 mr-2"/> Tentar Novamente
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="bg-white text-slate-600 border-slate-200 hover:bg-slate-50 h-8 text-xs"
+                  onClick={copyFixSQL}
+                >
+                  <Terminal className="w-3 h-3 mr-2"/> Copiar SQL
+                </Button>
+              </div>
             </div>
           </div>
         </div>

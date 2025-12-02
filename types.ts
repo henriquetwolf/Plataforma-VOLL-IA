@@ -88,6 +88,9 @@ export enum AppRoute {
   NEWSLETTER_AGENT = '/newsletter-agent',
   INSTRUCTOR_NEWSLETTERS = '/instructor/newsletters',
   
+  // Rotas de Evolução
+  EVOLUTION = '/evolution',
+
   // Rotas do Aluno
   STUDENT_DASHBOARD = '/student/dashboard',
   STUDENT_RECIPES = '/student/recipes',
@@ -527,5 +530,33 @@ export interface SavedEvaluationAnalysis {
   content: string; // HTML report
   evaluationCount: number;
   dateRange?: string;
+  createdAt: string;
+}
+
+// --- Student Evolution Types ---
+
+export interface StudentEvolution {
+  id: string;
+  studioId: string;
+  studentId: string;
+  studentName: string;
+  instructorId?: string;
+  instructorName?: string;
+  date: string;
+  
+  // 1. Execução
+  stability: string;
+  mobility: string;
+  strength: string;
+  coordination: string;
+  
+  // 2. Queixas e Cuidados
+  pain: boolean;
+  painLocation?: string;
+  limitation: boolean;
+  limitationDetails?: string;
+  contraindication: boolean;
+  contraindicationDetails?: string;
+  
   createdAt: string;
 }

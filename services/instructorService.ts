@@ -1,4 +1,3 @@
-
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase'; // Importa chaves exportadas
 import { Instructor } from '../types';
 import { createClient } from '@supabase/supabase-js';
@@ -209,7 +208,7 @@ export const deleteInstructor = async (id: string): Promise<{ success: boolean; 
 
 export const getInstructorProfile = async (authUserId: string, email?: string) => {
   try {
-    // Busca por ID primeiro
+    // Busca por ID primeiro (com JOIN para pegar o nome do studio)
     const { data, error } = await supabase
       .from('instructors')
       .select('*, studio_profiles:studio_user_id (studio_name)')
@@ -218,7 +217,20 @@ export const getInstructorProfile = async (authUserId: string, email?: string) =
       
     if (data) return data;
 
-    // Se não achou e tem email, tenta vincular (fallback)
+    // Se falhar o Join (por RLS), tenta buscar apenas o instrutor (Fallback)
+    // Isso garante que conseguimos pegar o `studio_user_id` para fazer o login
+    if (error) {
+       console.warn("Falha ao ler perfil completo. Tentando leitura básica.", error.message);
+       const { data: simpleData } = await supabase
+        .from('instructors')
+        .select('*')
+        .eq('auth_user_id', authUserId)
+        .maybeSingle();
+        
+       if (simpleData) return simpleData;
+    }
+
+    // Se não achou por ID e tem email, tenta vincular (fallback legado)
     if (email) {
        const { data: pendingInstructor } = await supabase
         .from('instructors')

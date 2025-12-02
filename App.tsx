@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -28,6 +29,7 @@ import { NewsletterAgent } from './pages/NewsletterAgent';
 import { StudioSuggestions } from './pages/StudioSuggestions';
 import { StudioEvaluations } from './pages/StudioEvaluations';
 import { ContentAgent } from './pages/ContentAgent'; 
+import { StudentEvolutionPage } from './pages/StudentEvolution';
 import { AppRoute } from './types';
 
 const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
@@ -133,6 +135,7 @@ const AppRoutes = () => {
       {/* Rotas Compartilhadas (Dono e Instrutor) */}
       <Route path={AppRoute.STUDENTS} element={<SharedRoute><Students /></SharedRoute>} />
       <Route path={AppRoute.REHAB} element={<SharedRoute><RehabAgent /></SharedRoute>} />
+      <Route path={AppRoute.EVOLUTION} element={<SharedRoute><StudentEvolutionPage /></SharedRoute>} />
 
       {/* Rotas Exclusivas do Instrutor */}
       <Route path={AppRoute.INSTRUCTOR_DASHBOARD} element={<InstructorRoute><InstructorDashboard /></InstructorRoute>} />

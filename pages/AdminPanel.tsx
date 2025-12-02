@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchAllProfiles, toggleUserStatus } from '../services/storage';
@@ -148,50 +147,74 @@ export const AdminPanel: React.FC = () => {
 
   const copySql = () => {
     const sql = `
--- Permissões Totais para o Super Admin
-CREATE POLICY "Admin All Profiles" ON studio_profiles 
-  FOR ALL USING ( auth.jwt() ->> 'email' = '${ADMIN_EMAIL}' );
+-- =========================================================
+-- SCRIPT DE CORREÇÃO DE PERMISSÕES (INTRUTORES & ALUNOS)
+-- Copie e cole no SQL Editor do Supabase
+-- =========================================================
 
-CREATE POLICY "Admin All Instructors" ON instructors 
-  FOR ALL USING ( auth.jwt() ->> 'email' = '${ADMIN_EMAIL}' );
-
-CREATE POLICY "Admin All Students" ON students 
-  FOR ALL USING ( auth.jwt() ->> 'email' = '${ADMIN_EMAIL}' );
-
--- Permissões para Instrutores (Correção de Acesso)
--- 1. Ver seu próprio perfil
-CREATE POLICY "Instructors can view own profile" ON instructors
-  FOR SELECT TO authenticated USING ( auth.uid() = auth_user_id );
-
--- 2. Helper Function para verificar vinculo
-create or replace function is_instructor_at_studio(target_studio_id uuid)
-returns boolean language sql security definer set search_path = public as $$
-  select exists (
-    select 1 from instructors
-    where auth_user_id = auth.uid() and studio_user_id = target_studio_id
+-- 1. Helper Function (Segurança para verificar vínculo)
+CREATE OR REPLACE FUNCTION public.is_instructor_at_studio(target_studio_id uuid)
+RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM instructors
+    WHERE auth_user_id = auth.uid() AND studio_user_id = target_studio_id
   );
 $$;
 
--- 3. Ver Alunos do Studio
+-- 2. Permitir que Instrutor veja seu próprio perfil (Essencial para Login)
+DROP POLICY IF EXISTS "Instructors can view own profile" ON instructors;
+CREATE POLICY "Instructors can view own profile" ON instructors
+  FOR SELECT TO authenticated USING ( auth_user_id = auth.uid() );
+
+-- 3. Permitir que Instrutor veja dados básicos do Studio (Nome, Configs)
+DROP POLICY IF EXISTS "Instructors can view employing studio" ON studio_profiles;
+CREATE POLICY "Instructors can view employing studio" ON studio_profiles
+  FOR SELECT TO authenticated USING ( 
+    user_id IN (SELECT studio_user_id FROM instructors WHERE auth_user_id = auth.uid())
+  );
+
+-- 4. ALUNOS: Visualização e Edição por Instrutores
+DROP POLICY IF EXISTS "Instructors can view studio students" ON students;
 CREATE POLICY "Instructors can view studio students" ON students
   FOR SELECT TO authenticated USING ( is_instructor_at_studio(user_id) );
 
--- 4. Acessar Rehab (Lições e Exercícios)
+DROP POLICY IF EXISTS "Instructors can insert studio students" ON students;
+CREATE POLICY "Instructors can insert studio students" ON students
+  FOR INSERT TO authenticated WITH CHECK ( is_instructor_at_studio(user_id) );
+
+DROP POLICY IF EXISTS "Instructors can update studio students" ON students;
+CREATE POLICY "Instructors can update studio students" ON students
+  FOR UPDATE TO authenticated USING ( is_instructor_at_studio(user_id) );
+
+-- 5. REHAB: Acesso a Aulas e Histórico
+DROP POLICY IF EXISTS "Instructors can view studio lessons" ON rehab_lessons;
 CREATE POLICY "Instructors can view studio lessons" ON rehab_lessons
   FOR SELECT TO authenticated USING ( is_instructor_at_studio(user_id) );
 
+DROP POLICY IF EXISTS "Instructors can create studio lessons" ON rehab_lessons;
 CREATE POLICY "Instructors can create studio lessons" ON rehab_lessons
   FOR INSERT TO authenticated WITH CHECK ( is_instructor_at_studio(user_id) );
 
-CREATE POLICY "Instructors can view exercises" ON studio_exercises
-  FOR SELECT TO authenticated USING ( is_instructor_at_studio(studio_id) );
+DROP POLICY IF EXISTS "Instructors can delete studio lessons" ON rehab_lessons;
+CREATE POLICY "Instructors can delete studio lessons" ON rehab_lessons
+  FOR DELETE TO authenticated USING ( is_instructor_at_studio(user_id) );
 
--- 5. Acessar Newsletters
+-- 6. NEWSLETTERS: Visualização
+DROP POLICY IF EXISTS "Instructors can view newsletters" ON newsletters;
 CREATE POLICY "Instructors can view newsletters" ON newsletters
   FOR SELECT TO authenticated USING ( is_instructor_at_studio(studio_id) );
+
+-- 7. EXERCÍCIOS: Banco do Studio
+DROP POLICY IF EXISTS "Instructors can view exercises" ON studio_exercises;
+CREATE POLICY "Instructors can view exercises" ON studio_exercises
+  FOR SELECT TO authenticated USING ( is_instructor_at_studio(studio_id) );
+  
+DROP POLICY IF EXISTS "Instructors can create exercises" ON studio_exercises;
+CREATE POLICY "Instructors can create exercises" ON studio_exercises
+  FOR INSERT TO authenticated WITH CHECK ( is_instructor_at_studio(studio_id) );
     `;
     navigator.clipboard.writeText(sql.trim());
-    alert('SQL de Permissões Admin & Instrutor copiado! Cole no SQL Editor do Supabase para corrigir os acessos.');
+    alert('SCRIPT COPIADO! Cole no SQL Editor do Supabase e execute para corrigir todos os erros de permissão.');
   };
 
   const copyStorageSql = () => {
@@ -253,7 +276,7 @@ create policy "Auth Update Logos" on storage.objects for update to authenticated
         
         <div className="flex gap-2">
            <Button size="sm" variant="outline" onClick={copySql}>
-             <Database className="h-3 w-3 mr-2" /> SQL Permissões (Correção)
+             <Database className="h-3 w-3 mr-2" /> Copiar SQL de Correção
            </Button>
            <Button size="sm" variant="outline" onClick={copyStorageSql} className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/30">
              <Image className="h-3 w-3 mr-2" /> SQL Storage

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper, Settings, Home, Wand2, Star } from 'lucide-react';
+import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper, Settings, Home, Wand2, Star, TrendingUp } from 'lucide-react';
 import { AppRoute } from '../types';
 import { fetchProfile } from '../services/storage';
 
@@ -55,9 +55,13 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         { label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.STUDENT_NEWSLETTERS },
       ];
     } else if (isInstructor) {
-      // MENU INSTRUTOR - ESTRITAMENTE VAZIO
-      // O instrutor navega apenas pelo dashboard principal dele.
-      items = [];
+      items = [
+        { label: 'Home', icon: Home, path: AppRoute.INSTRUCTOR_DASHBOARD },
+        { label: 'Evolução do Aluno', icon: TrendingUp, path: AppRoute.EVOLUTION },
+        { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
+        { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
+        { label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.INSTRUCTOR_NEWSLETTERS },
+      ];
     } else if (isOwner) {
       items = [
         { label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.DASHBOARD },
@@ -66,6 +70,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         { label: 'Calculadora Financeira', icon: Calculator, path: AppRoute.FINANCE },
         { label: 'Preço Inteligente', icon: Banknote, path: AppRoute.PRICING },
         { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
+        { label: 'Evolução do Aluno', icon: TrendingUp, path: AppRoute.EVOLUTION },
         { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
         { label: 'Equipe', icon: BookUser, path: AppRoute.INSTRUCTORS },
         { label: 'Avaliações Aulas', icon: Star, path: AppRoute.STUDIO_EVALUATIONS },
@@ -99,6 +104,11 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
+            // Hack visual para o botão Home do instrutor ser "preto" quando ativo ou hover, se desejado, 
+            // mas mantendo consistência com o resto do tema.
+            // Se o usuário pediu "botão preto", podemos forçar um estilo específico para o ícone Home do instrutor.
+            const isHomeInstructor = isInstructor && item.label === 'Home';
+            
             return (
               <Link
                 key={item.path}
@@ -109,7 +119,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
-                <Icon className={`h-5 w-5 ${isActive ? 'text-brand-500 dark:text-brand-400' : 'text-slate-400 dark:text-slate-500'}`} />
+                <Icon className={`h-5 w-5 ${isActive ? 'text-brand-500 dark:text-brand-400' : isHomeInstructor ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}`} />
                 {item.label}
               </Link>
             );
