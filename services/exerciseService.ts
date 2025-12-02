@@ -36,16 +36,19 @@ export const createStudioExercise = async (
   data: Partial<StudioExercise>
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    const payload = {
+    const payload: any = {
       studio_id: studioId,
       name: data.name,
       description: data.description,
       equipment: data.equipment,
       focus: data.focus,
       reps: data.reps,
-      instructor_comments: data.instructorComments,
-      image_url: data.imageUrl
+      instructor_comments: data.instructorComments
     };
+
+    if (data.imageUrl) {
+        payload.image_url = data.imageUrl;
+    }
 
     const { error } = await supabase
       .from('studio_exercises')
@@ -91,7 +94,7 @@ export const updateStudioExercise = async (
 
 export const uploadExerciseImage = async (userId: string, file: File): Promise<string | null> => {
   try {
-    // Sanitize filename
+    // Sanitize filename: use timestamp only to avoid weird chars
     const fileExt = file.name.split('.').pop();
     const fileName = `ex-${userId}-${Date.now()}.${fileExt}`;
     // Upload to root of bucket

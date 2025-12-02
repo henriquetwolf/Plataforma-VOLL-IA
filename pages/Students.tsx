@@ -7,7 +7,7 @@ import { fetchStudents, addStudent, updateStudent, deleteStudent, createStudentW
 import { fetchRehabLessonsByStudent } from '../services/rehabService'; 
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Users, Plus, Trash2, Search, Pencil, Activity, X, Key, CheckCircle, Loader2, Home, Building2, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { Users, Plus, Trash2, Search, Pencil, Activity, X, Key, CheckCircle, Home, Building2, ArrowLeft } from 'lucide-react';
 
 export const Students: React.FC = () => {
   const { user } = useAuth();
@@ -38,7 +38,6 @@ export const Students: React.FC = () => {
   const loadStudents = async () => {
     if (!user) return;
 
-    // DEFINIÇÃO DO ID ALVO:
     // Se for Instrutor, usa o studioId (que aponta para o ID do Dono).
     // Se for Dono, usa o próprio ID (user.id).
     const targetId = user.isInstructor ? user.studioId : user.id;
@@ -50,7 +49,6 @@ export const Students: React.FC = () => {
     }
 
     setIsLoading(true);
-    // fetchStudents filtra pelo user_id do dono (targetId) no banco
     try {
         const data = await fetchStudents(targetId);
         setStudents(data);
@@ -70,7 +68,6 @@ export const Students: React.FC = () => {
   };
 
   const handleEdit = (student: Student) => {
-    // Instrutores agora podem editar dados básicos (observações, telefone)
     setFormData({
       name: student.name,
       email: student.email || '',
@@ -124,7 +121,7 @@ export const Students: React.FC = () => {
   const handleDelete = async (id: string) => {
     // Apenas donos podem excluir para segurança
     if (isInstructor) {
-        alert("Apenas o proprietário pode excluir alunos permanentemente.");
+        alert("Apenas o proprietário pode excluir alunos permanentemente. Você pode editar os dados.");
         return;
     }
     if (window.confirm('Tem certeza que deseja remover este aluno?')) {
@@ -246,13 +243,14 @@ export const Students: React.FC = () => {
           )}
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              {isInstructor ? 'Alunos do Studio' : 'Alunos'} 
+              {isInstructor ? 'Alunos do Studio' : 'Meus Alunos'} 
               {isInstructor && <span className="text-xs font-normal bg-brand-100 text-brand-700 px-2 py-1 rounded-full ml-2 flex items-center gap-1"><Building2 className="w-3 h-3"/> Base Completa</span>}
             </h1>
-            <p className="text-slate-500 dark:text-slate-400">Gerencie o cadastro e histórico dos seus alunos</p>
+            <p className="text-slate-500 dark:text-slate-400">Gerencie o cadastro e histórico dos alunos.</p>
           </div>
         </div>
         
+        {/* Instructors can create students now */}
         {!showForm && (
           <Button onClick={() => setShowForm(true)}>
             <Plus className="h-4 w-4 mr-2" />

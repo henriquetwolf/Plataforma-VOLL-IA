@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { PathologyResponse, LessonPlanResponse, LessonExercise, Student } from '../../types';
 import { Button } from '../ui/Button';
-import { CheckCircle, AlertOctagon, Info, Save, RefreshCw, Printer, User, Bookmark, X, MessageCircle } from 'lucide-react';
+import { CheckCircle, AlertOctagon, Info, Save, RefreshCw, Printer, User, Bookmark, X, MessageCircle, Mail } from 'lucide-react';
 import { fetchStudents } from '../../services/studentService';
 
 // --- REFERENCE CARD ---
@@ -180,6 +180,24 @@ export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, studentId, stu
     window.open(url, '_blank');
   };
 
+  const handleEmailShare = () => {
+    const subject = `Plano de Aula: ${customTitle}`;
+    let body = `Aluno(a): ${patientName || 'N/A'}\n\n`;
+    body += `Foco: ${plan.pathologyName}\n`;
+    body += `Objetivo: ${plan.goal}\n`;
+    body += `Duração: ${plan.duration}\n\n`;
+    body += `--- SEQUÊNCIA DE EXERCÍCIOS ---\n`;
+
+    exercises.forEach((ex, idx) => {
+      body += `\n${idx + 1}. ${ex.name} (${ex.apparatus})\n`;
+      body += `   Série: ${ex.reps} | Foco: ${ex.focus}\n`;
+      body += `   Instrução: ${ex.instructions}\n`;
+    });
+
+    const url = `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(url, '_blank');
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Info */}
@@ -220,6 +238,13 @@ export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, studentId, stu
                 title="Enviar por WhatsApp"
              >
                 <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp
+             </Button>
+             <Button 
+                onClick={handleEmailShare}
+                className="h-[38px] bg-red-600 hover:bg-red-700 text-white border-transparent px-3"
+                title="Enviar por Email"
+             >
+                <Mail className="h-4 w-4 mr-2" /> Email
              </Button>
              <Button onClick={handleSave} className="h-[38px]" disabled={!selectedStudentId}>
                <Save className="h-4 w-4 mr-2" /> Salvar

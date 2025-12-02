@@ -97,10 +97,11 @@ export const NewsletterAgent: React.FC = () => {
   // Helper to convert HTML to Text
   const convertHtmlToText = (html: string) => {
     const tempDiv = document.createElement('div');
+    // Basic replacements for better text formatting
     let processedHtml = html
-      .replace(/<br\s*\/?>/gi, '\n') // Replace <br> with newline
-      .replace(/<\/p>/gi, '\n\n')    // Replace </p> with double newline
-      .replace(/<li>/gi, '• ');      // Add bullet point to list items
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<li>/gi, '• ');
 
     tempDiv.innerHTML = processedHtml;
     return tempDiv.textContent || tempDiv.innerText || "";

@@ -259,7 +259,14 @@ export const RehabAgent: React.FC = () => {
     setIsExerciseSaving(true);
     try {
       let imageUrl = exerciseFormData.imageUrl;
-      if (exerciseImageFile) { const url = await uploadExerciseImage(ownerId, exerciseImageFile); if (url) imageUrl = url; }
+      if (exerciseImageFile) { 
+          const url = await uploadExerciseImage(ownerId, exerciseImageFile); 
+          if (url) {
+              imageUrl = url; 
+          } else {
+              alert("Aviso: Falha ao subir imagem. O exercício será salvo sem a nova imagem.");
+          }
+      }
       const finalData = { ...exerciseFormData, imageUrl };
       if (editingExercise) { await updateStudioExercise(editingExercise.id, finalData); } else { await createStudioExercise(ownerId, finalData); }
       loadBank(); setIsExerciseModalOpen(false);
