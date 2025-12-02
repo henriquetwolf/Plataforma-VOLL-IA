@@ -36,12 +36,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 1. Verifica ALUNO (Prioridade)
       const student = await getStudentProfile(sessionUser.id);
       if (student) {
-        // --- NOVO: VERIFICAÇÃO EM CASCATA ---
-        // Verifica se o Studio (Dono) está ativo. Se não, bloqueia o aluno.
+        // --- SEGURANÇA EM CASCATA: ALUNO ---
+        // Se o Studio (Dono) estiver bloqueado, o aluno também é bloqueado.
         if (student.user_id) {
             const studioProfile = await fetchProfile(student.user_id);
+            // Se o perfil do estúdio existe E está inativo
             if (studioProfile && studioProfile.isActive === false) {
-                console.warn("Acesso negado: O Studio deste aluno está desativado.");
+                console.warn(`Bloqueio de Segurança: O Studio deste aluno (${student.user_id}) está desativado.`);
                 await supabase.auth.signOut();
                 setState({ user: null, isAuthenticated: false, isLoading: false });
                 return null;
@@ -65,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return userObj;
       }
 
-      // SEGURANÇA: Se tem role de aluno mas não achou perfil (foi desativado), BLOQUEIA
+      // SEGURANÇA: Se tem role de aluno mas não achou perfil (foi desativado/excluído), BLOQUEIA
       if (metaRole === 'student') {
           console.warn("Acesso negado: Aluno desativado ou sem vínculo.");
           await supabase.auth.signOut();
@@ -96,13 +97,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
            return null;
         }
 
-        // --- NOVO: VERIFICAÇÃO EM CASCATA ---
-        // Verifica se o Studio (Dono) está ativo. Se não, bloqueia o instrutor.
+        // --- SEGURANÇA EM CASCATA: INSTRUTOR ---
+        // Se o Studio (Dono) estiver bloqueado, o instrutor também é bloqueado.
         const parentStudioId = instructor?.studio_user_id || sessionUser.user_metadata?.studio_id;
         if (parentStudioId) {
             const studioProfile = await fetchProfile(parentStudioId);
             if (studioProfile && studioProfile.isActive === false) {
-                console.warn("Acesso negado: O Studio deste instrutor está desativado.");
+                console.warn(`Bloqueio de Segurança: O Studio deste instrutor (${parentStudioId}) está desativado.`);
                 await supabase.auth.signOut();
                 setState({ user: null, isAuthenticated: false, isLoading: false });
                 return null;
@@ -138,13 +139,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return null;
       }
 
-      // BLOQUEIO DO STUDIO
+      // --- BLOQUEIO PRINCIPAL DO STUDIO ---
+      // Se o perfil existe e isActive é false, BLOQUEIA O LOGIN
       if (profile && profile.isActive === false) {
-          console.warn("Acesso negado: Studio inativo.");
+          console.warn("Acesso negado: Studio (Dono) desativado pelo Administrador.");
           await supabase.auth.signOut();
           setState({ user: null, isAuthenticated: false, isLoading: false });
           return null;
       }
+      // ------------------------------------
 
       const userObj: User = {
           id: sessionUser.id,
@@ -204,10 +207,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (data.session?.user) {
         const loadedUser = await loadUser(data.session.user);
+        
+        // VERIFICAÇÃO CRÍTICA PÓS-LOGIN
+        // Se loadUser retornou null, significa que o usuário foi bloqueado (isActive: false)
+        // ou não tem permissão. Devemos impedir o fluxo de sucesso.
         if (!loadedUser) {
-            // Se loadUser retornou null, significa que foi bloqueado por segurança (Studio Inativo)
-            return { success: false, error: 'Acesso negado. Conta desativada ou Studio suspenso.' };
+            return { success: false, error: 'Acesso suspenso. Entre em contato com o administrador.' };
         }
+        
         return { success: true, user: loadedUser };
       }
 
