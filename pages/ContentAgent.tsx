@@ -1,0 +1,510 @@
+
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { 
+    generatePilatesContentStream, 
+    generatePilatesImage, 
+    generatePilatesVideo, 
+    generateContentPlan 
+} from '../services/geminiService';
+import { 
+    saveStudioPersona, 
+    fetchStudioPersona, 
+    savePost, 
+    fetchSavedPosts, 
+    deleteSavedPost,
+    saveContentPlan,
+    fetchContentPlans,
+    deleteContentPlan
+} from '../services/contentService';
+import { 
+    ContentRequest, 
+    StudioPersona, 
+    SavedPost, 
+    StrategicContentPlan,
+    AppRoute
+} from '../types';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Wand2, Calendar, Layout, Loader2, Sparkles, Copy, Trash2, Video, Image as ImageIcon, CheckCircle, Save, UserCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+
+/*
+  SQL REQUIRED FOR SUPABASE:
+  
+  create table if not exists content_posts (
+    id uuid primary key default gen_random_uuid(),
+    studio_id uuid not null references studio_profiles(user_id) on delete cascade,
+    data jsonb not null,
+    created_at timestamptz default now()
+  );
+
+  create table if not exists content_plans (
+    id uuid primary key default gen_random_uuid(),
+    studio_id uuid not null references studio_profiles(user_id) on delete cascade,
+    data jsonb not null,
+    created_at timestamptz default now()
+  );
+  
+  alter table content_posts enable row level security;
+  alter table content_plans enable row level security;
+
+  create policy "Users can manage their own posts" on content_posts
+    for all using (auth.uid() = studio_id);
+
+  create policy "Users can manage their own plans" on content_plans
+    for all using (auth.uid() = studio_id);
+*/
+
+const INITIAL_REQUEST: ContentRequest = {
+    format: 'Post Estático',
+    objective: 'Educação',
+    theme: '',
+    audience: 'Alunos Iniciantes',
+    tone: 'Inspirador',
+    imageStyle: 'Fotorealista'
+};
+
+export const ContentAgent: React.FC = () => {
+    const { user } = useAuth();
+    const navigate = useNavigate();
+    const [activeTab, setActiveTab] = useState<'persona' | 'generator' | 'planner'>('generator');
+    
+    // Data States
+    const [persona, setPersona] = useState<StudioPersona | null>(null);
+    const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);
+    const [plans, setPlans] = useState<StrategicContentPlan[]>([]);
+    
+    // Generator States
+    const [request, setRequest] = useState<ContentRequest>(INITIAL_REQUEST);
+    const [generatedText, setGeneratedText] = useState('');
+    const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+    const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [loadingMessage, setLoadingMessage] = useState('');
+    
+    // Planner States
+    const [planGoals, setPlanGoals] = useState({
+        mainObjective: '',
+        targetAudience: '',
+        keyThemes: ''
+    });
+
+    useEffect(() => {
+        if (user?.id) {
+            loadInitialData();
+        }
+    }, [user]);
+
+    const loadInitialData = async () => {
+        if (!user?.id) return;
+        const p = await fetchStudioPersona(user.id);
+        setPersona(p);
+        if (!p) setActiveTab('persona'); // Redirect to onboarding if no persona
+
+        const posts = await fetchSavedPosts(user.id);
+        setSavedPosts(posts);
+
+        const fetchedPlans = await fetchContentPlans(user.id);
+        setPlans(fetchedPlans);
+    };
+
+    // --- PERSONA LOGIC ---
+    const handleSavePersona = async () => {
+        if (!user?.id || !persona) return;
+        const res = await saveStudioPersona(user.id, persona);
+        if (res.success) {
+            alert('Persona salva com sucesso!');
+            setActiveTab('generator');
+        } else {
+            alert('Erro ao salvar persona.');
+        }
+    };
+
+    // --- GENERATOR LOGIC ---
+    const handleGenerate = async () => {
+        if (!request.theme) {
+            alert('Por favor, defina um tema.');
+            return;
+        }
+        
+        // Veo API Key Check for Video
+        if (['Reels', 'Video Curto', 'TikTok'].includes(request.format)) {
+            try {
+                if (!(window as any).aistudio || !await (window as any).aistudio.hasSelectedApiKey()) {
+                    await (window as any).aistudio.openSelectKey();
+                }
+            } catch (e) {
+                 console.error('API Key selection error:', e);
+                 alert("É necessário selecionar uma chave de API para gerar vídeos. Visite ai.google.dev/gemini-api/docs/billing para mais informações.");
+                 return;
+            }
+        }
+
+        setIsGenerating(true);
+        setGeneratedText('');
+        setGeneratedImage(null);
+        setGeneratedVideo(null);
+        setLoadingMessage('Escrevendo texto...');
+
+        const systemInstruction = persona ? `
+            Você é o assistente de conteúdo do Studio.
+            Filosofia: ${persona.philosophy}
+            Diferenciais: ${persona.differentiators}
+            Evitar termos: ${persona.languageToAvoid}
+        ` : 'Você é um especialista em Pilates.';
+
+        try {
+            // Text
+            const stream = generatePilatesContentStream(request, systemInstruction);
+            let fullText = '';
+            for await (const chunk of stream) {
+                fullText += chunk;
+                setGeneratedText(prev => prev + chunk);
+            }
+
+            // Image
+            if (['Post Estático', 'Carrossel', 'Story'].includes(request.format)) {
+                setLoadingMessage('Criando imagem...');
+                const img = await generatePilatesImage(request, null, fullText);
+                setGeneratedImage(img);
+            }
+
+            // Video
+            if (['Reels', 'Video Curto', 'TikTok'].includes(request.format)) {
+                setLoadingMessage('Renderizando vídeo (isso pode demorar)...');
+                const vid = await generatePilatesVideo(fullText, (msg) => setLoadingMessage(msg));
+                setGeneratedVideo(vid);
+            }
+
+        } catch (e: any) {
+            console.error(e);
+            alert("Erro na geração: " + e.message);
+        } finally {
+            setIsGenerating(false);
+            setLoadingMessage('');
+        }
+    };
+
+    const handleSavePostLocal = async () => {
+        if (!user?.id || !generatedText) return;
+        const newPost: SavedPost = {
+            id: crypto.randomUUID(),
+            request,
+            content: generatedText,
+            imageUrl: generatedImage,
+            videoUrl: generatedVideo,
+            createdAt: new Date().toISOString()
+        };
+        await savePost(user.id, newPost);
+        setSavedPosts([newPost, ...savedPosts]);
+        alert('Post salvo!');
+    };
+
+    // --- PLANNER LOGIC ---
+    const handleGeneratePlan = async () => {
+        if (!user?.id || !persona) return;
+        setIsGenerating(true);
+        try {
+            const rawPlan = await generateContentPlan({
+                ...planGoals,
+                targetAudience: [planGoals.targetAudience],
+                toneOfVoice: ['Inspirador'] // default
+            }, persona);
+
+            const newPlan: StrategicContentPlan = {
+                id: crypto.randomUUID(),
+                createdAt: new Date().toISOString(),
+                goals: { ...planGoals, targetAudience: [planGoals.targetAudience], keyThemes: [planGoals.keyThemes] },
+                weeks: rawPlan
+            };
+
+            await saveContentPlan(user.id, newPlan);
+            setPlans([newPlan, ...plans]);
+        } catch (e) {
+            alert("Erro ao gerar plano.");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    return (
+        <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in pb-12">
+            <header className="flex justify-between items-center">
+                <div>
+                    <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <Wand2 className="h-8 w-8 text-brand-600" /> Assistente de Conteúdo
+                    </h1>
+                    <p className="text-slate-500 dark:text-slate-400">Crie posts, imagens e vídeos alinhados à sua marca.</p>
+                </div>
+                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                    <button onClick={() => setActiveTab('persona')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'persona' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}>
+                        <UserCircle className="w-4 h-4"/> Minha Marca
+                    </button>
+                    <button onClick={() => setActiveTab('generator')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'generator' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}>
+                        <Sparkles className="w-4 h-4"/> Criar
+                    </button>
+                    <button onClick={() => setActiveTab('planner')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'planner' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}>
+                        <Calendar className="w-4 h-4"/> Planejador
+                    </button>
+                </div>
+            </header>
+
+            {/* --- PERSONA TAB --- */}
+            {activeTab === 'persona' && (
+                <div className="bg-white dark:bg-slate-900 p-8 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm max-w-3xl mx-auto">
+                    <h2 className="text-xl font-bold mb-6 text-slate-900 dark:text-white">Definição da Persona do Studio</h2>
+                    <p className="mb-6 text-slate-500 text-sm">A IA usará estas informações para escrever como você.</p>
+                    
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Filosofia do Studio</label>
+                            <textarea 
+                                className="w-full p-3 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 h-24"
+                                placeholder="Ex: Pilates clássico com foco em reabilitação e bem-estar integral..."
+                                value={persona?.philosophy || ''}
+                                onChange={e => setPersona(prev => ({ ...prev!, philosophy: e.target.value } as StudioPersona))}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Diferenciais</label>
+                            <textarea 
+                                className="w-full p-3 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 h-24"
+                                placeholder="Ex: Atendimento individualizado, equipamentos de ponta, ambiente zen..."
+                                value={persona?.differentiators || ''}
+                                onChange={e => setPersona(prev => ({ ...prev!, differentiators: e.target.value } as StudioPersona))}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Linguagem a Evitar</label>
+                            <input 
+                                className="w-full p-3 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
+                                placeholder="Ex: 'Barriga chapada', 'Projeto verão', gírias excessivas..."
+                                value={persona?.languageToAvoid || ''}
+                                onChange={e => setPersona(prev => ({ ...prev!, languageToAvoid: e.target.value } as StudioPersona))}
+                            />
+                        </div>
+                        <Button onClick={handleSavePersona} className="w-full">Salvar Persona</Button>
+                    </div>
+                </div>
+            )}
+
+            {/* --- GENERATOR TAB --- */}
+            {activeTab === 'generator' && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Left: Controls */}
+                    <div className="space-y-6">
+                        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                            <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-white">O que vamos criar hoje?</h3>
+                            
+                            <div className="space-y-4">
+                                <Input 
+                                    label="Tema do Conteúdo" 
+                                    placeholder="Ex: Benefícios do Pilates para dor nas costas..."
+                                    value={request.theme}
+                                    onChange={e => setRequest({...request, theme: e.target.value})}
+                                />
+                                
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Formato</label>
+                                        <select 
+                                            className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
+                                            value={request.format}
+                                            onChange={e => setRequest({...request, format: e.target.value})}
+                                        >
+                                            <option>Post Estático</option>
+                                            <option>Carrossel</option>
+                                            <option>Reels</option>
+                                            <option>Story</option>
+                                            <option>Legenda Simples</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Objetivo</label>
+                                        <select 
+                                            className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
+                                            value={request.objective}
+                                            onChange={e => setRequest({...request, objective: e.target.value})}
+                                        >
+                                            <option>Educação</option>
+                                            <option>Inspiração</option>
+                                            <option>Venda/Matrícula</option>
+                                            <option>Engajamento</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Público</label>
+                                        <select 
+                                            className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
+                                            value={request.audience}
+                                            onChange={e => setRequest({...request, audience: e.target.value})}
+                                        >
+                                            <option>Alunos Iniciantes</option>
+                                            <option>Intermediários</option>
+                                            <option>Idosos</option>
+                                            <option>Gestantes</option>
+                                            <option>Atletas</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Estilo Visual</label>
+                                        <select 
+                                            className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
+                                            value={request.imageStyle}
+                                            onChange={e => setRequest({...request, imageStyle: e.target.value})}
+                                        >
+                                            <option>Fotorealista</option>
+                                            <option>Minimalista</option>
+                                            <option>Ilustração</option>
+                                            <option>Cinematográfico</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <Button onClick={handleGenerate} isLoading={isGenerating} className="w-full mt-4">
+                                    {isGenerating ? loadingMessage : <><Sparkles className="w-4 h-4 mr-2"/> Gerar Conteúdo</>}
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Recent History */}
+                        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                            <h3 className="font-bold text-sm text-slate-500 uppercase mb-4">Posts Salvos Recentemente</h3>
+                            <div className="space-y-3">
+                                {savedPosts.slice(0, 5).map(post => (
+                                    <div key={post.id} className="p-3 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                                        <div>
+                                            <p className="font-bold text-sm text-slate-800 dark:text-white truncate w-40">{post.request.theme}</p>
+                                            <p className="text-xs text-slate-500">{new Date(post.createdAt).toLocaleDateString()}</p>
+                                        </div>
+                                        <button onClick={() => deleteSavedPost(post.id).then(() => setSavedPosts(savedPosts.filter(p => p.id !== post.id)))} className="text-slate-400 hover:text-red-500">
+                                            <Trash2 className="w-4 h-4"/>
+                                        </button>
+                                    </div>
+                                ))}
+                                {savedPosts.length === 0 && <p className="text-slate-400 text-sm">Nenhum post salvo.</p>}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right: Output */}
+                    <div className="space-y-6">
+                        {generatedText ? (
+                            <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm animate-in fade-in">
+                                <div className="flex justify-between items-start mb-4">
+                                    <h3 className="font-bold text-lg text-brand-600">Resultado Gerado</h3>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => navigator.clipboard.writeText(generatedText)} className="p-2 text-slate-400 hover:text-brand-600 rounded-lg bg-slate-50 dark:bg-slate-800" title="Copiar Texto">
+                                            <Copy className="w-4 h-4"/>
+                                        </button>
+                                        <button onClick={handleSavePostLocal} className="p-2 text-white bg-brand-600 hover:bg-brand-700 rounded-lg" title="Salvar">
+                                            <Save className="w-4 h-4"/>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Image/Video Display */}
+                                {(generatedImage || generatedVideo) && (
+                                    <div className="mb-6 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-950">
+                                        {generatedVideo ? (
+                                            <video src={generatedVideo} controls className="w-full max-h-96 object-contain" />
+                                        ) : (
+                                            <img src={generatedImage!} alt="Gerado" className="w-full max-h-96 object-cover" />
+                                        )}
+                                        <div className="p-2 flex justify-center gap-2 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700">
+                                            <a href={generatedVideo || generatedImage!} download="conteudo_pilates" target="_blank" rel="noreferrer" className="text-xs text-brand-600 font-bold hover:underline">
+                                                Baixar Mídia
+                                            </a>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="prose prose-sm prose-slate dark:prose-invert max-w-none whitespace-pre-wrap bg-slate-50 dark:bg-slate-950 p-4 rounded-lg border border-slate-100 dark:border-slate-800">
+                                    {generatedText}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-950/50">
+                                {isGenerating ? (
+                                    <div className="text-center">
+                                        <Loader2 className="w-12 h-12 animate-spin text-brand-500 mx-auto mb-4"/>
+                                        <p className="text-slate-600 dark:text-slate-300 font-medium">{loadingMessage}</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <Layout className="w-12 h-12 mb-2 opacity-50"/>
+                                        <p>O conteúdo gerado aparecerá aqui.</p>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* --- PLANNER TAB --- */}
+            {activeTab === 'planner' && (
+                <div className="space-y-8">
+                    <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-white">Gerar Novo Plano Estratégico</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <Input label="Objetivo Principal" value={planGoals.mainObjective} onChange={e => setPlanGoals({...planGoals, mainObjective: e.target.value})} placeholder="Ex: Lotar turmas da manhã" />
+                            <Input label="Público Alvo" value={planGoals.targetAudience} onChange={e => setPlanGoals({...planGoals, targetAudience: e.target.value})} placeholder="Ex: Mulheres 30-50 anos" />
+                            <Input label="Temas Chave" value={planGoals.keyThemes} onChange={e => setPlanGoals({...planGoals, keyThemes: e.target.value})} placeholder="Ex: Dor lombar, Postura" />
+                        </div>
+                        <Button onClick={handleGeneratePlan} isLoading={isGenerating} className="mt-4">
+                            <Calendar className="w-4 h-4 mr-2"/> Gerar Calendário de 4 Semanas
+                        </Button>
+                    </div>
+
+                    <div className="space-y-4">
+                        <h3 className="font-bold text-lg text-slate-800 dark:text-white">Planos Salvos</h3>
+                        {plans.length === 0 ? <p className="text-slate-500">Nenhum plano salvo.</p> : (
+                            <div className="grid gap-6">
+                                {plans.map(plan => (
+                                    <div key={plan.id} className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                                        <div className="flex justify-between items-start mb-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+                                            <div>
+                                                <h4 className="font-bold text-brand-700 text-lg">Plano Estratégico</h4>
+                                                <p className="text-sm text-slate-500">Criado em {new Date(plan.createdAt).toLocaleDateString()}</p>
+                                            </div>
+                                            <button onClick={() => deleteContentPlan(plan.id).then(() => setPlans(plans.filter(p => p.id !== plan.id)))} className="text-slate-400 hover:text-red-500"><Trash2 className="w-5 h-5"/></button>
+                                        </div>
+                                        <div className="space-y-4">
+                                            {plan.weeks.map((week, idx) => (
+                                                <div key={idx} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-lg">
+                                                    <h5 className="font-bold text-slate-800 dark:text-white mb-2">{week.week}: {week.theme}</h5>
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                                        {week.ideas.map((idea, i) => (
+                                                            <div key={i} className="text-sm border border-slate-200 dark:border-slate-800 p-2 rounded bg-white dark:bg-slate-900">
+                                                                <span className="font-bold text-brand-600">{idea.day}:</span> {idea.theme} <span className="text-xs text-slate-400">({idea.format})</span>
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        setRequest({ ...INITIAL_REQUEST, theme: idea.theme, format: idea.format, objective: idea.objective });
+                                                                        setActiveTab('generator');
+                                                                        window.scrollTo({top: 0, behavior: 'smooth'});
+                                                                    }}
+                                                                    className="block mt-2 text-xs text-blue-600 hover:underline"
+                                                                >
+                                                                    Gerar este Post →
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};

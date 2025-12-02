@@ -1,8 +1,9 @@
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper, Settings, Home } from 'lucide-react';
+import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper, Settings, Home, Wand2 } from 'lucide-react';
 import { AppRoute } from '../types';
 import { fetchProfile } from '../services/storage';
 
@@ -54,7 +55,6 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
       ];
     } else if (isInstructor) {
       // MENU INSTRUTOR
-      // Nota: O botão "Inicial" é renderizado fixo no JSX abaixo para garantir visibilidade
       items = [
         { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
         { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
@@ -65,14 +65,15 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
     } else if (isOwner) {
       items = [
         { label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.DASHBOARD },
-        { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
-        { label: 'Equipe', icon: BookUser, path: AppRoute.INSTRUCTORS },
-        { label: 'Sugestões Alunos', icon: MessageSquare, path: AppRoute.STUDIO_SUGGESTIONS },
-        { label: 'Criador Newsletter', icon: Newspaper, path: AppRoute.NEWSLETTER_AGENT },
+        { label: 'Assistente Conteúdo', icon: Wand2, path: AppRoute.CONTENT_AGENT },
         { label: 'Planejamento IA', icon: Compass, path: AppRoute.STRATEGY },
         { label: 'Calculadora Financeira', icon: Calculator, path: AppRoute.FINANCE },
         { label: 'Preço Inteligente', icon: Banknote, path: AppRoute.PRICING },
         { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
+        { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
+        { label: 'Equipe', icon: BookUser, path: AppRoute.INSTRUCTORS },
+        { label: 'Sugestões Alunos', icon: MessageSquare, path: AppRoute.STUDIO_SUGGESTIONS },
+        { label: 'Criador Newsletter', icon: Newspaper, path: AppRoute.NEWSLETTER_AGENT },
         { label: 'Perfil do Studio', icon: UserCircle, path: AppRoute.PROFILE },
         { label: 'Configurações', icon: Settings, path: AppRoute.SETTINGS },
       ];
@@ -97,7 +98,6 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {/* BOTÃO INICIAL FIXO PARA INSTRUTORES - GARANTE VISIBILIDADE */}
           {isInstructor && (
             <Link
               to={AppRoute.INSTRUCTOR_DASHBOARD}

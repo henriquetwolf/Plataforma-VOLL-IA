@@ -32,7 +32,8 @@ export interface StudioProfile {
       rehab?: boolean;
       newsletters?: boolean;
       students?: boolean;
-    }
+    };
+    content_persona?: StudioPersona; // Added for Content Agent
   };
 }
 
@@ -95,6 +96,9 @@ export enum AppRoute {
   
   // Rotas do Studio
   STUDIO_SUGGESTIONS = '/suggestions',
+  
+  // Novo Agente de Conteúdo
+  CONTENT_AGENT = '/content-agent',
 
   ROOT = '/'
 }
@@ -417,4 +421,69 @@ export enum StrategyStep {
   Actions,
   Review,
   GeneratedPlan
+}
+
+// --- Content Agent Types ---
+
+export interface StudioInfo {
+    name?: string;
+    phone?: string;
+    address?: string;
+    whatsapp?: string;
+}
+
+export interface ContentRequest {
+    format: string;
+    objective: string;
+    customObjective?: string;
+    theme: string;
+    audience: string;
+    customAudience?: string;
+    tone: string;
+    imageStyle: string;
+    studioInfo?: StudioInfo;
+    modificationPrompt?: string;
+}
+
+export interface PerformanceMetrics {
+    likes?: number;
+    comments?: number;
+    notes?: string;
+}
+
+export interface SavedPost {
+    id: string;
+    request: ContentRequest;
+    content: string;
+    imageUrl: string | null;
+    videoUrl?: string | null;
+    createdAt: string;
+    performance?: PerformanceMetrics;
+}
+
+export interface StudioPersona {
+    philosophy: string;
+    differentiators: string;
+    instructorProfile: string;
+    languageToAvoid: string;
+}
+
+export interface StrategicContentPlan {
+    id: string;
+    createdAt: string;
+    goals: {
+        mainObjective: string;
+        targetAudience: string[];
+        keyThemes: string[];
+    };
+    weeks: {
+        week: string; // "Semana 1"
+        theme: string;
+        ideas: {
+            day: string;
+            theme: string;
+            format: string;
+            objective: string;
+        }[];
+    }[];
 }

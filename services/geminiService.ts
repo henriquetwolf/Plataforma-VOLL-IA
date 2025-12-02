@@ -1,5 +1,6 @@
+
 import { GoogleGenAI } from "@google/genai";
-import { StrategicPlan, CalculatorInputs, FinancialModel, CompensationResult, PathologyResponse, LessonPlanResponse, LessonExercise, ChatMessage, TriageStep, TriageStatus, RecipeResponse, WorkoutResponse, Suggestion, NewsletterAudience } from "../types";
+import { StrategicPlan, CalculatorInputs, FinancialModel, CompensationResult, PathologyResponse, LessonPlanResponse, LessonExercise, ChatMessage, TriageStep, TriageStatus, RecipeResponse, WorkoutResponse, Suggestion, NewsletterAudience, ContentRequest, StudioPersona } from "../types";
 
 const apiKey = process.env.API_KEY;
 
@@ -64,7 +65,156 @@ export const handleGeminiError = (error: any): string => {
   return `<div class="bg-orange-50 border-l-4 border-orange-500 p-4">Erro na IA: ${errMsg.substring(0, 100)}... Tente novamente.</div>`;
 };
 
-// --- NEWSLETTER AGENT ---
+// --- CONTENT AGENT (NEW) ---
+
+export const generatePilatesContentStream = async function* (request: ContentRequest, systemInstruction: string) {
+    if (!apiKey) throw new Error("API Key required");
+
+    const prompt = `
+        Crie um conteúdo para redes sociais de um Studio de Pilates.
+        
+        Tema: ${request.theme}
+        Formato: ${request.format}
+        Objetivo: ${request.customObjective || request.objective}
+        Público-Alvo: ${request.customAudience || request.audience}
+        Tom de Voz: ${request.tone}
+        
+        Dados do Studio:
+        Nome: ${request.studioInfo?.name || ''}
+        Telefone: ${request.studioInfo?.phone || ''}
+        Endereço: ${request.studioInfo?.address || ''}
+        Whatsapp: ${request.studioInfo?.whatsapp || ''}
+
+        ${request.modificationPrompt ? `IMPORTANTE - MODIFICAÇÃO SOLICITADA: ${request.modificationPrompt}` : ''}
+
+        Estrutura da Resposta:
+        1. Headline (Título Chamativo)
+        2. Legenda Completa (Corpo do texto com emojis)
+        3. Hashtags Estratégicas
+        4. Sugestão Visual (Descreva o que deve aparecer na imagem/vídeo)
+    `;
+
+    const response = await ai.models.generateContentStream({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            systemInstruction: systemInstruction,
+            temperature: 0.8
+        }
+    });
+
+    for await (const chunk of response) {
+        yield chunk.text || '';
+    }
+};
+
+export const generatePilatesImage = async (request: ContentRequest, dominantColors: string[] | null, textContext: string) => {
+    if (!apiKey) throw new Error("API Key required");
+
+    let prompt = `Uma foto profissional e inspiradora para um post de Pilates. Estilo: ${request.imageStyle}. Tema: ${request.theme}. Contexto: ${textContext.substring(0, 200)}.`;
+    
+    if (dominantColors && dominantColors.length > 0) {
+        prompt += ` Use cores harmoniosas com esta paleta: ${dominantColors.join(', ')}.`;
+    }
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image', // Using Nano/Flash Image as per guidelines for general tasks, switch to Pro if 4k needed.
+            contents: { parts: [{ text: prompt }] },
+            config: {
+                imageConfig: {
+                    aspectRatio: "1:1", // Default square for posts
+                }
+            }
+        });
+
+        // Loop to find the image part
+        for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData) {
+                return `data:image/png;base64,${part.inlineData.data}`;
+            }
+        }
+        return null;
+    } catch (e) {
+        console.error("Erro ao gerar imagem:", e);
+        return null;
+    }
+};
+
+export const generatePilatesVideo = async (script: string, onProgress: (msg: string) => void) => {
+    if (!apiKey) throw new Error("API Key required");
+
+    onProgress("Iniciando geração de vídeo (Veo)... Isso pode levar alguns minutos.");
+
+    try {
+        let operation = await ai.models.generateVideos({
+            model: 'veo-3.1-fast-generate-preview',
+            prompt: `Video cinematográfico, alta qualidade, pilates, bem-estar. Baseado neste contexto: ${script.substring(0, 300)}`,
+            config: {
+                numberOfVideos: 1,
+                resolution: '720p',
+                aspectRatio: '9:16' // Reels/Story format
+            }
+        });
+
+        while (!operation.done) {
+            onProgress("Processando vídeo... Aguarde.");
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            operation = await ai.operations.getVideosOperation({operation: operation});
+        }
+
+        const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+        if (!downloadLink) throw new Error("Link de vídeo não gerado.");
+
+        // NOTE: The download link requires the API key appended.
+        return `${downloadLink}&key=${apiKey}`; 
+
+    } catch (e) {
+        console.error("Erro ao gerar vídeo:", e);
+        throw e;
+    }
+};
+
+export const generateContentPlan = async (goals: any, persona: StudioPersona) => {
+    if (!apiKey) return [];
+    
+    const prompt = `
+        Atue como estrategista de marketing para Studios de Pilates.
+        Crie um plano de conteúdo de 4 semanas.
+        
+        Objetivos do Studio: ${goals.mainObjective}
+        Público: ${goals.targetAudience.join(', ')}
+        Persona/Filosofia: ${persona.philosophy}
+        
+        Retorne um JSON com esta estrutura:
+        [
+            {
+                "week": "Semana 1",
+                "theme": "Foco da semana",
+                "ideas": [
+                    {"day": "Segunda", "theme": "...", "format": "Reels", "objective": "Educação"},
+                    {"day": "Quarta", "theme": "...", "format": "Post", "objective": "Conexão"},
+                    {"day": "Sexta", "theme": "...", "format": "Carrossel", "objective": "Venda"}
+                ]
+            },
+            ... (para 4 semanas)
+        ]
+    `;
+
+    try {
+        const res = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: { responseMimeType: 'application/json' }
+        });
+        return cleanAndParseJSON(res.text || '[]');
+    } catch (e) {
+        console.error("Plan Gen Error:", e);
+        return [];
+    }
+};
+
+// ... (Rest of existing functions: generateNewsletter, generateStudioDescription, etc.)
 
 export const generateNewsletter = async (
   studioName: string,

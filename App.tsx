@@ -23,9 +23,10 @@ import { StudentWorkout } from './pages/student/StudentWorkout';
 import { StudentSuggestions } from './pages/student/StudentSuggestions';
 import { StudentNewsletters } from './pages/student/StudentNewsletters';
 import { InstructorNewsletters } from './pages/instructor/InstructorNewsletters';
-import { InstructorDashboard } from './pages/instructor/InstructorDashboard'; // Nova importação
+import { InstructorDashboard } from './pages/instructor/InstructorDashboard';
 import { NewsletterAgent } from './pages/NewsletterAgent';
 import { StudioSuggestions } from './pages/StudioSuggestions';
+import { ContentAgent } from './pages/ContentAgent'; 
 import { AppRoute } from './types';
 
 const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
@@ -74,6 +75,7 @@ const AppRoutes = () => {
       <Route path={AppRoute.PRICING} element={<ProtectedRoute><PricingAgent /></ProtectedRoute>} />
       <Route path={AppRoute.REHAB} element={<ProtectedRoute><RehabAgent /></ProtectedRoute>} />
       <Route path={AppRoute.STUDIO_SUGGESTIONS} element={<ProtectedRoute><StudioSuggestions /></ProtectedRoute>} />
+      <Route path={AppRoute.CONTENT_AGENT} element={<ProtectedRoute><ContentAgent /></ProtectedRoute>} />
       <Route path={AppRoute.SETTINGS} element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       
       {/* Rotas de Newsletter */}
