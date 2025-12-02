@@ -40,21 +40,14 @@ export const fetchInstructors = async (studioId?: string): Promise<Instructor[]>
 // --- FUNÇÃO DE CRIAÇÃO COM LOGIN ---
 export const createInstructorWithAuth = async (
   studioUserId: string, 
-  instructor: Omit<Instructor, 'id' | 'studioUserId' | 'active' | 'createdAt'>
+  instructor: Omit<Instructor, 'id' | 'studioUserId' | 'active' | 'createdAt'>,
+  password: string // Senha manual agora obrigatória
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     console.log("Iniciando criação de instrutor com auth...");
 
-    // 1. Validar CPF e Gerar Senha
-    if (!instructor.cpf) {
-        return { success: false, error: "O CPF é obrigatório para criar o acesso." };
-    }
-
-    // A senha é o CPF limpo (apenas números)
-    const password = instructor.cpf.replace(/\D/g, '');
-
-    if (password.length < 6) {
-      return { success: false, error: "CPF inválido para gerar senha (muito curto)." };
+    if (!password || password.length < 6) {
+      return { success: false, error: "A senha deve ter no mínimo 6 caracteres." };
     }
 
     // 2. Criar cliente temporário usando as chaves exportadas do supabase.ts
@@ -74,7 +67,7 @@ export const createInstructorWithAuth = async (
     // 3. Criar usuário no Auth COM METADATA DE ROLE E STUDIO_ID
     const { data: authData, error: authError } = await tempClient.auth.signUp({
       email: instructor.email,
-      password: password, // SENHA = CPF
+      password: password, 
       options: {
         data: { 
             name: instructor.name,

@@ -5,7 +5,7 @@ import { Instructor } from '../types';
 import { fetchInstructors, createInstructorWithAuth, updateInstructor, deleteInstructor, toggleInstructorStatus } from '../services/instructorService';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Plus, Trash2, Search, Phone, Mail, Pencil, X, BookUser, ShieldAlert, MapPin, CheckCircle, Ban, Share2, Key, CreditCard } from 'lucide-react';
+import { Plus, Trash2, Search, Phone, Mail, Pencil, X, BookUser, MapPin, CheckCircle, Ban, Share2, Key } from 'lucide-react';
 
 export const Instructors: React.FC = () => {
   const { user } = useAuth();
@@ -21,7 +21,8 @@ export const Instructors: React.FC = () => {
     email: '',
     cpf: '',
     phone: '',
-    address: ''
+    address: '',
+    password: '' // Added password field
   });
 
   const loadData = async () => {
@@ -39,11 +40,11 @@ export const Instructors: React.FC = () => {
 
   const formatCPF = (value: string) => {
     return value
-      .replace(/\D/g, '') // Remove tudo o que não é dígito
-      .replace(/(\d{3})(\d)/, '$1.$2') // Coloca um ponto entre o terceiro e o quarto dígitos
-      .replace(/(\d{3})(\d)/, '$1.$2') // Coloca um ponto entre o terceiro e o quarto dígitos de novo (para o segundo bloco de números)
-      .replace(/(\d{3})(\d{1,2})/, '$1-$2') // Coloca um hífen entre o terceiro e o quarto dígitos
-      .replace(/(-\d{2})\d+?$/, '$1'); // Impede que sejam digitados mais de 11 dígitos
+      .replace(/\D/g, '') 
+      .replace(/(\d{3})(\d)/, '$1.$2') 
+      .replace(/(\d{3})(\d)/, '$1.$2') 
+      .replace(/(\d{3})(\d{1,2})/, '$1-$2') 
+      .replace(/(-\d{2})\d+?$/, '$1'); 
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,7 +62,8 @@ export const Instructors: React.FC = () => {
       email: inst.email,
       cpf: inst.cpf || '',
       phone: inst.phone,
-      address: inst.address
+      address: inst.address,
+      password: '' // Password not editable/viewable
     });
     setEditingId(inst.id);
     setShowForm(true);
@@ -69,7 +71,7 @@ export const Instructors: React.FC = () => {
   };
 
   const handleCancel = () => {
-    setFormData({ name: '', email: '', cpf: '', phone: '', address: '' });
+    setFormData({ name: '', email: '', cpf: '', phone: '', address: '', password: '' });
     setEditingId(null);
     setShowForm(false);
   };
@@ -78,9 +80,8 @@ export const Instructors: React.FC = () => {
     e.preventDefault();
     if (!user?.id || !formData.name || !formData.email) return;
 
-    // Validação de CPF básico
-    if (formData.cpf.length < 14) {
-      alert("Por favor, preencha o CPF completo.");
+    if (!editingId && (!formData.password || formData.password.length < 6)) {
+      alert("A senha deve ter no mínimo 6 caracteres.");
       return;
     }
 
@@ -97,15 +98,23 @@ export const Instructors: React.FC = () => {
         address: formData.address
       });
     } else {
-      // Criação completa: Banco + Auth (Senha = CPF)
-      result = await createInstructorWithAuth(user.id, formData);
+      // Criação completa: Banco + Auth (Senha Manual)
+      // Omitimos a senha do objeto de dados do instrutor, passamos como argumento separado
+      const instructorData = {
+          name: formData.name,
+          email: formData.email,
+          cpf: formData.cpf,
+          phone: formData.phone,
+          address: formData.address
+      };
+      result = await createInstructorWithAuth(user.id, instructorData, formData.password);
     }
     
     if (result.success) {
       handleCancel();
       await loadData();
       if (!editingId) {
-        alert(`Instrutor ${formData.name} cadastrado com sucesso!\n\nO Login é o E-mail e a Senha é o CPF (apenas números).`);
+        alert(`Instrutor ${formData.name} cadastrado com sucesso!`);
       }
     } else {
       alert(`Erro ao salvar: ${result.error}`);
@@ -137,9 +146,8 @@ export const Instructors: React.FC = () => {
     }
   };
 
-  const shareInstructions = (email: string, cpf: string) => {
-    const password = cpf ? cpf.replace(/\D/g, '') : '(CPF do Instrutor)';
-    const text = `Olá! Cadastrei você na Plataforma VOLL IA.\n\nAcesse: ${window.location.origin}\nLogin: ${email}\nSenha: ${password}`;
+  const shareInstructions = (email: string) => {
+    const text = `Olá! Cadastrei você na Plataforma VOLL IA.\n\nAcesse: ${window.location.origin}\nLogin: ${email}\nSenha: (Sua senha definida no cadastro)`;
     
     if (navigator.share) {
       navigator.share({ title: 'Acesso VOLL IA', text, url: window.location.origin });
@@ -181,18 +189,6 @@ export const Instructors: React.FC = () => {
             </button>
           </div>
           
-          {!editingId && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 p-4 rounded-lg mb-6 text-sm flex gap-3 border border-blue-100 dark:border-blue-800">
-              <Key className="h-5 w-5 flex-shrink-0" />
-              <div>
-                <p className="font-bold">Criação de Acesso Automática</p>
-                <p className="mt-1">
-                  A senha de acesso do instrutor será gerada automaticamente usando os números do <strong>CPF</strong>.
-                </p>
-              </div>
-            </div>
-          )}
-
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
               label="Nome Completo *"
@@ -213,7 +209,7 @@ export const Instructors: React.FC = () => {
             />
             
             <Input
-                label="CPF (Será a Senha) *"
+                label="CPF *"
                 name="cpf"
                 value={formData.cpf}
                 onChange={handleInputChange}
@@ -221,6 +217,18 @@ export const Instructors: React.FC = () => {
                 placeholder="000.000.000-00"
                 maxLength={14}
             />
+
+            {!editingId && (
+                <Input
+                    label="Senha de Acesso *"
+                    name="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Mínimo 6 caracteres"
+                />
+            )}
 
             <Input
               label="Telefone / WhatsApp"
@@ -313,7 +321,7 @@ export const Instructors: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => shareInstructions(inst.email, inst.cpf || '')} className="text-slate-400 hover:text-blue-600 p-2" title="Enviar Instruções de Acesso">
+                        <button onClick={() => shareInstructions(inst.email)} className="text-slate-400 hover:text-blue-600 p-2" title="Enviar Instruções de Acesso">
                           <Share2 className="h-4 w-4" />
                         </button>
                         <button onClick={() => handleEdit(inst)} className="text-slate-400 hover:text-brand-600 p-2"><Pencil className="h-4 w-4" /></button>
