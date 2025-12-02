@@ -185,7 +185,13 @@ export const generatePilatesVideo = async (script: string, onProgress: (msg: str
     }
 };
 
-export const generateContentPlan = async (goals: any, persona: StudioPersona, weeks: number) => {
+export const generateContentPlan = async (
+    goals: any, 
+    persona: StudioPersona, 
+    weeks: number,
+    frequency: number,
+    startDate: string
+) => {
     if (!apiKey) return [];
     
     // Prompt otimizado para evitar problemas de JSON em longos períodos (12/16 semanas)
@@ -193,15 +199,20 @@ export const generateContentPlan = async (goals: any, persona: StudioPersona, we
         Atue como estrategista de marketing para Studios de Pilates.
         Crie um plano de conteúdo para **${weeks} semanas**.
         
+        Configuração:
+        - Frequência: ${frequency} posts por semana.
+        - Data de Início do Plano: ${startDate} (Use isso para sugerir os dias da semana corretamente).
+        
         Objetivos: ${goals.mainObjective}
         Público: ${goals.targetAudience.join(', ')}
         Persona: ${persona.philosophy}
         
         REQUISITOS OBRIGATÓRIOS:
         1. Gere EXATAMENTE ${weeks} semanas.
-        2. Para cada semana, sugira 3 posts (Segunda, Quarta, Sexta).
-        3. SEJA CONCISO. Mantenha 'theme' e 'objective' curtos para o JSON não cortar.
-        4. Responda APENAS com o JSON. Sem texto extra.
+        2. Para cada semana, sugira EXATAMENTE ${frequency} ideias de posts distribuídos durante a semana (Ex: Segunda, Quarta, Sexta se for 3x).
+        3. No campo 'day', coloque o dia da semana (ex: "Segunda-feira").
+        4. SEJA CONCISO. Mantenha 'theme' e 'objective' curtos para o JSON não cortar.
+        5. Responda APENAS com o JSON. Sem texto extra.
         
         Estrutura JSON:
         [
@@ -209,9 +220,8 @@ export const generateContentPlan = async (goals: any, persona: StudioPersona, we
                 "week": "Semana 1",
                 "theme": "Foco da semana",
                 "ideas": [
-                    {"day": "Segunda", "theme": "Tema Curto", "format": "Reels", "objective": "Educação"},
-                    {"day": "Quarta", "theme": "Tema Curto", "format": "Post", "objective": "Conexão"},
-                    {"day": "Sexta", "theme": "Tema Curto", "format": "Carrossel", "objective": "Venda"}
+                    {"day": "Segunda-feira", "theme": "Tema Curto", "format": "Reels", "objective": "Educação"},
+                    {"day": "Quarta-feira", "theme": "Tema Curto", "format": "Post", "objective": "Conexão"}
                 ]
             }
         ]

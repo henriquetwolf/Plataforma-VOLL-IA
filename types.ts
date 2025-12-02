@@ -471,6 +471,8 @@ export interface StudioPersona {
 export interface StrategicContentPlan {
     id: string;
     createdAt: string;
+    startDate?: string;
+    frequency?: number;
     goals: {
         mainObjective: string;
         targetAudience: string[];

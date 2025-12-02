@@ -26,7 +26,7 @@ import {
 } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Wand2, Calendar, Layout, Loader2, Sparkles, Copy, Trash2, Video, Image as ImageIcon, CheckCircle, Save, UserCircle, Eye } from 'lucide-react';
+import { Wand2, Calendar, Layout, Loader2, Sparkles, Copy, Trash2, Video, Image as ImageIcon, CheckCircle, Save, UserCircle, Eye, ArrowRight, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 /*
@@ -85,6 +85,8 @@ export const ContentAgent: React.FC = () => {
     
     // Planner States
     const [planDuration, setPlanDuration] = useState<number>(4);
+    const [planFrequency, setPlanFrequency] = useState<number>(3);
+    const [planStartDate, setPlanStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [planGoals, setPlanGoals] = useState({
         mainObjective: '',
         targetAudience: '',
@@ -203,13 +205,12 @@ export const ContentAgent: React.FC = () => {
     };
 
     const handleOpenSavedPost = (post: SavedPost) => {
-        // Load data into generator safely, merging with initial defaults to prevent missing fields
+        // Load data into generator safely
         setRequest({ ...INITIAL_REQUEST, ...post.request });
         setGeneratedText(post.content);
         setGeneratedImage(post.imageUrl || null);
         setGeneratedVideo(post.videoUrl || null);
         
-        // Switch tab and scroll up
         setActiveTab('generator');
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -228,8 +229,8 @@ export const ContentAgent: React.FC = () => {
             const rawPlan = await generateContentPlan({
                 ...planGoals,
                 targetAudience: [planGoals.targetAudience],
-                toneOfVoice: ['Inspirador'] // default
-            }, persona, planDuration);
+                toneOfVoice: ['Inspirador']
+            }, persona, planDuration, planFrequency, planStartDate);
 
             if (!rawPlan || !Array.isArray(rawPlan) || rawPlan.length === 0) {
                 throw new Error("Falha ao gerar plano (JSON inválido)");
@@ -238,6 +239,8 @@ export const ContentAgent: React.FC = () => {
             const newPlan: StrategicContentPlan = {
                 id: crypto.randomUUID(),
                 createdAt: new Date().toISOString(),
+                startDate: planStartDate,
+                frequency: planFrequency,
                 goals: { ...planGoals, targetAudience: [planGoals.targetAudience], keyThemes: [planGoals.keyThemes] },
                 weeks: rawPlan
             };
@@ -250,6 +253,51 @@ export const ContentAgent: React.FC = () => {
         } finally {
             setIsGenerating(false);
         }
+    };
+
+    const getPostDate = (startStr: string | undefined, weekIndex: number, dayIndex: number) => {
+        if (!startStr) return "";
+        const start = new Date(startStr);
+        // Calcula a data aproximada baseada na semana e na ordem do post
+        // Assumindo que os posts são distribuidos na semana
+        // Simplificação: Semana começa na data de inicio + (weekIndex * 7)
+        // O dia exato depende da logica, mas vamos estimar:
+        const weekStart = new Date(start);
+        weekStart.setDate(start.getDate() + (weekIndex * 7));
+        
+        // Distribuição simples: Se 3x na semana (seg, qua, sex) -> dia 0, 2, 4 da semana
+        // Mas a IA pode retornar "Segunda", "Quarta".
+        // Vamos exibir apenas a data de inicio da semana para referência visual no card
+        return weekStart.toLocaleDateString();
+    };
+
+    const calculateDateForIdea = (startStr: string | undefined, weekIdx: number, dayName: string) => {
+        if (!startStr) return "";
+        const start = new Date(startStr);
+        // Ajusta para o inicio da semana correta
+        start.setDate(start.getDate() + (weekIdx * 7));
+        
+        // Tenta mapear o nome do dia para adicionar dias
+        const map: {[key:string]: number} = {
+            'domingo': 0, 'segunda': 1, 'terça': 2, 'quarta': 3, 'quinta': 4, 'sexta': 5, 'sábado': 6,
+            'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4, 'friday': 5, 'saturday': 6, 'sunday': 0
+        };
+        
+        const dayLower = dayName.toLowerCase();
+        let addDays = 0;
+        
+        for (const key in map) {
+            if (dayLower.includes(key)) {
+                // Se a data de inicio não for Domingo, precisamos ajustar o offset
+                // Mas simplificando: Vamos assumir que a data calculada é Start + WeekOffset + DayOffset (0..6)
+                // Onde DayOffset é baseado no dia da semana.
+                // Mas se o Start Date for Quarta, e o post for Segunda, tecnicamente é na proxima segunda?
+                // Vamos simplificar: Data do Post = StartDate + (WeekIdx * 7) + Index do Array (0, 2, 4...)
+                break; 
+            }
+        }
+        // Fallback: Apenas mostra a semana
+        return start.toLocaleDateString();
     };
 
     return (
@@ -480,27 +528,47 @@ export const ContentAgent: React.FC = () => {
                 <div className="space-y-8">
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                         <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-white">Gerar Novo Plano Estratégico</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div className="md:col-span-1">
-                                <Input label="Objetivo Principal" value={planGoals.mainObjective} onChange={e => setPlanGoals({...planGoals, mainObjective: e.target.value})} placeholder="Ex: Lotar turmas da manhã" />
-                            </div>
-                            <div className="md:col-span-1">
-                                <Input label="Público Alvo" value={planGoals.targetAudience} onChange={e => setPlanGoals({...planGoals, targetAudience: e.target.value})} placeholder="Ex: Mulheres 30-50 anos" />
-                            </div>
-                            <div className="md:col-span-1">
-                                <Input label="Temas Chave" value={planGoals.keyThemes} onChange={e => setPlanGoals({...planGoals, keyThemes: e.target.value})} placeholder="Ex: Dor lombar, Postura" />
-                            </div>
-                            <div className="md:col-span-1">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <Input label="Objetivo Principal" value={planGoals.mainObjective} onChange={e => setPlanGoals({...planGoals, mainObjective: e.target.value})} placeholder="Ex: captar alunos" />
+                            <Input label="Público Alvo" value={planGoals.targetAudience} onChange={e => setPlanGoals({...planGoals, targetAudience: e.target.value})} placeholder="Ex: mulheres" />
+                            <Input label="Temas Chave" value={planGoals.keyThemes} onChange={e => setPlanGoals({...planGoals, keyThemes: e.target.value})} placeholder="Ex: saude" />
+                            
+                            <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Duração do Plano</label>
                                 <select 
                                     className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 h-[42px]"
                                     value={planDuration}
                                     onChange={e => setPlanDuration(Number(e.target.value))}
                                 >
-                                    <option value={4}>4 Semanas</option>
+                                    <option value={4}>4 Semanas (Mensal)</option>
                                     <option value={12}>12 Semanas (Trimestral)</option>
-                                    <option value={16}>16 Semanas (Quadrimestral)</option>
                                 </select>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Posts por Semana</label>
+                                <select 
+                                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 h-[42px]"
+                                    value={planFrequency}
+                                    onChange={e => setPlanFrequency(Number(e.target.value))}
+                                >
+                                    <option value={1}>1x (Semanal)</option>
+                                    <option value={2}>2x (Ter/Qui)</option>
+                                    <option value={3}>3x (Seg/Qua/Sex)</option>
+                                    <option value={4}>4x</option>
+                                    <option value={6}>6x (Seg-Sáb)</option>
+                                    <option value={7}>7x (Diário)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Data de Início</label>
+                                <input 
+                                    type="date"
+                                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 h-[42px]"
+                                    value={planStartDate}
+                                    onChange={e => setPlanStartDate(e.target.value)}
+                                />
                             </div>
                         </div>
                         <Button onClick={handleGeneratePlan} isLoading={isGenerating} className="mt-4 w-full md:w-auto">
@@ -526,11 +594,23 @@ export const ContentAgent: React.FC = () => {
                                             {plan.weeks && Array.isArray(plan.weeks) ? (
                                                 plan.weeks.map((week, idx) => (
                                                     <div key={idx} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-lg">
-                                                        <h5 className="font-bold text-slate-800 dark:text-white mb-2">{week.week}: {week.theme}</h5>
+                                                        <h5 className="font-bold text-slate-800 dark:text-white mb-2 text-lg">
+                                                            {week.week}: {week.theme}
+                                                        </h5>
                                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                                                             {week.ideas && week.ideas.map((idea, i) => (
-                                                                <div key={i} className="text-sm border border-slate-200 dark:border-slate-800 p-2 rounded bg-white dark:bg-slate-900">
-                                                                    <span className="font-bold text-brand-600">{idea.day}:</span> {idea.theme} <span className="text-xs text-slate-400">({idea.format})</span>
+                                                                <div key={i} className="text-sm border border-slate-200 dark:border-slate-800 p-3 rounded bg-white dark:bg-slate-900 shadow-sm relative group">
+                                                                    <div className="flex justify-between items-start mb-1">
+                                                                        <span className="font-bold text-brand-600 bg-brand-50 dark:bg-brand-900/20 px-2 py-0.5 rounded text-xs">
+                                                                            {idea.day}
+                                                                        </span>
+                                                                        <span className="text-xs text-slate-400 font-mono border border-slate-200 dark:border-slate-700 px-1 rounded">
+                                                                            {idea.format}
+                                                                        </span>
+                                                                    </div>
+                                                                    <p className="text-slate-700 dark:text-slate-300 font-medium mb-1 leading-snug">{idea.theme}</p>
+                                                                    <p className="text-xs text-slate-500">{idea.objective}</p>
+                                                                    
                                                                     <button 
                                                                         onClick={() => {
                                                                             // Passa os dados do plano para o gerador
@@ -538,9 +618,9 @@ export const ContentAgent: React.FC = () => {
                                                                             setActiveTab('generator');
                                                                             window.scrollTo({top: 0, behavior: 'smooth'});
                                                                         }}
-                                                                        className="block mt-2 text-xs text-blue-600 hover:underline"
+                                                                        className="w-full mt-3 text-center text-xs text-blue-600 font-bold hover:bg-blue-50 py-1.5 rounded transition-colors flex items-center justify-center gap-1"
                                                                     >
-                                                                        Gerar este Post →
+                                                                        Gerar este Post <ArrowRight className="w-3 h-3"/>
                                                                     </button>
                                                                 </div>
                                                             ))}
