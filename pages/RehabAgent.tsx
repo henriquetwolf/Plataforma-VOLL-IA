@@ -12,9 +12,7 @@ import { AssessmentModal } from '../components/rehab/AssessmentModal';
 import { ResultCard, LessonPlanView } from '../components/rehab/RehabResults';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Search, History, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, User, ChevronRight, Folder, Dumbbell, Filter, Plus, Pencil, X, Upload, ImageIcon, Maximize2, Home } from 'lucide-react';
-
-// ... (Rest of the component logic remains same, updating Header only)
+import { Search, History, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, User, ChevronRight, Folder, Dumbbell, Filter, Plus, Pencil, X, Upload, ImageIcon, Maximize2, Home, AlertTriangle } from 'lucide-react';
 
 const COMMON_SUGGESTIONS = [
   "Hérnia de Disco L5-S1", "Dor Lombar Crônica", "Ombro Rígido", "Condromalácia", "Cervicalgia", "Fascite Plantar"
@@ -249,7 +247,16 @@ export const RehabAgent: React.FC = () => {
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) { const file = e.target.files[0]; setExerciseImageFile(file); setExerciseImagePreview(URL.createObjectURL(file)); }
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      // Validação de Tamanho (Max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert("A imagem deve ter no máximo 5MB.");
+        return;
+      }
+      setExerciseImageFile(file);
+      setExerciseImagePreview(URL.createObjectURL(file));
+    }
   };
 
   const handleSaveExerciseForm = async (e: React.FormEvent) => {
@@ -257,20 +264,44 @@ export const RehabAgent: React.FC = () => {
     const ownerId = user?.isInstructor ? user.studioId : user?.id;
     if (!ownerId || !exerciseFormData.name) return;
     setIsExerciseSaving(true);
+    
     try {
       let imageUrl = exerciseFormData.imageUrl;
+      
       if (exerciseImageFile) { 
           const url = await uploadExerciseImage(ownerId, exerciseImageFile); 
           if (url) {
               imageUrl = url; 
           } else {
-              alert("Aviso: Falha ao subir imagem. O exercício será salvo sem a nova imagem.");
+              // Falha no upload: pergunta ao usuário
+              const proceed = window.confirm(
+                "Aviso: Falha ao subir imagem. Provavelmente o 'Storage Bucket' não está configurado no Supabase.\n\nDeseja salvar o exercício mesmo sem a imagem?"
+              );
+              
+              if (!proceed) {
+                setIsExerciseSaving(false);
+                return; // Para o salvamento
+              }
+              // Se sim, continua sem mudar a URL da imagem
           }
       }
+      
       const finalData = { ...exerciseFormData, imageUrl };
-      if (editingExercise) { await updateStudioExercise(editingExercise.id, finalData); } else { await createStudioExercise(ownerId, finalData); }
-      loadBank(); setIsExerciseModalOpen(false);
-    } catch (err) { console.error(err); alert("Erro ao salvar exercício."); } finally { setIsExerciseSaving(false); }
+      
+      if (editingExercise) { 
+        await updateStudioExercise(editingExercise.id, finalData); 
+      } else { 
+        await createStudioExercise(ownerId, finalData); 
+      }
+      
+      loadBank(); 
+      setIsExerciseModalOpen(false);
+    } catch (err) { 
+      console.error(err); 
+      alert("Erro ao salvar exercício."); 
+    } finally { 
+      setIsExerciseSaving(false); 
+    }
   };
 
   const studentsWithLessons = Array.from(new Set(savedLessons.map(l => l.patientName))).sort();
@@ -593,7 +624,7 @@ export const RehabAgent: React.FC = () => {
                   ) : (
                     <div className="text-center text-slate-400">
                       <ImageIcon className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">Clique para adicionar foto</p>
+                      <p className="text-sm">Clique para adicionar foto (Max 5MB)</p>
                     </div>
                   )}
                   <input type="file" accept="image/*" onChange={handleImageChange} className="absolute inset-0 opacity-0 cursor-pointer" />

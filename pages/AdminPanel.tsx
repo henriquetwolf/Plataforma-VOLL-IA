@@ -5,7 +5,7 @@ import { fetchAllProfiles, toggleUserStatus } from '../services/storage';
 import { fetchInstructors, toggleInstructorStatus } from '../services/instructorService';
 import { fetchStudents, revokeStudentAccess } from '../services/studentService';
 import { Button } from '../components/ui/Button';
-import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2 } from 'lucide-react';
+import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image } from 'lucide-react';
 
 const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
 
@@ -161,7 +161,44 @@ CREATE POLICY "Admin All Students" ON students
   FOR ALL USING ( auth.jwt() ->> 'email' = '${ADMIN_EMAIL}' );
     `;
     navigator.clipboard.writeText(sql.trim());
-    alert('SQL copiado! Cole no SQL Editor do Supabase para liberar o acesso.');
+    alert('SQL de Permissões Admin copiado! Cole no SQL Editor do Supabase.');
+  };
+
+  const copyStorageSql = () => {
+    const sql = `
+-- 1. BUCKET DE IMAGENS DE EXERCÍCIOS
+insert into storage.buckets (id, name, public) 
+values ('exercise-images', 'exercise-images', true)
+ON CONFLICT (id) DO NOTHING;
+
+drop policy if exists "Public Access Exercises" on storage.objects;
+create policy "Public Access Exercises" on storage.objects for select using ( bucket_id = 'exercise-images' );
+
+drop policy if exists "Auth Upload Exercises" on storage.objects;
+create policy "Auth Upload Exercises" on storage.objects for insert to authenticated with check ( bucket_id = 'exercise-images' );
+
+drop policy if exists "Auth Update Exercises" on storage.objects;
+create policy "Auth Update Exercises" on storage.objects for update to authenticated using ( bucket_id = 'exercise-images' );
+
+drop policy if exists "Auth Delete Exercises" on storage.objects;
+create policy "Auth Delete Exercises" on storage.objects for delete to authenticated using ( bucket_id = 'exercise-images' );
+
+-- 2. BUCKET DE LOGOS
+insert into storage.buckets (id, name, public) 
+values ('studio-logos', 'studio-logos', true)
+ON CONFLICT (id) DO NOTHING;
+
+drop policy if exists "Public Access Logos" on storage.objects;
+create policy "Public Access Logos" on storage.objects for select using ( bucket_id = 'studio-logos' );
+
+drop policy if exists "Auth Upload Logos" on storage.objects;
+create policy "Auth Upload Logos" on storage.objects for insert to authenticated with check ( bucket_id = 'studio-logos' );
+
+drop policy if exists "Auth Update Logos" on storage.objects;
+create policy "Auth Update Logos" on storage.objects for update to authenticated using ( bucket_id = 'studio-logos' );
+    `;
+    navigator.clipboard.writeText(sql.trim());
+    alert('SQL Completo de Storage (Exercícios e Logos) copiado! Cole no SQL Editor do Supabase.');
   };
 
   if (user?.email !== ADMIN_EMAIL) {
@@ -186,7 +223,10 @@ CREATE POLICY "Admin All Students" ON students
         
         <div className="flex gap-2">
            <Button size="sm" variant="outline" onClick={copySql}>
-             <Database className="h-3 w-3 mr-2" /> Copiar SQL de Permissão
+             <Database className="h-3 w-3 mr-2" /> SQL Permissões
+           </Button>
+           <Button size="sm" variant="outline" onClick={copyStorageSql} className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/30">
+             <Image className="h-3 w-3 mr-2" /> SQL Storage (Correção Upload)
            </Button>
            <Button onClick={loadData} disabled={loading}>
              {loading ? <Loader2 className="animate-spin h-4 w-4"/> : "Atualizar Lista"}
