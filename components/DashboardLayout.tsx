@@ -44,40 +44,49 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
     let items = [];
 
     if (isSuperAdmin) {
-      items = [{ label: 'Painel Admin', icon: ShieldAlert, path: AppRoute.ADMIN }];
+      items = [{ type: 'link', label: 'Painel Admin', icon: ShieldAlert, path: AppRoute.ADMIN }];
     } else if (isStudent) {
       items = [
-        { label: 'Meu Painel', icon: LayoutDashboard, path: AppRoute.STUDENT_DASHBOARD },
-        { label: 'Avaliar Aula', icon: Star, path: AppRoute.STUDENT_EVALUATION },
-        { label: 'Receitas', icon: Utensils, path: AppRoute.STUDENT_RECIPES },
-        { label: 'Treino em Casa', icon: Activity, path: AppRoute.STUDENT_WORKOUT },
-        { label: 'Caixa de Sugestões', icon: MessageSquare, path: AppRoute.STUDENT_SUGGESTIONS },
-        { label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.STUDENT_NEWSLETTERS },
+        { type: 'link', label: 'Meu Painel', icon: LayoutDashboard, path: AppRoute.STUDENT_DASHBOARD },
+        { type: 'header', label: 'Minhas Aulas' },
+        { type: 'link', label: 'Avaliar Aula', icon: Star, path: AppRoute.STUDENT_EVALUATION },
+        { type: 'link', label: 'Treino em Casa', icon: Activity, path: AppRoute.STUDENT_WORKOUT },
+        { type: 'header', label: 'Comunidade' },
+        { type: 'link', label: 'Receitas', icon: Utensils, path: AppRoute.STUDENT_RECIPES },
+        { type: 'link', label: 'Caixa de Sugestões', icon: MessageSquare, path: AppRoute.STUDENT_SUGGESTIONS },
+        { type: 'link', label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.STUDENT_NEWSLETTERS },
       ];
     } else if (isInstructor) {
       items = [
-        { label: 'Home', icon: Home, path: AppRoute.INSTRUCTOR_DASHBOARD },
-        { label: 'Evolução do Aluno', icon: TrendingUp, path: AppRoute.EVOLUTION },
-        { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
-        { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
-        { label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.INSTRUCTOR_NEWSLETTERS },
+        { type: 'link', label: 'Home', icon: Home, path: AppRoute.INSTRUCTOR_DASHBOARD },
+        { type: 'header', label: 'Operacional' },
+        { type: 'link', label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
+        { type: 'link', label: 'Evolução do Aluno', icon: TrendingUp, path: AppRoute.EVOLUTION },
+        { type: 'link', label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
+        { type: 'link', label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.INSTRUCTOR_NEWSLETTERS },
       ];
     } else if (isOwner) {
       items = [
-        { label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.DASHBOARD },
-        { label: 'Assistente Conteúdo', icon: Wand2, path: AppRoute.CONTENT_AGENT },
-        { label: 'Planejamento IA', icon: Compass, path: AppRoute.STRATEGY },
-        { label: 'Calculadora Financeira', icon: Calculator, path: AppRoute.FINANCE },
-        { label: 'Preço Inteligente', icon: Banknote, path: AppRoute.PRICING },
-        { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
-        { label: 'Evolução do Aluno', icon: TrendingUp, path: AppRoute.EVOLUTION },
-        { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
-        { label: 'Equipe', icon: BookUser, path: AppRoute.INSTRUCTORS },
-        { label: 'Avaliações Aulas', icon: Star, path: AppRoute.STUDIO_EVALUATIONS },
-        { label: 'Sugestões Alunos', icon: MessageSquare, path: AppRoute.STUDIO_SUGGESTIONS },
-        { label: 'Criador Newsletter', icon: Newspaper, path: AppRoute.NEWSLETTER_AGENT },
-        { label: 'Perfil do Studio', icon: UserCircle, path: AppRoute.PROFILE },
-        { label: 'Configurações', icon: Settings, path: AppRoute.SETTINGS },
+        { type: 'link', label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.DASHBOARD },
+        
+        { type: 'header', label: '1. Cadastros' },
+        { type: 'link', label: 'Perfil do Studio', icon: UserCircle, path: AppRoute.PROFILE },
+        { type: 'link', label: 'Equipe', icon: BookUser, path: AppRoute.INSTRUCTORS },
+        { type: 'link', label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
+        { type: 'link', label: 'Configurações', icon: Settings, path: AppRoute.SETTINGS },
+
+        { type: 'header', label: '2. Estratégia' },
+        { type: 'link', label: 'Planejamento IA', icon: Compass, path: AppRoute.STRATEGY },
+        { type: 'link', label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
+        { type: 'link', label: 'Assistente Conteúdo', icon: Wand2, path: AppRoute.CONTENT_AGENT },
+        { type: 'link', label: 'Calculadora Financeira', icon: Calculator, path: AppRoute.FINANCE },
+        { type: 'link', label: 'Preço Inteligente', icon: Banknote, path: AppRoute.PRICING },
+        { type: 'link', label: 'Criador Newsletter', icon: Newspaper, path: AppRoute.NEWSLETTER_AGENT },
+
+        { type: 'header', label: '3. Acompanhamento' },
+        { type: 'link', label: 'Evolução do Aluno', icon: TrendingUp, path: AppRoute.EVOLUTION },
+        { type: 'link', label: 'Avaliações Aulas', icon: Star, path: AppRoute.STUDIO_EVALUATIONS },
+        { type: 'link', label: 'Sugestões Alunos', icon: MessageSquare, path: AppRoute.STUDIO_SUGGESTIONS },
       ];
     }
 
@@ -101,34 +110,44 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {/* Links do Menu */}
-          {menuItems.map((item) => {
+          {menuItems.map((item, index) => {
+            if (item.type === 'header') {
+                return (
+                    <div key={`header-${index}`} className="px-4 mt-6 mb-2">
+                        <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                            {item.label}
+                        </p>
+                    </div>
+                );
+            }
+
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
-            // Hack visual para o botão Home do instrutor ser "preto" quando ativo ou hover, se desejado, 
-            // mas mantendo consistência com o resto do tema.
-            // Se o usuário pediu "botão preto", podemos forçar um estilo específico para o ícone Home do instrutor.
             const isHomeInstructor = isInstructor && item.label === 'Home';
             
             return (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive 
                     ? 'bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300' 
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
-                <Icon className={`h-5 w-5 ${isActive ? 'text-brand-500 dark:text-brand-400' : isHomeInstructor ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}`} />
+                <Icon className={`h-4 w-4 ${isActive ? 'text-brand-500 dark:text-brand-400' : isHomeInstructor ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}`} />
                 {item.label}
               </Link>
             );
           })}
+          
+          {/* Espaçador final para garantir scroll confortável */}
+          <div className="h-12"></div>
         </nav>
 
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800">
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
           <div className="flex items-center gap-3 px-4 py-3 mb-2">
-            <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
+            <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
               isSuperAdmin ? 'bg-purple-100 text-purple-700' : 
               isInstructor ? 'bg-blue-100 text-blue-600' : 
               isStudent ? 'bg-green-100 text-green-600' : 
