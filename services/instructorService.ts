@@ -1,3 +1,4 @@
+
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase'; // Importa chaves exportadas
 import { Instructor } from '../types';
 import { createClient } from '@supabase/supabase-js';
@@ -24,6 +25,7 @@ export const fetchInstructors = async (studioId?: string): Promise<Instructor[]>
       authUserId: item.auth_user_id,
       name: item.name,
       email: item.email,
+      cpf: item.cpf || '',
       phone: item.phone || '',
       address: item.address || '',
       active: item.active,
@@ -38,18 +40,24 @@ export const fetchInstructors = async (studioId?: string): Promise<Instructor[]>
 // --- FUNÇÃO DE CRIAÇÃO COM LOGIN ---
 export const createInstructorWithAuth = async (
   studioUserId: string, 
-  instructor: Omit<Instructor, 'id' | 'studioUserId' | 'active' | 'createdAt'> & { password?: string }
+  instructor: Omit<Instructor, 'id' | 'studioUserId' | 'active' | 'createdAt'>
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     console.log("Iniciando criação de instrutor com auth...");
 
-    // 1. Validar senha
-    if (!instructor.password || instructor.password.length < 6) {
-      return { success: false, error: "A senha deve ter no mínimo 6 caracteres." };
+    // 1. Validar CPF e Gerar Senha
+    if (!instructor.cpf) {
+        return { success: false, error: "O CPF é obrigatório para criar o acesso." };
+    }
+
+    // A senha é o CPF limpo (apenas números)
+    const password = instructor.cpf.replace(/\D/g, '');
+
+    if (password.length < 6) {
+      return { success: false, error: "CPF inválido para gerar senha (muito curto)." };
     }
 
     // 2. Criar cliente temporário usando as chaves exportadas do supabase.ts
-    // Isso evita o problema de 'undefined' com import.meta.env
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
       return { success: false, error: "Configuração do Supabase inválida." };
     }
@@ -66,7 +74,7 @@ export const createInstructorWithAuth = async (
     // 3. Criar usuário no Auth COM METADATA DE ROLE E STUDIO_ID
     const { data: authData, error: authError } = await tempClient.auth.signUp({
       email: instructor.email,
-      password: instructor.password,
+      password: password, // SENHA = CPF
       options: {
         data: { 
             name: instructor.name,
@@ -99,6 +107,7 @@ export const createInstructorWithAuth = async (
         auth_user_id: newUserId, // VÍNCULO IMEDIATO
         name: instructor.name,
         email: instructor.email,
+        cpf: instructor.cpf,
         phone: instructor.phone,
         address: instructor.address,
         active: true
@@ -117,30 +126,6 @@ export const createInstructorWithAuth = async (
   }
 };
 
-export const addInstructor = async (
-  studioUserId: string, 
-  instructor: Omit<Instructor, 'id' | 'studioUserId' | 'active' | 'createdAt'>
-): Promise<{ success: boolean; error?: string }> => {
-  try {
-    const { error: dbError } = await supabase
-      .from('instructors')
-      .insert({
-        studio_user_id: studioUserId,
-        name: instructor.name,
-        email: instructor.email,
-        phone: instructor.phone,
-        address: instructor.address,
-        active: true
-      });
-
-    if (dbError) throw dbError;
-    return { success: true };
-  } catch (err: any) {
-    console.error('Error adding instructor:', err);
-    return { success: false, error: err.message };
-  }
-};
-
 export const updateInstructor = async (id: string, updates: Partial<Instructor>): Promise<{ success: boolean; error?: string }> => {
   try {
     const payload: any = {};
@@ -148,6 +133,7 @@ export const updateInstructor = async (id: string, updates: Partial<Instructor>)
     if (updates.email) payload.email = updates.email;
     if (updates.phone) payload.phone = updates.phone;
     if (updates.address) payload.address = updates.address;
+    if (updates.cpf) payload.cpf = updates.cpf;
     if (updates.active !== undefined) payload.active = updates.active;
 
     const { error } = await supabase

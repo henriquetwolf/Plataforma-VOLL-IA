@@ -44,6 +44,7 @@ export interface Instructor {
   authUserId?: string;
   name: string;
   email: string;
+  cpf?: string; // Added CPF
   phone: string;
   address: string;
   active: boolean;

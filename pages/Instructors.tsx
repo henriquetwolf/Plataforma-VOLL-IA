@@ -5,7 +5,7 @@ import { Instructor } from '../types';
 import { fetchInstructors, createInstructorWithAuth, updateInstructor, deleteInstructor, toggleInstructorStatus } from '../services/instructorService';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Plus, Trash2, Search, Phone, Mail, Pencil, X, BookUser, ShieldAlert, MapPin, CheckCircle, Ban, Share2, Key } from 'lucide-react';
+import { Plus, Trash2, Search, Phone, Mail, Pencil, X, BookUser, ShieldAlert, MapPin, CheckCircle, Ban, Share2, Key, CreditCard } from 'lucide-react';
 
 export const Instructors: React.FC = () => {
   const { user } = useAuth();
@@ -19,9 +19,9 @@ export const Instructors: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    cpf: '',
     phone: '',
-    address: '',
-    password: '' 
+    address: ''
   });
 
   const loadData = async () => {
@@ -37,18 +37,31 @@ export const Instructors: React.FC = () => {
     loadData();
   }, [user]);
 
+  const formatCPF = (value: string) => {
+    return value
+      .replace(/\D/g, '') // Remove tudo o que não é dígito
+      .replace(/(\d{3})(\d)/, '$1.$2') // Coloca um ponto entre o terceiro e o quarto dígitos
+      .replace(/(\d{3})(\d)/, '$1.$2') // Coloca um ponto entre o terceiro e o quarto dígitos de novo (para o segundo bloco de números)
+      .replace(/(\d{3})(\d{1,2})/, '$1-$2') // Coloca um hífen entre o terceiro e o quarto dígitos
+      .replace(/(-\d{2})\d+?$/, '$1'); // Impede que sejam digitados mais de 11 dígitos
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === 'cpf') {
+        setFormData(prev => ({ ...prev, [name]: formatCPF(value) }));
+    } else {
+        setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleEdit = (inst: Instructor) => {
     setFormData({
       name: inst.name,
       email: inst.email,
+      cpf: inst.cpf || '',
       phone: inst.phone,
-      address: inst.address,
-      password: '' // Senha não editável aqui
+      address: inst.address
     });
     setEditingId(inst.id);
     setShowForm(true);
@@ -56,7 +69,7 @@ export const Instructors: React.FC = () => {
   };
 
   const handleCancel = () => {
-    setFormData({ name: '', email: '', phone: '', address: '', password: '' });
+    setFormData({ name: '', email: '', cpf: '', phone: '', address: '' });
     setEditingId(null);
     setShowForm(false);
   };
@@ -65,9 +78,9 @@ export const Instructors: React.FC = () => {
     e.preventDefault();
     if (!user?.id || !formData.name || !formData.email) return;
 
-    // Validação de senha na criação
-    if (!editingId && (!formData.password || formData.password.length < 6)) {
-      alert("Para criar o acesso, a senha deve ter no mínimo 6 caracteres.");
+    // Validação de CPF básico
+    if (formData.cpf.length < 14) {
+      alert("Por favor, preencha o CPF completo.");
       return;
     }
 
@@ -75,15 +88,16 @@ export const Instructors: React.FC = () => {
     
     let result;
     if (editingId) {
-      // Atualização normal (sem mexer na senha/auth)
+      // Atualização normal
       result = await updateInstructor(editingId, {
         name: formData.name,
         email: formData.email,
+        cpf: formData.cpf,
         phone: formData.phone,
         address: formData.address
       });
     } else {
-      // Criação completa: Banco + Auth
+      // Criação completa: Banco + Auth (Senha = CPF)
       result = await createInstructorWithAuth(user.id, formData);
     }
     
@@ -91,7 +105,7 @@ export const Instructors: React.FC = () => {
       handleCancel();
       await loadData();
       if (!editingId) {
-        alert(`Instrutor ${formData.name} cadastrado com sucesso! O acesso foi criado com o email e senha informados.`);
+        alert(`Instrutor ${formData.name} cadastrado com sucesso!\n\nO Login é o E-mail e a Senha é o CPF (apenas números).`);
       }
     } else {
       alert(`Erro ao salvar: ${result.error}`);
@@ -123,8 +137,10 @@ export const Instructors: React.FC = () => {
     }
   };
 
-  const shareInstructions = (email: string) => {
-    const text = `Olá! Cadastrei você na Plataforma VOLL IA. Acesse: ${window.location.origin}\nLogin: ${email}\n(Use a senha que defini para você)`;
+  const shareInstructions = (email: string, cpf: string) => {
+    const password = cpf ? cpf.replace(/\D/g, '') : '(CPF do Instrutor)';
+    const text = `Olá! Cadastrei você na Plataforma VOLL IA.\n\nAcesse: ${window.location.origin}\nLogin: ${email}\nSenha: ${password}`;
+    
     if (navigator.share) {
       navigator.share({ title: 'Acesso VOLL IA', text, url: window.location.origin });
     } else {
@@ -145,7 +161,7 @@ export const Instructors: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <BookUser className="h-6 w-6 text-brand-600" /> Equipe de Instrutores
           </h1>
-          <p className="text-slate-500 dark:text-slate-400">Cadastre seus instrutores e crie o acesso deles.</p>
+          <p className="text-slate-500 dark:text-slate-400">Cadastre seus instrutores e gerencie o acesso.</p>
         </div>
         {!showForm && (
           <Button onClick={() => setShowForm(true)}>
@@ -169,9 +185,9 @@ export const Instructors: React.FC = () => {
             <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 p-4 rounded-lg mb-6 text-sm flex gap-3 border border-blue-100 dark:border-blue-800">
               <Key className="h-5 w-5 flex-shrink-0" />
               <div>
-                <p className="font-bold">Criação de Acesso</p>
+                <p className="font-bold">Criação de Acesso Automática</p>
                 <p className="mt-1">
-                  Defina um email e senha para o instrutor. Ele poderá entrar imediatamente na área "Sou Instrutor" com esses dados.
+                  A senha de acesso do instrutor será gerada automaticamente usando os números do <strong>CPF</strong>.
                 </p>
               </div>
             </div>
@@ -196,34 +212,35 @@ export const Instructors: React.FC = () => {
               disabled={!!editingId}
             />
             
-            {!editingId && (
-              <Input
-                label="Senha de Acesso *"
-                name="password"
-                type="password"
-                value={formData.password}
+            <Input
+                label="CPF (Será a Senha) *"
+                name="cpf"
+                value={formData.cpf}
                 onChange={handleInputChange}
                 required
-                placeholder="Mínimo 6 caracteres"
-              />
-            )}
+                placeholder="000.000.000-00"
+                maxLength={14}
+            />
 
             <Input
-              label="Telefone"
+              label="Telefone / WhatsApp"
               name="phone"
               value={formData.phone}
               onChange={handleInputChange}
             />
-            <Input
-              label="Endereço"
-              name="address"
-              value={formData.address}
-              onChange={handleInputChange}
-            />
+            <div className="md:col-span-2">
+                <Input
+                label="Endereço Completo"
+                name="address"
+                value={formData.address}
+                onChange={handleInputChange}
+                placeholder="Rua, Número, Bairro..."
+                />
+            </div>
 
             <div className="md:col-span-2 flex justify-end gap-2 mt-2">
               <Button type="button" variant="ghost" onClick={handleCancel}>Cancelar</Button>
-              <Button type="submit" isLoading={isSubmitting}>{editingId ? 'Salvar Alterações' : 'Criar Acesso'}</Button>
+              <Button type="submit" isLoading={isSubmitting}>{editingId ? 'Salvar Alterações' : 'Cadastrar e Criar Acesso'}</Button>
             </div>
           </form>
         </div>
@@ -258,6 +275,7 @@ export const Instructors: React.FC = () => {
                 <tr>
                   <th className="px-6 py-3">Nome</th>
                   <th className="px-6 py-3">Contato</th>
+                  <th className="px-6 py-3">CPF</th>
                   <th className="px-6 py-3 text-center">Status</th>
                   <th className="px-6 py-3 text-right">Ações</th>
                 </tr>
@@ -277,6 +295,9 @@ export const Instructors: React.FC = () => {
                         {inst.phone && <div className="flex items-center gap-2"><Phone className="h-3 w-3" /> {inst.phone}</div>}
                       </div>
                     </td>
+                    <td className="px-6 py-4 text-slate-500 font-mono">
+                       {inst.cpf || '-'}
+                    </td>
                     <td className="px-6 py-4 text-center">
                       <button 
                         onClick={() => handleToggleStatus(inst.id, inst.active, inst.name)}
@@ -292,7 +313,7 @@ export const Instructors: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => shareInstructions(inst.email)} className="text-slate-400 hover:text-blue-600 p-2" title="Enviar Instruções">
+                        <button onClick={() => shareInstructions(inst.email, inst.cpf || '')} className="text-slate-400 hover:text-blue-600 p-2" title="Enviar Instruções de Acesso">
                           <Share2 className="h-4 w-4" />
                         </button>
                         <button onClick={() => handleEdit(inst)} className="text-slate-400 hover:text-brand-600 p-2"><Pencil className="h-4 w-4" /></button>
