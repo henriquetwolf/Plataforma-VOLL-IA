@@ -1,12 +1,13 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Student, AppRoute } from '../types';
-import { fetchStudents, addStudent, updateStudent, deleteStudent, createStudentWithAuth, revokeStudentAccess } from '../services/studentService';
+import { fetchStudents, addStudent, createStudentWithAutoAuth, updateStudent, deleteStudent, createStudentWithAuth, revokeStudentAccess } from '../services/studentService';
 import { fetchRehabLessonsByStudent } from '../services/rehabService'; 
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Users, Plus, Trash2, Search, Pencil, Activity, X, Key, CheckCircle, Home, Building2, ArrowLeft, AlertCircle, RefreshCw, Copy, Terminal, Ban } from 'lucide-react';
+import { Users, Plus, Trash2, Search, Pencil, Activity, X, Key, CheckCircle, Home, Building2, ArrowLeft, AlertCircle, RefreshCw, Terminal, Ban } from 'lucide-react';
 
 export const Students: React.FC = () => {
   const { user } = useAuth();
@@ -33,7 +34,7 @@ export const Students: React.FC = () => {
     address: '',
     phone: '',
     observations: '',
-    password: '' // For editing password
+    password: '' // For creating access or editing password
   });
 
   const isInstructor = user?.isInstructor;
@@ -41,8 +42,6 @@ export const Students: React.FC = () => {
   const loadStudents = async () => {
     if (!user) return;
 
-    // Se for Instrutor, usa o studioId (que aponta para o ID do Dono).
-    // Se for Dono, usa o próprio ID (user.id).
     const targetId = user.isInstructor ? user.studioId : user.id;
     
     if (!targetId) {
@@ -117,12 +116,23 @@ export const Students: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Garante que o aluno seja salvo vinculado ao Dono do Studio
     const ownerId = user?.isInstructor ? user.studioId : user?.id;
     
     if (!ownerId || !formData.name) return;
 
-    // Optional password validation during edit
+    // Se for novo cadastro, senha e email são obrigatórios para o acesso automático
+    if (!editingId) {
+        if (!formData.email) {
+            alert("O email é obrigatório para novos cadastros.");
+            return;
+        }
+        if (!formData.password || formData.password.length < 6) {
+            alert("Uma senha de acesso (mínimo 6 caracteres) é obrigatória para o novo aluno.");
+            return;
+        }
+    }
+
+    // Se for edição e tiver senha, valida
     if (editingId && formData.password && formData.password.length < 6) {
         alert("A nova senha deve ter no mínimo 6 caracteres.");
         return;
@@ -134,13 +144,16 @@ export const Students: React.FC = () => {
     if (editingId) {
       result = await updateStudent(editingId, formData, formData.password);
     } else {
-      result = await addStudent(ownerId, formData);
+      // Usar a nova função que cria banco + auth
+      result = await createStudentWithAutoAuth(ownerId, formData, formData.password);
     }
     
     if (result.success) {
       handleCancel();
       await loadStudents();
-      if (editingId) {
+      if (!editingId) {
+          alert(`Aluno ${formData.name} cadastrado com acesso liberado!\n\nLogin: ${formData.email}\nSenha: ${formData.password}`);
+      } else {
           alert("Dados do aluno atualizados com sucesso!");
       }
     } else {
@@ -150,7 +163,6 @@ export const Students: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    // Apenas donos podem excluir para segurança
     if (isInstructor) {
         alert("Apenas o proprietário pode excluir alunos permanentemente. Você pode editar os dados.");
         return;
@@ -181,19 +193,20 @@ export const Students: React.FC = () => {
   };
 
   // Função para desativar acesso na lista principal
-  const handleRevokeAccess = async (student: Student) => {
-    if (!student.authUserId) return;
-    
-    // Apenas Donos podem revogar acesso (ou instrutores se permitido, mas por segurança default apenas donos)
-    // Se desejar liberar para instrutores, remova esta verificação.
-    
-    if (window.confirm(`Tem certeza que deseja BLOQUEAR o acesso de ${student.name}? O aluno perderá o login imediatamente.`)) {
-        const result = await revokeStudentAccess(student.id);
-        if (result.success) {
-            await loadStudents();
-        } else {
-            alert("Erro ao desativar acesso: " + result.error);
+  const handleToggleAccessList = async (student: Student) => {
+    if (student.authUserId) {
+        // Fluxo de Desativar
+        if (window.confirm(`Tem certeza que deseja BLOQUEAR o acesso de ${student.name}?`)) {
+            const result = await revokeStudentAccess(student.id);
+            if (result.success) {
+                await loadStudents();
+            } else {
+                alert("Erro ao desativar acesso: " + result.error);
+            }
         }
+    } else {
+        // Fluxo de Ativar (Abre modal para criar senha)
+        openAccessModal(student);
     }
   };
 
@@ -349,7 +362,6 @@ CREATE POLICY "Instructors can view studio students" ON students
           </div>
         </div>
         
-        {/* Instructors can create students now */}
         {!showForm && (
           <Button onClick={() => setShowForm(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -365,26 +377,16 @@ CREATE POLICY "Instructors can view studio students" ON students
             <div className="flex-1">
               <h3 className="font-bold text-red-800 dark:text-red-300 text-sm">Erro de Permissão (Missing Studio ID)</h3>
               <p className="text-red-700 dark:text-red-400 text-xs mt-1">
-                O sistema não conseguiu identificar o estúdio vinculado. Isso geralmente ocorre por falta de permissões no banco de dados.
-                <br/>
-                <strong>Ação Necessária:</strong> O proprietário deve rodar o "SQL de Correção de Permissões" no painel Admin.
+                O sistema não conseguiu identificar o estúdio vinculado.
               </p>
               <div className="flex gap-2 mt-3">
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="bg-white text-red-600 border-red-200 hover:bg-red-50 h-8 text-xs"
-                  onClick={loadStudents}
-                >
-                  <RefreshCw className="w-3 h-3 mr-2"/> Tentar Novamente
-                </Button>
                 <Button 
                   size="sm" 
                   variant="outline" 
                   className="bg-white text-slate-600 border-slate-200 hover:bg-slate-50 h-8 text-xs"
                   onClick={copyFixSQL}
                 >
-                  <Terminal className="w-3 h-3 mr-2"/> Copiar SQL
+                  <Terminal className="w-3 h-3 mr-2"/> Copiar SQL de Correção
                 </Button>
               </div>
             </div>
@@ -414,13 +416,25 @@ CREATE POLICY "Instructors can view studio students" ON students
               />
             </div>
             <Input
-              label="Email"
+              label="Email (Login) *"
               name="email"
               type="email"
               value={formData.email}
               onChange={handleInputChange}
-              disabled={!!editingId && !!formData.email} 
+              required
+              disabled={!!editingId} // Não permite mudar email após criar (login)
             />
+            
+            <Input
+                label={editingId ? "Alterar Senha (Opcional)" : "Senha de Acesso *"}
+                name="password"
+                type="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                placeholder={editingId ? "Deixe em branco para manter a atual" : "Mínimo 6 caracteres"}
+                required={!editingId}
+            />
+
             <Input
               label="CPF"
               name="cpf"
@@ -444,19 +458,6 @@ CREATE POLICY "Instructors can view studio students" ON students
                 placeholder="Rua, Número, Bairro..."
               />
             </div>
-            
-            {editingId && (
-                <div className="md:col-span-2 border-t pt-4 mt-2">
-                    <Input
-                        label="Alterar Senha de Acesso (Opcional)"
-                        name="password"
-                        type="password"
-                        value={formData.password}
-                        onChange={handleInputChange}
-                        placeholder="Deixe em branco para manter a atual"
-                    />
-                </div>
-            )}
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -473,7 +474,7 @@ CREATE POLICY "Instructors can view studio students" ON students
 
             <div className="md:col-span-2 flex justify-end gap-2 mt-2">
               <Button type="button" variant="ghost" onClick={handleCancel}>Cancelar</Button>
-              <Button type="submit" isLoading={isSubmitting}>{editingId ? 'Salvar Alterações' : 'Cadastrar'}</Button>
+              <Button type="submit" isLoading={isSubmitting}>{editingId ? 'Salvar Alterações' : 'Cadastrar e Liberar Acesso'}</Button>
             </div>
           </form>
         </div>
@@ -499,7 +500,6 @@ CREATE POLICY "Instructors can view studio students" ON students
           <div className="p-12 text-center text-slate-500">
             <Users className="h-12 w-12 mx-auto text-slate-300 mb-3" />
             <p>Nenhum aluno encontrado.</p>
-            {isInstructor && !permissionError && <p className="text-xs mt-2 text-slate-400">Os alunos do proprietário aparecerão aqui.</p>}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -520,20 +520,21 @@ CREATE POLICY "Instructors can view studio students" ON students
                     <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{student.email || student.phone || '-'}</td>
                     <td className="px-6 py-4 text-slate-500 dark:text-slate-400 font-mono text-xs">{student.cpf || '-'}</td>
                     <td className="px-6 py-4 text-center">
-                       {student.authUserId ? (
-                         <button 
-                            onClick={() => handleRevokeAccess(student)}
-                            className="group inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200 hover:bg-red-100 hover:text-red-700 hover:border-red-200 transition-all min-w-[80px] justify-center"
-                            title="Clique para BLOQUEAR o acesso deste aluno"
-                         >
-                           <span className="group-hover:hidden flex items-center gap-1"><CheckCircle className="w-3 h-3"/> ATIVO</span>
-                           <span className="hidden group-hover:flex items-center gap-1"><Ban className="w-3 h-3"/> BLOQUEAR</span>
-                         </button>
-                       ) : (
-                         <button onClick={() => openAccessModal(student)} className="text-xs text-blue-600 hover:underline flex items-center justify-center gap-1 mx-auto">
-                           <Key className="w-3 h-3"/> Criar Acesso
-                         </button>
-                       )}
+                       <button 
+                          onClick={() => handleToggleAccessList(student)}
+                          title={student.authUserId ? "Clique para BLOQUEAR o acesso" : "Clique para CRIAR acesso"}
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border transition-all min-w-[80px] justify-center ${
+                            student.authUserId
+                              ? 'bg-green-100 text-green-700 border-green-200 hover:bg-red-100 hover:text-red-700 hover:border-red-200'
+                              : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-blue-100 hover:text-blue-700 hover:border-blue-200'
+                          }`}
+                       >
+                         {student.authUserId ? (
+                            <><CheckCircle className="w-3 h-3"/> ATIVO</>
+                         ) : (
+                            <><Ban className="w-3 h-3"/> INATIVO</>
+                         )}
+                       </button>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -560,11 +561,11 @@ CREATE POLICY "Instructors can view studio students" ON students
         )}
       </div>
 
-      {/* Access Modal */}
+      {/* Access Modal (Only needed for re-activation of existing students without login) */}
       {accessModalOpen && accessStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-xl p-6 shadow-xl border border-slate-200 dark:border-slate-800">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Criar Acesso do Aluno</h3>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Ativar Acesso do Aluno</h3>
             <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
               Defina uma senha para <strong>{accessStudent.name}</strong> ({accessStudent.email}).
             </p>
@@ -581,7 +582,7 @@ CREATE POLICY "Instructors can view studio students" ON students
               
               <div className="flex justify-end gap-2 pt-2">
                 <Button type="button" variant="ghost" onClick={() => setAccessModalOpen(false)}>Cancelar</Button>
-                <Button type="submit" isLoading={isCreatingAccess}>Criar Login</Button>
+                <Button type="submit" isLoading={isCreatingAccess}>Ativar Login</Button>
               </div>
             </form>
           </div>

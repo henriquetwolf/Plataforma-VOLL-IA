@@ -82,6 +82,7 @@ export const fetchStudents = async (studioId?: string): Promise<Student[]> => {
   }
 };
 
+// --- FUNÇÃO ANTIGA (SEM AUTH AUTOMÁTICO) - Mantida para fallback ---
 export const addStudent = async (userId: string, student: Omit<Student, 'id' | 'userId'>): Promise<ServiceResponse> => {
   try {
     const payload = {
@@ -109,7 +110,85 @@ export const addStudent = async (userId: string, student: Omit<Student, 'id' | '
   }
 };
 
-// --- NOVA FUNÇÃO: Criar Acesso do Aluno ---
+// --- NOVA FUNÇÃO: CRIAR ALUNO COM ACESSO AUTOMÁTICO ---
+export const createStudentWithAutoAuth = async (
+  studioUserId: string,
+  student: Omit<Student, 'id' | 'userId' | 'authUserId'>,
+  password: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    if (!password || password.length < 6) {
+      return { success: false, error: "A senha deve ter no mínimo 6 caracteres." };
+    }
+
+    // 1. Criar cliente temporário para não deslogar o dono
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      return { success: false, error: "Configuração do Supabase inválida." };
+    }
+
+    const tempClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+      }
+    });
+
+    // 2. Criar usuário no Auth
+    const { data: authData, error: authError } = await tempClient.auth.signUp({
+      email: student.email,
+      password: password,
+      options: {
+        data: {
+          name: student.name,
+          role: 'student', // Marcação importante
+          studio_id: studioUserId // Vínculo de backup
+        }
+      }
+    });
+
+    if (authError) {
+      if (authError.message.includes("already registered")) {
+         return { success: false, error: "Este email já possui uma conta no sistema." };
+      }
+      return { success: false, error: "Erro ao criar login: " + authError.message };
+    }
+
+    const newUserId = authData.user?.id;
+
+    if (!newUserId) {
+      return { success: false, error: "Erro: Usuário criado mas ID não retornado." };
+    }
+
+    // 3. Inserir na tabela students JÁ VINCULADO
+    const payload = {
+      user_id: studioUserId,
+      auth_user_id: newUserId, // VÍNCULO IMEDIATO
+      name: student.name.trim(),
+      email: sanitize(student.email),
+      cpf: sanitize(student.cpf),
+      address: sanitize(student.address),
+      phone: sanitize(student.phone),
+      observations: sanitize(student.observations)
+    };
+
+    const { error: dbError } = await supabase
+      .from('students')
+      .insert(payload);
+
+    if (dbError) {
+      console.error("Erro ao salvar no banco:", dbError);
+      return { success: false, error: "Conta de login criada, mas falha ao salvar dados do aluno: " + dbError.message };
+    }
+
+    return { success: true };
+
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+};
+
+// --- Função para criar acesso posteriormente (para alunos antigos) ---
 export const createStudentWithAuth = async (
   studentId: string, 
   email: string,
@@ -120,13 +199,10 @@ export const createStudentWithAuth = async (
       return { success: false, error: "Senha deve ter no mínimo 6 caracteres." };
     }
 
-    // Verifica se as chaves estão disponíveis (importadas de services/supabase.ts)
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
       return { success: false, error: "Configuração do Supabase inválida (URL/Key)." };
     }
     
-    // Cliente temporário para não deslogar o dono
-    // Usamos persistSession: false para garantir isolamento
     const tempClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         persistSession: false,
@@ -135,10 +211,12 @@ export const createStudentWithAuth = async (
       }
     });
 
-    // Cria usuário no Auth
     const { data: authData, error: authError } = await tempClient.auth.signUp({
       email,
       password,
+      options: {
+        data: { role: 'student' }
+      }
     });
 
     if (authError) {
@@ -151,12 +229,9 @@ export const createStudentWithAuth = async (
     const newUserId = authData.user?.id;
     
     if (!newUserId) {
-        // Se o auto-confirm estiver desligado, o ID pode vir, mas o login não estará ativo.
-        // Em alguns casos, o user pode vir null se houver erro silencioso.
-        return { success: false, error: "Erro ao criar ID de login. Verifique se o email é válido." };
+        return { success: false, error: "Erro ao criar ID de login." };
     }
 
-    // Vincula na tabela students usando o cliente principal (autenticado como dono/instrutor)
     const { error: dbError } = await supabase
       .from('students')
       .update({ auth_user_id: newUserId })
@@ -191,10 +266,6 @@ export const revokeStudentAccess = async (studentId: string): Promise<{ success:
         return { success: false, error: "Registro não encontrado ou permissão negada (RLS)." };
     }
 
-    // Nota: O usuário no Auth continua existindo, mas sem vínculo, ele não acessa nada.
-    // Para deletar do Auth, precisaria da função RPC de admin delete user, que é mais complexa.
-    // Remover o vínculo é suficiente para bloquear o acesso.
-
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
@@ -223,7 +294,6 @@ export const updateStudent = async (studentId: string, updates: Partial<Student>
 
     // Update Password if provided
     if (password && password.length >= 6) {
-        // Fetch current student to get auth_user_id
         const { data: studentData } = await supabase
             .from('students')
             .select('auth_user_id')
@@ -231,7 +301,6 @@ export const updateStudent = async (studentId: string, updates: Partial<Student>
             .single();
             
         if (studentData?.auth_user_id) {
-            // Call RPC to update password in Auth
             const { error: rpcError } = await supabase.rpc('update_user_password', {
                 target_id: studentData.auth_user_id,
                 new_password: password
@@ -267,10 +336,8 @@ export const deleteStudent = async (studentId: string): Promise<ServiceResponse>
   }
 };
 
-// Busca perfil do aluno logado
 export const getStudentProfile = async (authUserId: string) => {
   try {
-    // Busca simplificada sem joins complexos para evitar erros de relacionamento
     const { data, error } = await supabase
       .from('students')
       .select('*') 
@@ -278,7 +345,6 @@ export const getStudentProfile = async (authUserId: string) => {
       .maybeSingle();
       
     if (error) {
-        // Log discreto para não poluir, mas ajuda a debugar RLS
         console.warn("getStudentProfile fetch error (RLS likely):", error.message);
         return null;
     }
