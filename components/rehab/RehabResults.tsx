@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { PathologyResponse, LessonPlanResponse, LessonExercise, Student } from '../../types';
 import { Button } from '../ui/Button';
-import { CheckCircle, AlertOctagon, Info, Save, RefreshCw, Printer, User, Bookmark, X } from 'lucide-react';
+import { CheckCircle, AlertOctagon, Info, Save, RefreshCw, Printer, User, Bookmark, X, MessageCircle } from 'lucide-react';
 import { fetchStudents } from '../../services/studentService';
 
 // --- REFERENCE CARD ---
@@ -161,6 +161,25 @@ export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, studentId, stu
     }
   };
 
+  const handleWhatsAppShare = () => {
+    let text = `*Plano de Aula: ${customTitle}*\n`;
+    if (patientName) text += `*Aluno(a):* ${patientName}\n`;
+    
+    text += `\n*Foco:* ${plan.pathologyName}`;
+    text += `\n*Objetivo:* ${plan.goal}`;
+    text += `\n*Duração:* ${plan.duration}\n`;
+    text += `\n*--- SEQUÊNCIA DE EXERCÍCIOS ---*\n`;
+
+    exercises.forEach((ex, idx) => {
+      text += `\n*${idx + 1}. ${ex.name}* (${ex.apparatus})`;
+      text += `\n   👉 ${ex.reps} | ${ex.focus}`;
+      text += `\n   📝 _${ex.instructions}_\n`;
+    });
+
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Info */}
@@ -195,6 +214,13 @@ export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, studentId, stu
             />
           </div>
           <div className="flex items-end gap-2">
+             <Button 
+                onClick={handleWhatsAppShare}
+                className="h-[38px] bg-[#25D366] hover:bg-[#128C7E] text-white border-transparent px-3"
+                title="Enviar por WhatsApp"
+             >
+                <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp
+             </Button>
              <Button onClick={handleSave} className="h-[38px]" disabled={!selectedStudentId}>
                <Save className="h-4 w-4 mr-2" /> Salvar
              </Button>

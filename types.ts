@@ -27,6 +27,7 @@ export interface StudioProfile {
   isAdmin: boolean; 
   isActive: boolean;
   settings?: {
+    sender_email?: string; // Email configurado para envios (Gmail)
     instructor_permissions?: {
       rehab?: boolean;
       newsletters?: boolean;

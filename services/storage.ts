@@ -43,6 +43,7 @@ const toDBProfile = (profile: Partial<StudioProfile>): Partial<DBProfile> => {
 // Converter do DB (snake_case) para o App (camelCase)
 const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
   const defaultSettings = { 
+    sender_email: '', // Default value for email
     instructor_permissions: { rehab: true, newsletters: true, students: true } 
   };
 
@@ -52,6 +53,8 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
   const settings = {
     ...defaultSettings,
     ...dbSettings,
+    // Garante que sender_email exista mesmo se dbSettings tiver outras chaves
+    sender_email: dbSettings.sender_email || defaultSettings.sender_email,
     instructor_permissions: {
       ...defaultSettings.instructor_permissions,
       ...(dbSettings.instructor_permissions || {})
