@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -166,17 +165,36 @@ export const Students: React.FC = () => {
     }
   };
 
-  const handleToggleAccess = async (student: Student) => {
+  // Função para desativar acesso na view de detalhes
+  const handleToggleAccessDetails = async (student: Student) => {
       if (!student.authUserId) return;
       if (window.confirm(`Deseja desativar o acesso de ${student.name}? O aluno não conseguirá mais fazer login.`)) {
           const result = await revokeStudentAccess(student.id);
           if (result.success) {
               alert("Acesso desativado com sucesso.");
               loadStudents();
+              setSelectedStudent(prev => prev ? { ...prev, authUserId: undefined } : null);
           } else {
               alert("Erro ao desativar acesso: " + result.error);
           }
       }
+  };
+
+  // Função para desativar acesso na lista principal
+  const handleRevokeAccess = async (student: Student) => {
+    if (!student.authUserId) return;
+    
+    // Apenas Donos podem revogar acesso (ou instrutores se permitido, mas por segurança default apenas donos)
+    // Se desejar liberar para instrutores, remova esta verificação.
+    
+    if (window.confirm(`Tem certeza que deseja BLOQUEAR o acesso de ${student.name}? O aluno perderá o login imediatamente.`)) {
+        const result = await revokeStudentAccess(student.id);
+        if (result.success) {
+            await loadStudents();
+        } else {
+            alert("Erro ao desativar acesso: " + result.error);
+        }
+    }
   };
 
   const openAccessModal = (student: Student) => {
@@ -266,7 +284,7 @@ CREATE POLICY "Instructors can view studio students" ON students
                         <CheckCircle className="w-4 h-4"/> Acesso Ativo
                       </span>
                       <button 
-                        onClick={() => handleToggleAccess(selectedStudent)}
+                        onClick={() => handleToggleAccessDetails(selectedStudent)}
                         className="text-red-600 hover:text-red-800 text-sm font-medium flex items-center gap-1 hover:underline"
                       >
                         <Ban className="w-4 h-4"/> Desativar
@@ -503,7 +521,14 @@ CREATE POLICY "Instructors can view studio students" ON students
                     <td className="px-6 py-4 text-slate-500 dark:text-slate-400 font-mono text-xs">{student.cpf || '-'}</td>
                     <td className="px-6 py-4 text-center">
                        {student.authUserId ? (
-                         <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">Ativo</span>
+                         <button 
+                            onClick={() => handleRevokeAccess(student)}
+                            className="group inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200 hover:bg-red-100 hover:text-red-700 hover:border-red-200 transition-all min-w-[80px] justify-center"
+                            title="Clique para BLOQUEAR o acesso deste aluno"
+                         >
+                           <span className="group-hover:hidden flex items-center gap-1"><CheckCircle className="w-3 h-3"/> ATIVO</span>
+                           <span className="hidden group-hover:flex items-center gap-1"><Ban className="w-3 h-3"/> BLOQUEAR</span>
+                         </button>
                        ) : (
                          <button onClick={() => openAccessModal(student)} className="text-xs text-blue-600 hover:underline flex items-center justify-center gap-1 mx-auto">
                            <Key className="w-3 h-3"/> Criar Acesso
