@@ -7,7 +7,7 @@ import { fetchStudents, addStudent, updateStudent, deleteStudent, createStudentW
 import { fetchRehabLessonsByStudent } from '../services/rehabService'; 
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Users, Plus, Trash2, Search, Pencil, Activity, X, Key, CheckCircle, Home, Building2, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Users, Plus, Trash2, Search, Pencil, Activity, X, Key, CheckCircle, Home, Building2, ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react';
 
 export const Students: React.FC = () => {
   const { user } = useAuth();
@@ -55,8 +55,10 @@ export const Students: React.FC = () => {
     try {
         const data = await fetchStudents(targetId);
         setStudents(data);
+        // Se retornou vazio e é instrutor, pode ser erro silencioso de RLS, mas se não jogou erro, assume vazio.
     } catch (e) {
         console.error("Erro ao buscar alunos:", e);
+        setPermissionError(true);
     }
     setIsLoading(false);
   };
@@ -263,15 +265,24 @@ export const Students: React.FC = () => {
       </div>
 
       {permissionError && (
-        <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-r-lg shadow-sm">
+        <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-r-lg shadow-sm animate-in fade-in slide-in-from-top-2">
           <div className="flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
-            <div>
-              <h3 className="font-bold text-red-800 dark:text-red-300 text-sm">Erro de Vínculo</h3>
+            <div className="flex-1">
+              <h3 className="font-bold text-red-800 dark:text-red-300 text-sm">Erro de Permissão (Missing Studio ID)</h3>
               <p className="text-red-700 dark:text-red-400 text-xs mt-1">
-                Não foi possível identificar seu estúdio. Peça ao administrador para verificar seu cadastro ou contate o suporte.
-                <br/>(Código: Missing Studio ID)
+                O sistema não conseguiu identificar o estúdio vinculado. Isso geralmente ocorre por falta de permissões no banco de dados.
+                <br/>
+                <strong>Ação Necessária:</strong> O proprietário deve rodar o "SQL de Correção de Permissões" no painel Admin.
               </p>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="mt-3 bg-white text-red-600 border-red-200 hover:bg-red-50 h-8 text-xs"
+                onClick={loadStudents}
+              >
+                <RefreshCw className="w-3 h-3 mr-2"/> Tentar Novamente
+              </Button>
             </div>
           </div>
         </div>
