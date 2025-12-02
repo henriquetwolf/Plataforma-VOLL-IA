@@ -519,3 +519,13 @@ export interface ClassEvaluation {
   suggestions?: string;
   createdAt: string;
 }
+
+export interface SavedEvaluationAnalysis {
+  id: string;
+  studioId: string;
+  title: string;
+  content: string; // HTML report
+  evaluationCount: number;
+  dateRange?: string;
+  createdAt: string;
+}

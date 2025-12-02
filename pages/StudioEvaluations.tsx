@@ -1,14 +1,23 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { fetchEvaluationsByStudio, deleteEvaluation } from '../services/evaluationService';
-import { ClassEvaluation } from '../types';
+import { fetchEvaluationsByStudio, deleteEvaluation, saveEvaluationAnalysis, fetchEvaluationAnalyses, deleteEvaluationAnalysis } from '../services/evaluationService';
+import { generateEvaluationAnalysis } from '../services/geminiService';
+import { ClassEvaluation, SavedEvaluationAnalysis } from '../types';
 import { Button } from '../components/ui/Button';
-import { Star, MessageSquare, Calendar, User, Activity, AlertTriangle, ThumbsUp, Trash2, Filter, Loader2, XCircle } from 'lucide-react';
+import { Star, MessageSquare, Calendar, User, Activity, AlertTriangle, ThumbsUp, Trash2, Filter, Loader2, XCircle, Sparkles, FileText, Download, Save, ChevronRight, X } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 export const StudioEvaluations: React.FC = () => {
   const { user } = useAuth();
+  
+  // Tabs
+  const [activeTab, setActiveTab] = useState<'list' | 'analyses'>('list');
+
+  // Data
   const [evaluations, setEvaluations] = useState<ClassEvaluation[]>([]);
+  const [savedAnalyses, setSavedAnalyses] = useState<SavedEvaluationAnalysis[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   
@@ -17,11 +26,19 @@ export const StudioEvaluations: React.FC = () => {
   const [filterStudent, setFilterStudent] = useState('');
   const [filterDate, setFilterDate] = useState<'all' | 'week' | 'month'>('all');
 
+  // AI Analysis State
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<string | null>(null);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  const [isSavingAnalysis, setIsSavingAnalysis] = useState(false);
+
   useEffect(() => {
     const loadData = async () => {
       if (user?.id) {
         const data = await fetchEvaluationsByStudio(user.id);
         setEvaluations(data);
+        const analyses = await fetchEvaluationAnalyses(user.id);
+        setSavedAnalyses(analyses);
       }
       setLoading(false);
     };
@@ -40,6 +57,13 @@ export const StudioEvaluations: React.FC = () => {
         alert(`Erro ao excluir: ${result.error}\n\nVerifique se o SQL de permissões (DROP/CREATE POLICY) foi rodado no Supabase.`);
       }
       setDeletingId(null);
+    }
+  };
+
+  const handleDeleteAnalysis = async (id: string) => {
+    if (window.confirm("Apagar esta análise salva?")) {
+        await deleteEvaluationAnalysis(id);
+        setSavedAnalyses(prev => prev.filter(a => a.id !== id));
     }
   };
 
@@ -68,6 +92,95 @@ export const StudioEvaluations: React.FC = () => {
     ? (filteredEvaluations.reduce((acc, curr) => acc + curr.rating, 0) / filteredEvaluations.length).toFixed(1) 
     : '0.0';
 
+  // --- AI ACTIONS ---
+
+  const handleGenerateAnalysis = async () => {
+    if (filteredEvaluations.length === 0) {
+      alert("Não há avaliações filtradas para analisar.");
+      return;
+    }
+    
+    setIsAnalyzing(true);
+    const context = `Filtro: ${filterDate === 'all' ? 'Todo Período' : filterDate}, Instrutor: ${filterInstructor || 'Todos'}`;
+    
+    const html = await generateEvaluationAnalysis(filteredEvaluations, context);
+    setAnalysisResult(html);
+    setIsAnalyzing(false);
+    setShowAnalysisModal(true);
+  };
+
+  const handleSaveAnalysis = async () => {
+    if (!user?.id || !analysisResult) return;
+    
+    const title = prompt("Nome para esta análise:", `Análise - ${new Date().toLocaleDateString()}`);
+    if (!title) return;
+
+    setIsSavingAnalysis(true);
+    const dateRange = filterDate === 'all' ? 'Todo Período' : (filterDate === 'week' ? 'Última Semana' : 'Último Mês');
+    
+    const result = await saveEvaluationAnalysis(
+        user.id, 
+        title, 
+        analysisResult, 
+        filteredEvaluations.length, 
+        dateRange
+    );
+
+    if (result.success) {
+        alert("Salvo com sucesso!");
+        // Refresh Saved list
+        const updated = await fetchEvaluationAnalyses(user.id);
+        setSavedAnalyses(updated);
+        setShowAnalysisModal(false);
+        setActiveTab('analyses');
+    } else {
+        alert("Erro ao salvar: " + result.error);
+    }
+    setIsSavingAnalysis(false);
+  };
+
+  const downloadPDF = async (elementId: string, filename: string) => {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    try {
+      // Adicionar classe para melhorar a renderização do PDF
+      element.classList.add('pdf-mode');
+      
+      const canvas = await html2canvas(element, { 
+          scale: 2, 
+          useCORS: true, 
+          backgroundColor: '#ffffff' 
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
+
+      pdf.save(`${filename}.pdf`);
+      element.classList.remove('pdf-mode');
+    } catch (error) {
+      console.error(error);
+      alert('Erro ao gerar PDF.');
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in pb-12">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -77,158 +190,169 @@ export const StudioEvaluations: React.FC = () => {
           </h1>
           <p className="text-slate-500">Feedback recebido dos alunos após as aulas.</p>
         </div>
-        
-        <div className="bg-white dark:bg-slate-900 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center gap-4 shadow-sm">
-          <div>
-            <p className="text-xs text-slate-500 uppercase font-bold">Média Geral</p>
-            <p className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-1">
-              {averageRating} <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-            </p>
-          </div>
-          <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-2"></div>
-          <div>
-            <p className="text-xs text-slate-500 uppercase font-bold">Total</p>
-            <p className="text-2xl font-bold text-slate-800 dark:text-white">{filteredEvaluations.length}</p>
-          </div>
-        </div>
       </div>
 
-      {/* Barra de Filtros */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="flex items-center gap-2 text-slate-500 font-medium text-sm w-full md:w-auto">
-          <Filter className="w-4 h-4" /> Filtros:
-        </div>
-        
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          <div className="relative">
-            <select 
-              className="w-full sm:w-auto p-2 pl-3 pr-8 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 text-sm focus:ring-2 focus:ring-brand-500 outline-none appearance-none cursor-pointer"
-              value={filterInstructor}
-              onChange={e => setFilterInstructor(e.target.value)}
-            >
-              <option value="">Todos Instrutores</option>
-              {uniqueInstructors.map(name => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="relative">
-            <select 
-              className="w-full sm:w-auto p-2 pl-3 pr-8 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 text-sm focus:ring-2 focus:ring-brand-500 outline-none appearance-none cursor-pointer"
-              value={filterStudent}
-              onChange={e => setFilterStudent(e.target.value)}
-            >
-              <option value="">Todos Alunos</option>
-              {uniqueStudents.map(name => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="relative">
-            <select 
-              className="w-full sm:w-auto p-2 pl-3 pr-8 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 text-sm focus:ring-2 focus:ring-brand-500 outline-none appearance-none cursor-pointer"
-              value={filterDate}
-              onChange={e => setFilterDate(e.target.value as any)}
-            >
-              <option value="all">Todo o Período</option>
-              <option value="week">Última Semana</option>
-              <option value="month">Último Mês</option>
-            </select>
-          </div>
-          
-          {(filterInstructor || filterStudent || filterDate !== 'all') && (
-             <button 
-               onClick={() => { setFilterInstructor(''); setFilterStudent(''); setFilterDate('all'); }}
-               className="text-xs text-slate-400 hover:text-slate-600 underline self-center"
-             >
-               Limpar
-             </button>
-          )}
-        </div>
+      {/* Tabs */}
+      <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit">
+        <button 
+          onClick={() => setActiveTab('list')} 
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'list' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}
+        >
+          Lista de Avaliações
+        </button>
+        <button 
+          onClick={() => setActiveTab('analyses')} 
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'analyses' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}
+        >
+          Relatórios Salvos
+        </button>
       </div>
 
-      {loading ? (
-        <div className="text-center py-12 text-slate-500 flex flex-col items-center">
-          <Loader2 className="w-8 h-8 animate-spin text-brand-600 mb-2"/>
-          Carregando avaliações...
-        </div>
-      ) : filteredEvaluations.length === 0 ? (
-        <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-          <MessageSquare className="h-12 w-12 mx-auto text-slate-300 mb-3" />
-          <p className="text-slate-500">Nenhuma avaliação encontrada com os filtros atuais.</p>
-        </div>
-      ) : (
+      {activeTab === 'list' && (
+        <>
+          {/* Summary & Filters */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+             {/* Summary Card */}
+             <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm lg:col-span-1">
+                <div className="text-center">
+                    <p className="text-xs text-slate-500 uppercase font-bold mb-1">Média ({filteredEvaluations.length})</p>
+                    <div className="text-4xl font-bold text-slate-900 dark:text-white flex justify-center items-center gap-2">
+                        {averageRating} <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
+                    </div>
+                </div>
+                <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
+                    <Button onClick={handleGenerateAnalysis} isLoading={isAnalyzing} className="w-full bg-purple-600 hover:bg-purple-700">
+                        <Sparkles className="w-4 h-4 mr-2" /> Analisar com IA
+                    </Button>
+                </div>
+             </div>
+
+             {/* Filters & List */}
+             <div className="lg:col-span-3 space-y-6">
+                <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row gap-3 items-center">
+                    <div className="flex items-center gap-2 text-slate-500 font-medium text-sm w-full sm:w-auto">
+                        <Filter className="w-4 h-4" /> Filtros:
+                    </div>
+                    <select className="flex-1 w-full p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 dark:border-slate-700 text-sm" value={filterInstructor} onChange={e => setFilterInstructor(e.target.value)}>
+                        <option value="">Todos Instrutores</option>
+                        {uniqueInstructors.map(name => <option key={name} value={name}>{name}</option>)}
+                    </select>
+                    <select className="flex-1 w-full p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 dark:border-slate-700 text-sm" value={filterStudent} onChange={e => setFilterStudent(e.target.value)}>
+                        <option value="">Todos Alunos</option>
+                        {uniqueStudents.map(name => <option key={name} value={name}>{name}</option>)}
+                    </select>
+                    <select className="flex-1 w-full p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 dark:border-slate-700 text-sm" value={filterDate} onChange={e => setFilterDate(e.target.value as any)}>
+                        <option value="all">Todo o Período</option>
+                        <option value="week">Última Semana</option>
+                        <option value="month">Último Mês</option>
+                    </select>
+                    {(filterInstructor || filterStudent || filterDate !== 'all') && (
+                        <button onClick={() => { setFilterInstructor(''); setFilterStudent(''); setFilterDate('all'); }} className="text-xs text-red-500 hover:underline">Limpar</button>
+                    )}
+                </div>
+
+                {loading ? (
+                    <div className="text-center py-12 text-slate-500"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-brand-600"/>Carregando...</div>
+                ) : filteredEvaluations.length === 0 ? (
+                    <div className="text-center py-12 text-slate-500 border-2 border-dashed border-slate-200 rounded-xl">Nenhuma avaliação encontrada.</div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {filteredEvaluations.map(eva => (
+                            <div key={eva.id} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden hover:border-brand-300 transition-colors flex flex-col relative group">
+                                <div className="p-4 border-b border-slate-100 dark:border-slate-800">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex gap-1">
+                                            {[1, 2, 3, 4, 5].map(star => <Star key={star} className={`w-3 h-3 ${star <= eva.rating ? 'fill-yellow-400 text-yellow-400' : 'text-slate-200'}`} />)}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-slate-400 flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(eva.classDate).toLocaleDateString()}</span>
+                                            <button onClick={() => handleDelete(eva.id)} disabled={deletingId === eva.id} className="text-slate-300 hover:text-red-500 p-1">
+                                                {deletingId === eva.id ? <Loader2 className="w-3 h-3 animate-spin"/> : <Trash2 className="w-3 h-3" />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="font-bold text-slate-800 dark:text-white text-sm flex items-center gap-2"><User className="w-3 h-3 text-brand-600" /> {eva.studentName || 'Aluno(a)'}</h3>
+                                        <span className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-500">{eva.instructorName}</span>
+                                    </div>
+                                </div>
+                                <div className="p-4 space-y-2 text-xs flex-1">
+                                    <div className="flex gap-2">
+                                        <div className="bg-slate-50 dark:bg-slate-800 p-1.5 rounded flex-1"><span className="text-slate-400 block mb-0.5">Sensação</span>{eva.feeling}</div>
+                                        <div className="bg-slate-50 dark:bg-slate-800 p-1.5 rounded flex-1"><span className="text-slate-400 block mb-0.5">Ritmo</span>{eva.pace}</div>
+                                    </div>
+                                    {eva.discomfort && <div className="text-orange-600 bg-orange-50 dark:bg-orange-900/10 p-2 rounded border border-orange-100"><span className="font-bold block">Desconforto:</span>{eva.discomfort}</div>}
+                                    {eva.suggestions && <div className="text-slate-600 bg-slate-50 dark:bg-slate-800 p-2 rounded italic">"{eva.suggestions}"</div>}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+             </div>
+          </div>
+        </>
+      )}
+
+      {activeTab === 'analyses' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredEvaluations.map(eva => (
-            <div key={eva.id} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden hover:border-brand-300 transition-colors flex flex-col group relative">
-              <div className="p-5 border-b border-slate-100 dark:border-slate-800">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5].map(star => (
-                      <Star 
-                        key={star} 
-                        className={`w-4 h-4 ${star <= eva.rating ? 'fill-yellow-400 text-yellow-400' : 'text-slate-200 dark:text-slate-700'}`} 
-                      />
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-400 flex items-center gap-1">
-                        <Calendar className="w-3 h-3" /> {new Date(eva.classDate).toLocaleDateString()}
-                    </span>
-                    <button 
-                        onClick={() => handleDelete(eva.id)} 
-                        disabled={deletingId === eva.id}
-                        className="text-slate-300 hover:text-red-500 transition-colors p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
-                        title="Excluir Avaliação"
-                    >
-                        {deletingId === eva.id ? <Loader2 className="w-4 h-4 animate-spin text-red-500"/> : <Trash2 className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-                <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                  <User className="w-4 h-4 text-brand-600" /> {eva.studentName || 'Aluno(a)'}
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  Aula com: <strong>{eva.instructorName}</strong>
-                </p>
-              </div>
-              
-              <div className="p-5 space-y-3 flex-1 text-sm">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded">
-                    <span className="text-xs text-slate-400 block mb-1">Sensação</span>
-                    <span className="font-medium text-slate-700 dark:text-slate-300">{eva.feeling}</span>
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded">
-                    <span className="text-xs text-slate-400 block mb-1">Ritmo</span>
-                    <span className="font-medium text-slate-700 dark:text-slate-300">{eva.pace}</span>
-                  </div>
-                </div>
-
-                {eva.discomfort && (
-                  <div className="flex gap-2 items-start text-orange-700 bg-orange-50 dark:bg-orange-900/10 p-2 rounded border border-orange-100 dark:border-orange-900/30">
-                    <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <span className="text-xs font-bold block">Desconforto:</span>
-                      <p className="leading-snug">{eva.discomfort}</p>
+            {savedAnalyses.length === 0 ? (
+                <p className="col-span-3 text-center py-12 text-slate-500">Nenhum relatório salvo.</p>
+            ) : (
+                savedAnalyses.map(analysis => (
+                    <div key={analysis.id} className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="p-3 bg-purple-50 dark:bg-purple-900/20 text-purple-600 rounded-lg">
+                                <FileText className="w-6 h-6" />
+                            </div>
+                            <button onClick={() => handleDeleteAnalysis(analysis.id)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>
+                        </div>
+                        <h3 className="font-bold text-lg mb-1">{analysis.title}</h3>
+                        <p className="text-sm text-slate-500 mb-4">{new Date(analysis.createdAt).toLocaleDateString()} • {analysis.evaluationCount} avaliações</p>
+                        
+                        <Button variant="outline" className="w-full" onClick={() => {
+                            setAnalysisResult(analysis.content);
+                            setShowAnalysisModal(true);
+                        }}>
+                            Ver Relatório
+                        </Button>
                     </div>
-                  </div>
-                )}
+                ))
+            )}
+        </div>
+      )}
 
-                {eva.suggestions && (
-                  <div className="flex gap-2 items-start text-slate-600 bg-slate-50 dark:bg-slate-800 p-2 rounded">
-                    <MessageSquare className="w-4 h-4 mt-0.5 flex-shrink-0 text-slate-400" />
-                    <div>
-                      <span className="text-xs font-bold block text-slate-500">Sugestão:</span>
-                      <p className="leading-snug">{eva.suggestions}</p>
+      {/* Analysis Modal */}
+      {showAnalysisModal && analysisResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
+                    <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-purple-600"/> Análise de Qualidade
+                    </h3>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => downloadPDF('analysis-content', 'Relatorio_Qualidade')}>
+                            <Download className="w-4 h-4 mr-2"/> PDF
+                        </Button>
+                        <Button size="sm" onClick={handleSaveAnalysis} isLoading={isSavingAnalysis} disabled={isSavingAnalysis}>
+                            <Save className="w-4 h-4 mr-2"/> Salvar
+                        </Button>
+                        <button onClick={() => setShowAnalysisModal(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg text-slate-500">
+                            <X className="w-5 h-5"/>
+                        </button>
                     </div>
-                  </div>
-                )}
-              </div>
+                </div>
+                
+                <div className="overflow-y-auto p-8 bg-slate-100 dark:bg-slate-900">
+                    <div id="analysis-content" className="bg-white p-12 shadow-lg max-w-3xl mx-auto min-h-[600px] text-slate-800">
+                        <div className="border-b-2 border-purple-500 pb-4 mb-6">
+                            <h1 className="text-3xl font-bold text-slate-900">Relatório de Qualidade</h1>
+                            <p className="text-slate-500 mt-2">Análise baseada em {activeTab === 'list' ? filteredEvaluations.length : 'várias'} avaliações.</p>
+                            <p className="text-xs text-slate-400 mt-1">Gerado em: {new Date().toLocaleDateString()}</p>
+                        </div>
+                        <div dangerouslySetInnerHTML={{ __html: analysisResult }} className="prose prose-slate max-w-none" />
+                    </div>
+                </div>
             </div>
-          ))}
         </div>
       )}
     </div>

@@ -1,20 +1,17 @@
 
 import { supabase } from './supabase';
-import { ClassEvaluation, Instructor } from '../types';
+import { ClassEvaluation, Instructor, SavedEvaluationAnalysis } from '../types';
 
 /*
   ⚠️ SQL PARA CORREÇÃO DE PERMISSÕES (Rode no Supabase SQL Editor)
   
-  Se você encontrar erros como "policy already exists" ou "permission denied", 
-  selecione todo o bloco abaixo e execute. Ele limpa as regras antigas e recria as corretas.
-
   -- 1. Limpeza de Políticas Antigas
   DROP POLICY IF EXISTS "Students can insert evaluations" ON class_evaluations;
   DROP POLICY IF EXISTS "Owners can view evaluations" ON class_evaluations;
   DROP POLICY IF EXISTS "Owners can delete evaluations" ON class_evaluations;
   DROP POLICY IF EXISTS "Students can view studio instructors" ON instructors;
 
-  -- 2. Garantir Tabela e RLS
+  -- 2. Garantir Tabela de Avaliações e RLS
   CREATE TABLE IF NOT EXISTS class_evaluations (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     studio_id uuid REFERENCES studio_profiles(user_id) ON DELETE CASCADE,
@@ -33,21 +30,36 @@ import { ClassEvaluation, Instructor } from '../types';
 
   ALTER TABLE class_evaluations ENABLE ROW LEVEL SECURITY;
 
-  -- 3. Recriar Políticas de Acesso
+  -- 3. Nova Tabela de Análises de IA
+  CREATE TABLE IF NOT EXISTS evaluation_analyses (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    studio_id uuid REFERENCES studio_profiles(user_id) ON DELETE CASCADE,
+    title text,
+    content text,
+    evaluation_count int,
+    date_range text,
+    created_at timestamptz DEFAULT now()
+  );
   
-  -- Alunos podem criar (inserir) avaliações
+  ALTER TABLE evaluation_analyses ENABLE ROW LEVEL SECURITY;
+
+  -- 4. Recriar Políticas de Acesso
+  
+  -- class_evaluations
   CREATE POLICY "Students can insert evaluations" ON class_evaluations
     FOR INSERT TO authenticated WITH CHECK (true);
 
-  -- Donos podem ver todas as avaliações do seu studio
   CREATE POLICY "Owners can view evaluations" ON class_evaluations
     FOR SELECT TO authenticated USING (auth.uid() = studio_id);
     
-  -- Donos podem EXCLUIR avaliações (Correção para o botão de delete)
   CREATE POLICY "Owners can delete evaluations" ON class_evaluations
     FOR DELETE TO authenticated USING (auth.uid() = studio_id);
 
-  -- Alunos podem ver lista de instrutores para selecionar no formulário
+  -- evaluation_analyses
+  CREATE POLICY "Owners can manage analyses" ON evaluation_analyses
+    FOR ALL TO authenticated USING (auth.uid() = studio_id);
+
+  -- instructors (lookup)
   CREATE POLICY "Students can view studio instructors" ON instructors
     FOR SELECT TO authenticated
     USING (
@@ -169,5 +181,66 @@ export const fetchInstructorsForStudent = async (studioId: string): Promise<Inst
   } catch (err) {
     console.error('Error fetching instructors for student:', err);
     return [];
+  }
+};
+
+// --- ANALYSIS FUNCTIONS ---
+
+export const saveEvaluationAnalysis = async (
+  studioId: string,
+  title: string,
+  content: string,
+  evaluationCount: number,
+  dateRange: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { error } = await supabase
+      .from('evaluation_analyses')
+      .insert({
+        studio_id: studioId,
+        title,
+        content,
+        evaluation_count: evaluationCount,
+        date_range: dateRange
+      });
+
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+};
+
+export const fetchEvaluationAnalyses = async (studioId: string): Promise<SavedEvaluationAnalysis[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('evaluation_analyses')
+      .select('*')
+      .eq('studio_id', studioId)
+      .order('created_at', { ascending: false });
+
+    if (error) return [];
+
+    return data.map((item: any) => ({
+      id: item.id,
+      studioId: item.studio_id,
+      title: item.title,
+      content: item.content,
+      evaluationCount: item.evaluation_count,
+      dateRange: item.date_range,
+      createdAt: item.created_at
+    }));
+  } catch (err) {
+    return [];
+  }
+};
+
+export const deleteEvaluationAnalysis = async (id: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { error } = await supabase.from('evaluation_analyses').delete().eq('id', id);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
   }
 };
