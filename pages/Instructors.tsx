@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Instructor } from '../types';
-import { fetchInstructors, createInstructorWithAuth, updateInstructor, deleteInstructor } from '../services/instructorService';
+import { fetchInstructors, createInstructorWithAuth, updateInstructor, deleteInstructor, toggleInstructorStatus } from '../services/instructorService';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Plus, Trash2, Search, Phone, Mail, Pencil, X, BookUser, ShieldAlert, MapPin, CheckCircle, Ban, Share2, Key } from 'lucide-react';
@@ -110,9 +110,17 @@ export const Instructors: React.FC = () => {
     }
   };
 
-  const handleToggleStatus = async (id: string, currentStatus: boolean) => {
-    await updateInstructor(id, { active: !currentStatus });
-    loadData();
+  const handleToggleStatus = async (id: string, currentStatus: boolean, name: string) => {
+    const action = currentStatus ? 'DESATIVAR' : 'ATIVAR';
+    if (!window.confirm(`Tem certeza que deseja ${action} o acesso do instrutor ${name}?`)) return;
+
+    const result = await toggleInstructorStatus(id, !currentStatus);
+    
+    if (result.success) {
+        await loadData();
+    } else {
+        alert("Erro ao alterar status: " + result.error);
+    }
   };
 
   const shareInstructions = (email: string) => {
@@ -271,11 +279,12 @@ export const Instructors: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <button 
-                        onClick={() => handleToggleStatus(inst.id, inst.active)}
+                        onClick={() => handleToggleStatus(inst.id, inst.active, inst.name)}
+                        title={inst.active ? "Clique para DESATIVAR o acesso deste instrutor" : "Clique para ATIVAR o acesso"}
                         className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border transition-all ${
                           inst.active 
-                            ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' 
-                            : 'bg-red-100 text-red-700 border-red-200 hover:bg-red-200'
+                            ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200 cursor-pointer' 
+                            : 'bg-red-100 text-red-700 border-red-200 hover:bg-red-200 cursor-pointer'
                         }`}
                       >
                         {inst.active ? <><CheckCircle className="w-3 h-3"/> ATIVO</> : <><Ban className="w-3 h-3"/> INATIVO</>}
