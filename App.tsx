@@ -22,10 +22,12 @@ import { StudentRecipes } from './pages/student/StudentRecipes';
 import { StudentWorkout } from './pages/student/StudentWorkout';
 import { StudentSuggestions } from './pages/student/StudentSuggestions';
 import { StudentNewsletters } from './pages/student/StudentNewsletters';
+import { StudentEvaluation } from './pages/student/StudentEvaluation';
 import { InstructorNewsletters } from './pages/instructor/InstructorNewsletters';
 import { InstructorDashboard } from './pages/instructor/InstructorDashboard';
 import { NewsletterAgent } from './pages/NewsletterAgent';
 import { StudioSuggestions } from './pages/StudioSuggestions';
+import { StudioEvaluations } from './pages/StudioEvaluations';
 import { ContentAgent } from './pages/ContentAgent'; 
 import { AppRoute } from './types';
 
@@ -75,6 +77,7 @@ const AppRoutes = () => {
       <Route path={AppRoute.PRICING} element={<ProtectedRoute><PricingAgent /></ProtectedRoute>} />
       <Route path={AppRoute.REHAB} element={<ProtectedRoute><RehabAgent /></ProtectedRoute>} />
       <Route path={AppRoute.STUDIO_SUGGESTIONS} element={<ProtectedRoute><StudioSuggestions /></ProtectedRoute>} />
+      <Route path={AppRoute.STUDIO_EVALUATIONS} element={<ProtectedRoute><StudioEvaluations /></ProtectedRoute>} />
       <Route path={AppRoute.CONTENT_AGENT} element={<ProtectedRoute><ContentAgent /></ProtectedRoute>} />
       <Route path={AppRoute.SETTINGS} element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       
@@ -91,6 +94,7 @@ const AppRoutes = () => {
       <Route path={AppRoute.STUDENT_WORKOUT} element={<ProtectedRoute><StudentWorkout /></ProtectedRoute>} />
       <Route path={AppRoute.STUDENT_SUGGESTIONS} element={<ProtectedRoute><StudentSuggestions /></ProtectedRoute>} />
       <Route path={AppRoute.STUDENT_NEWSLETTERS} element={<ProtectedRoute><StudentNewsletters /></ProtectedRoute>} />
+      <Route path={AppRoute.STUDENT_EVALUATION} element={<ProtectedRoute><StudentEvaluation /></ProtectedRoute>} />
 
       <Route path={AppRoute.ADMIN} element={<ProtectedRoute adminOnly><AdminPanel /></ProtectedRoute>} />
       

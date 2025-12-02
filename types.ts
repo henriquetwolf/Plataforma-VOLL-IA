@@ -93,9 +93,11 @@ export enum AppRoute {
   STUDENT_WORKOUT = '/student/workout',
   STUDENT_SUGGESTIONS = '/student/suggestions',
   STUDENT_NEWSLETTERS = '/student/newsletters',
+  STUDENT_EVALUATION = '/student/evaluation',
   
   // Rotas do Studio
   STUDIO_SUGGESTIONS = '/suggestions',
+  STUDIO_EVALUATIONS = '/evaluations',
   
   // Novo Agente de Conteúdo
   CONTENT_AGENT = '/content-agent',
@@ -497,4 +499,22 @@ export interface StrategicContentPlan {
             generatedPostId?: string; // Links to SavedPost ID
         }[];
     }[];
+}
+
+// --- Class Evaluation Types ---
+
+export interface ClassEvaluation {
+  id: string;
+  studioId: string;
+  studentId: string;
+  studentName: string;
+  instructorId: string;
+  instructorName: string;
+  classDate: string;
+  rating: number; // 1-5
+  feeling: string;
+  pace: string;
+  discomfort?: string;
+  suggestions?: string;
+  createdAt: string;
 }

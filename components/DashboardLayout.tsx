@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper, Settings, Home, Wand2 } from 'lucide-react';
+import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper, Settings, Home, Wand2, Star } from 'lucide-react';
 import { AppRoute } from '../types';
 import { fetchProfile } from '../services/storage';
 
@@ -48,6 +48,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
     } else if (isStudent) {
       items = [
         { label: 'Meu Painel', icon: LayoutDashboard, path: AppRoute.STUDENT_DASHBOARD },
+        { label: 'Avaliar Aula', icon: Star, path: AppRoute.STUDENT_EVALUATION },
         { label: 'Receitas', icon: Utensils, path: AppRoute.STUDENT_RECIPES },
         { label: 'Treino em Casa', icon: Activity, path: AppRoute.STUDENT_WORKOUT },
         { label: 'Caixa de Sugestões', icon: MessageSquare, path: AppRoute.STUDENT_SUGGESTIONS },
@@ -72,6 +73,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
         { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
         { label: 'Equipe', icon: BookUser, path: AppRoute.INSTRUCTORS },
+        { label: 'Avaliações Aulas', icon: Star, path: AppRoute.STUDIO_EVALUATIONS },
         { label: 'Sugestões Alunos', icon: MessageSquare, path: AppRoute.STUDIO_SUGGESTIONS },
         { label: 'Criador Newsletter', icon: Newspaper, path: AppRoute.NEWSLETTER_AGENT },
         { label: 'Perfil do Studio', icon: UserCircle, path: AppRoute.PROFILE },
