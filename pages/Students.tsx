@@ -7,7 +7,7 @@ import { fetchStudents, addStudent, updateStudent, deleteStudent, createStudentW
 import { fetchRehabLessonsByStudent } from '../services/rehabService'; 
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Users, Plus, Trash2, Search, Pencil, Activity, X, Key, CheckCircle, Home, Building2, ArrowLeft } from 'lucide-react';
+import { Users, Plus, Trash2, Search, Pencil, Activity, X, Key, CheckCircle, Home, Building2, ArrowLeft, AlertCircle } from 'lucide-react';
 
 export const Students: React.FC = () => {
   const { user } = useAuth();
@@ -26,6 +26,7 @@ export const Students: React.FC = () => {
   const [accessStudent, setAccessStudent] = useState<Student | null>(null);
   const [accessPassword, setAccessPassword] = useState('');
   const [isCreatingAccess, setIsCreatingAccess] = useState(false);
+  const [permissionError, setPermissionError] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -44,10 +45,12 @@ export const Students: React.FC = () => {
     
     if (!targetId) {
         console.warn("Nenhum ID de estúdio encontrado.");
+        if (isInstructor) setPermissionError(true);
         setIsLoading(false);
         return;
     }
 
+    setPermissionError(false);
     setIsLoading(true);
     try {
         const data = await fetchStudents(targetId);
@@ -259,6 +262,21 @@ export const Students: React.FC = () => {
         )}
       </div>
 
+      {permissionError && (
+        <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-r-lg shadow-sm">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
+            <div>
+              <h3 className="font-bold text-red-800 dark:text-red-300 text-sm">Erro de Vínculo</h3>
+              <p className="text-red-700 dark:text-red-400 text-xs mt-1">
+                Não foi possível identificar seu estúdio. Peça ao administrador para verificar seu cadastro ou contate o suporte.
+                <br/>(Código: Missing Studio ID)
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showForm && (
         <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-top-4 relative">
           <div className="flex items-center justify-between mb-4">
@@ -335,7 +353,7 @@ export const Students: React.FC = () => {
           <div className="p-12 text-center text-slate-500">
             <Users className="h-12 w-12 mx-auto text-slate-300 mb-3" />
             <p>Nenhum aluno encontrado.</p>
-            {isInstructor && <p className="text-xs mt-2 text-slate-400">Os alunos do proprietário aparecerão aqui.</p>}
+            {isInstructor && !permissionError && <p className="text-xs mt-2 text-slate-400">Os alunos do proprietário aparecerão aqui.</p>}
           </div>
         ) : (
           <div className="overflow-x-auto">

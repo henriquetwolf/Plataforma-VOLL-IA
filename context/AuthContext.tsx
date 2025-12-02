@@ -76,7 +76,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isInstructor: true, 
           isOwner: false,
           isStudent: false,
-          studioId: instructor?.studio_user_id // ID do Dono
+          // Tenta pegar do banco, se falhar (RLS), tenta metadata
+          studioId: instructor?.studio_user_id || sessionUser.user_metadata?.studio_id
         };
         setState({ user: userObj, isAuthenticated: true, isLoading: false });
         return userObj;

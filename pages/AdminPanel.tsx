@@ -149,8 +149,6 @@ export const AdminPanel: React.FC = () => {
   const copySql = () => {
     const sql = `
 -- Permissões Totais para o Super Admin
--- Execute no SQL Editor do Supabase
-
 CREATE POLICY "Admin All Profiles" ON studio_profiles 
   FOR ALL USING ( auth.jwt() ->> 'email' = '${ADMIN_EMAIL}' );
 
@@ -159,9 +157,41 @@ CREATE POLICY "Admin All Instructors" ON instructors
 
 CREATE POLICY "Admin All Students" ON students 
   FOR ALL USING ( auth.jwt() ->> 'email' = '${ADMIN_EMAIL}' );
+
+-- Permissões para Instrutores (Correção de Acesso)
+-- 1. Ver seu próprio perfil
+CREATE POLICY "Instructors can view own profile" ON instructors
+  FOR SELECT TO authenticated USING ( auth.uid() = auth_user_id );
+
+-- 2. Helper Function para verificar vinculo
+create or replace function is_instructor_at_studio(target_studio_id uuid)
+returns boolean language sql security definer set search_path = public as $$
+  select exists (
+    select 1 from instructors
+    where auth_user_id = auth.uid() and studio_user_id = target_studio_id
+  );
+$$;
+
+-- 3. Ver Alunos do Studio
+CREATE POLICY "Instructors can view studio students" ON students
+  FOR SELECT TO authenticated USING ( is_instructor_at_studio(user_id) );
+
+-- 4. Acessar Rehab (Lições e Exercícios)
+CREATE POLICY "Instructors can view studio lessons" ON rehab_lessons
+  FOR SELECT TO authenticated USING ( is_instructor_at_studio(user_id) );
+
+CREATE POLICY "Instructors can create studio lessons" ON rehab_lessons
+  FOR INSERT TO authenticated WITH CHECK ( is_instructor_at_studio(user_id) );
+
+CREATE POLICY "Instructors can view exercises" ON studio_exercises
+  FOR SELECT TO authenticated USING ( is_instructor_at_studio(studio_id) );
+
+-- 5. Acessar Newsletters
+CREATE POLICY "Instructors can view newsletters" ON newsletters
+  FOR SELECT TO authenticated USING ( is_instructor_at_studio(studio_id) );
     `;
     navigator.clipboard.writeText(sql.trim());
-    alert('SQL de Permissões Admin copiado! Cole no SQL Editor do Supabase.');
+    alert('SQL de Permissões Admin & Instrutor copiado! Cole no SQL Editor do Supabase para corrigir os acessos.');
   };
 
   const copyStorageSql = () => {
@@ -223,10 +253,10 @@ create policy "Auth Update Logos" on storage.objects for update to authenticated
         
         <div className="flex gap-2">
            <Button size="sm" variant="outline" onClick={copySql}>
-             <Database className="h-3 w-3 mr-2" /> SQL Permissões
+             <Database className="h-3 w-3 mr-2" /> SQL Permissões (Correção)
            </Button>
            <Button size="sm" variant="outline" onClick={copyStorageSql} className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/30">
-             <Image className="h-3 w-3 mr-2" /> SQL Storage (Correção Upload)
+             <Image className="h-3 w-3 mr-2" /> SQL Storage
            </Button>
            <Button onClick={loadData} disabled={loading}>
              {loading ? <Loader2 className="animate-spin h-4 w-4"/> : "Atualizar Lista"}
@@ -242,9 +272,9 @@ create policy "Auth Update Logos" on storage.objects for update to authenticated
             <div>
               <h3 className="font-bold text-orange-800 text-lg">Configuração Necessária</h3>
               <p className="text-orange-700 text-sm mt-1">
-                A lista está vazia. Isso geralmente significa que o <strong>Supabase RLS</strong> está bloqueando sua visão.
+                A lista está vazia. Isso geralmente significa que o <strong>Supabase RLS</strong> está bloqueando sua visão ou a dos instrutores.
                 <br/>
-                Para ver e gerenciar todos os usuários, você precisa adicionar as regras de exceção para o Admin.
+                Para corrigir o acesso dos instrutores aos alunos, execute o SQL de permissões.
               </p>
               <button 
                 onClick={copySql}
