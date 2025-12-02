@@ -207,7 +207,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (!loadedUser) {
             // CRÍTICO: Se loadUser retornou null, significa que foi barrado pela segurança.
-            // Precisamos garantir que a sessão criada pelo signInWithPassword seja DESTRUÍDA.
+            // Precisamos garantir que a sessão criada pelo signInWithPassword seja DESTRUÍDA IMEDIATAMENTE.
+            console.warn("Login bem sucedido no Auth, mas rejeitado pela política de segurança (bloqueio). Deslogando...");
             await supabase.auth.signOut();
             return { success: false, error: 'Acesso suspenso ou não autorizado. Entre em contato com o suporte.' };
         }
@@ -217,7 +218,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return { success: true };
     } catch (err) {
-      return { success: false, error: 'Erro inesperado ao tentar fazer login.' };
+      return { success: false, error: 'Erro inesperado ao conectar.' };
     }
   };
 
