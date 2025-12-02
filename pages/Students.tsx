@@ -1,12 +1,13 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Student, AppRoute } from '../types';
-import { fetchStudents, addStudent, updateStudent, deleteStudent, createStudentWithAuth } from '../services/studentService';
+import { fetchStudents, addStudent, updateStudent, deleteStudent, createStudentWithAuth, revokeStudentAccess } from '../services/studentService';
 import { fetchRehabLessonsByStudent } from '../services/rehabService'; 
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Users, Plus, Trash2, Search, Pencil, Activity, X, Key, CheckCircle, Home, Building2, ArrowLeft, AlertCircle, RefreshCw, Copy, Terminal } from 'lucide-react';
+import { Users, Plus, Trash2, Search, Pencil, Activity, X, Key, CheckCircle, Home, Building2, ArrowLeft, AlertCircle, RefreshCw, Copy, Terminal, Ban } from 'lucide-react';
 
 export const Students: React.FC = () => {
   const { user } = useAuth();
@@ -29,8 +30,11 @@ export const Students: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    cpf: '',
+    address: '',
     phone: '',
-    observations: ''
+    observations: '',
+    password: '' // For editing password
   });
 
   const isInstructor = user?.isInstructor;
@@ -54,7 +58,6 @@ export const Students: React.FC = () => {
     try {
         const data = await fetchStudents(targetId);
         setStudents(data);
-        // Se retornou vazio e é instrutor, pode ser erro silencioso de RLS, mas se não jogou erro, assume vazio.
     } catch (e) {
         console.error("Erro ao buscar alunos:", e);
         setPermissionError(true);
@@ -66,17 +69,33 @@ export const Students: React.FC = () => {
     loadStudents();
   }, [user]);
 
+  const formatCPF = (value: string) => {
+    return value
+      .replace(/\D/g, '') 
+      .replace(/(\d{3})(\d)/, '$1.$2') 
+      .replace(/(\d{3})(\d)/, '$1.$2') 
+      .replace(/(\d{3})(\d{1,2})/, '$1-$2') 
+      .replace(/(-\d{2})\d+?$/, '$1'); 
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === 'cpf') {
+        setFormData(prev => ({ ...prev, [name]: formatCPF(value) }));
+    } else {
+        setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleEdit = (student: Student) => {
     setFormData({
       name: student.name,
       email: student.email || '',
+      cpf: student.cpf || '',
+      address: student.address || '',
       phone: student.phone || '',
-      observations: student.observations || ''
+      observations: student.observations || '',
+      password: '' // Reset password field
     });
     setEditingId(student.id);
     setShowForm(true);
@@ -92,7 +111,7 @@ export const Students: React.FC = () => {
   };
 
   const handleCancel = () => {
-    setFormData({ name: '', email: '', phone: '', observations: '' });
+    setFormData({ name: '', email: '', cpf: '', address: '', phone: '', observations: '', password: '' });
     setEditingId(null);
     setShowForm(false);
   };
@@ -104,11 +123,17 @@ export const Students: React.FC = () => {
     
     if (!ownerId || !formData.name) return;
 
+    // Optional password validation during edit
+    if (editingId && formData.password && formData.password.length < 6) {
+        alert("A nova senha deve ter no mínimo 6 caracteres.");
+        return;
+    }
+
     setIsSubmitting(true);
     
     let result;
     if (editingId) {
-      result = await updateStudent(editingId, formData);
+      result = await updateStudent(editingId, formData, formData.password);
     } else {
       result = await addStudent(ownerId, formData);
     }
@@ -116,6 +141,9 @@ export const Students: React.FC = () => {
     if (result.success) {
       handleCancel();
       await loadStudents();
+      if (editingId) {
+          alert("Dados do aluno atualizados com sucesso!");
+      }
     } else {
       alert(`Erro ao salvar: ${result.error}`);
     }
@@ -136,6 +164,19 @@ export const Students: React.FC = () => {
         alert(`Erro ao deletar: ${result.error}`);
       }
     }
+  };
+
+  const handleToggleAccess = async (student: Student) => {
+      if (!student.authUserId) return;
+      if (window.confirm(`Deseja desativar o acesso de ${student.name}? O aluno não conseguirá mais fazer login.`)) {
+          const result = await revokeStudentAccess(student.id);
+          if (result.success) {
+              alert("Acesso desativado com sucesso.");
+              loadStudents();
+          } else {
+              alert("Erro ao desativar acesso: " + result.error);
+          }
+      }
   };
 
   const openAccessModal = (student: Student) => {
@@ -193,7 +234,8 @@ CREATE POLICY "Instructors can view studio students" ON students
 
   const filteredStudents = students.filter(student => 
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    student.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    student.cpf?.includes(searchTerm)
   );
 
   // Modal de Detalhes
@@ -211,15 +253,25 @@ CREATE POLICY "Instructors can view studio students" ON students
           <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800">
             <h3 className="font-bold mb-4 text-slate-800 dark:text-white">Dados Pessoais</h3>
             <p className="text-slate-600 dark:text-slate-400 mb-2"><strong>Email:</strong> {selectedStudent.email || '-'}</p>
+            <p className="text-slate-600 dark:text-slate-400 mb-2"><strong>CPF:</strong> {selectedStudent.cpf || '-'}</p>
             <p className="text-slate-600 dark:text-slate-400 mb-2"><strong>Telefone:</strong> {selectedStudent.phone || '-'}</p>
+            <p className="text-slate-600 dark:text-slate-400 mb-2"><strong>Endereço:</strong> {selectedStudent.address || '-'}</p>
             <p className="text-slate-600 dark:text-slate-400"><strong>Obs:</strong> {selectedStudent.observations || '-'}</p>
             
             <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
                <p className="text-sm font-bold mb-2 text-slate-700 dark:text-slate-300">Status do Acesso:</p>
                {selectedStudent.authUserId ? (
-                  <span className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
-                    <CheckCircle className="w-4 h-4"/> Acesso Ativo
-                  </span>
+                  <div className="flex items-center gap-4">
+                      <span className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                        <CheckCircle className="w-4 h-4"/> Acesso Ativo
+                      </span>
+                      <button 
+                        onClick={() => handleToggleAccess(selectedStudent)}
+                        className="text-red-600 hover:text-red-800 text-sm font-medium flex items-center gap-1 hover:underline"
+                      >
+                        <Ban className="w-4 h-4"/> Desativar
+                      </button>
+                  </div>
                ) : (
                   <button 
                       onClick={() => openAccessModal(selectedStudent)}
@@ -352,11 +404,42 @@ CREATE POLICY "Instructors can view studio students" ON students
               disabled={!!editingId && !!formData.email} 
             />
             <Input
+              label="CPF"
+              name="cpf"
+              value={formData.cpf}
+              onChange={handleInputChange}
+              placeholder="000.000.000-00"
+              maxLength={14}
+            />
+            <Input
               label="Telefone / WhatsApp"
               name="phone"
               value={formData.phone}
               onChange={handleInputChange}
             />
+            <div className="md:col-span-2">
+              <Input
+                label="Endereço Completo"
+                name="address"
+                value={formData.address}
+                onChange={handleInputChange}
+                placeholder="Rua, Número, Bairro..."
+              />
+            </div>
+            
+            {editingId && (
+                <div className="md:col-span-2 border-t pt-4 mt-2">
+                    <Input
+                        label="Alterar Senha de Acesso (Opcional)"
+                        name="password"
+                        type="password"
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        placeholder="Deixe em branco para manter a atual"
+                    />
+                </div>
+            )}
+
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Observações Clínicas / Objetivos
@@ -384,7 +467,7 @@ CREATE POLICY "Instructors can view studio students" ON students
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar aluno..."
+              placeholder="Buscar aluno (Nome, CPF...)"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
@@ -407,6 +490,7 @@ CREATE POLICY "Instructors can view studio students" ON students
                 <tr>
                   <th className="px-6 py-3">Nome</th>
                   <th className="px-6 py-3">Contato</th>
+                  <th className="px-6 py-3">CPF</th>
                   <th className="px-6 py-3 text-center">Acesso</th>
                   <th className="px-6 py-3 text-right">Ações</th>
                 </tr>
@@ -416,6 +500,7 @@ CREATE POLICY "Instructors can view studio students" ON students
                   <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{student.name}</td>
                     <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{student.email || student.phone || '-'}</td>
+                    <td className="px-6 py-4 text-slate-500 dark:text-slate-400 font-mono text-xs">{student.cpf || '-'}</td>
                     <td className="px-6 py-4 text-center">
                        {student.authUserId ? (
                          <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">Ativo</span>

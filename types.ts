@@ -57,6 +57,8 @@ export interface Student {
   authUserId?: string; 
   name: string;
   email: string;
+  cpf?: string; // Added CPF
+  address?: string; // Added Address
   phone: string;
   observations?: string;
   createdAt?: string;

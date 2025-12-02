@@ -70,6 +70,8 @@ export const fetchStudents = async (studioId?: string): Promise<Student[]> => {
       authUserId: item.auth_user_id, 
       name: item.name,
       email: item.email || '',
+      cpf: item.cpf || '',
+      address: item.address || '',
       phone: item.phone || '',
       observations: item.observations || '',
       createdAt: item.created_at
@@ -86,6 +88,8 @@ export const addStudent = async (userId: string, student: Omit<Student, 'id' | '
       user_id: userId,
       name: student.name.trim(),
       email: sanitize(student.email),
+      cpf: sanitize(student.cpf),
+      address: sanitize(student.address),
       phone: sanitize(student.phone),
       observations: sanitize(student.observations)
     };
@@ -171,6 +175,7 @@ export const createStudentWithAuth = async (
 
 export const revokeStudentAccess = async (studentId: string): Promise<{ success: boolean; error?: string }> => {
   try {
+    // 1. Remove o vínculo auth_user_id da tabela students
     const { error, data } = await supabase
       .from('students')
       .update({ auth_user_id: null })
@@ -186,18 +191,24 @@ export const revokeStudentAccess = async (studentId: string): Promise<{ success:
         return { success: false, error: "Registro não encontrado ou permissão negada (RLS)." };
     }
 
+    // Nota: O usuário no Auth continua existindo, mas sem vínculo, ele não acessa nada.
+    // Para deletar do Auth, precisaria da função RPC de admin delete user, que é mais complexa.
+    // Remover o vínculo é suficiente para bloquear o acesso.
+
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
   }
 };
 
-export const updateStudent = async (studentId: string, updates: Partial<Student>): Promise<ServiceResponse> => {
+export const updateStudent = async (studentId: string, updates: Partial<Student>, password?: string): Promise<ServiceResponse> => {
   try {
     const payload: any = {};
     if (updates.name !== undefined) payload.name = updates.name.trim();
     if (updates.email !== undefined) payload.email = sanitize(updates.email);
     if (updates.phone !== undefined) payload.phone = sanitize(updates.phone);
+    if (updates.cpf !== undefined) payload.cpf = sanitize(updates.cpf);
+    if (updates.address !== undefined) payload.address = sanitize(updates.address);
     if (updates.observations !== undefined) payload.observations = sanitize(updates.observations);
 
     const { error } = await supabase
@@ -209,6 +220,30 @@ export const updateStudent = async (studentId: string, updates: Partial<Student>
       console.error('Error updating student:', error.message);
       return { success: false, error: error.message };
     }
+
+    // Update Password if provided
+    if (password && password.length >= 6) {
+        // Fetch current student to get auth_user_id
+        const { data: studentData } = await supabase
+            .from('students')
+            .select('auth_user_id')
+            .eq('id', studentId)
+            .single();
+            
+        if (studentData?.auth_user_id) {
+            // Call RPC to update password in Auth
+            const { error: rpcError } = await supabase.rpc('update_user_password', {
+                target_id: studentData.auth_user_id,
+                new_password: password
+            });
+            
+            if (rpcError) {
+                console.error("Error updating password:", rpcError);
+                return { success: true, error: "Dados salvos, mas erro ao atualizar senha: " + rpcError.message };
+            }
+        }
+    }
+
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };

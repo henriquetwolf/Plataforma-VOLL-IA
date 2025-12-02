@@ -551,17 +551,42 @@ export const StudentEvolutionPage: React.FC = () => {
                     <p><strong>Aluno:</strong> {viewEvolutionData.studentName}</p>
                     <p><strong>Data:</strong> {new Date(viewEvolutionData.date).toLocaleDateString()}</p>
                     <p><strong>Instrutor:</strong> {viewEvolutionData.instructorName}</p>
-                    <div className="bg-slate-50 p-3 rounded">
-                        <p><strong>Estabilidade:</strong> {viewEvolutionData.stability}</p>
-                        <p><strong>Mobilidade:</strong> {viewEvolutionData.mobility}</p>
-                        <p><strong>Força:</strong> {viewEvolutionData.strength}</p>
-                        <p><strong>Coordenação:</strong> {viewEvolutionData.coordination}</p>
+                    
+                    <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded">
+                        <h4 className="font-bold text-brand-700 dark:text-brand-400 mb-2">1. Execução</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                            <p><strong>Estabilidade:</strong> {viewEvolutionData.stability}</p>
+                            <p><strong>Mobilidade:</strong> {viewEvolutionData.mobility}</p>
+                            <p><strong>Força:</strong> {viewEvolutionData.strength}</p>
+                            <p><strong>Coordenação:</strong> {viewEvolutionData.coordination}</p>
+                        </div>
                     </div>
-                    {viewEvolutionData.pain && <p className="text-red-600"><strong>Dor:</strong> {viewEvolutionData.painLocation}</p>}
+
+                    <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded">
+                        <h4 className="font-bold text-brand-700 dark:text-brand-400 mb-2">2. Queixas e Cuidados</h4>
+                        {viewEvolutionData.pain ? (
+                            <p className="text-red-600 mb-1"><strong>Dor:</strong> Sim - {viewEvolutionData.painLocation}</p>
+                        ) : (
+                            <p className="text-green-600 mb-1"><strong>Dor:</strong> Não</p>
+                        )}
+                        
+                        {viewEvolutionData.limitation ? (
+                            <p className="text-orange-600 mb-1"><strong>Limitação:</strong> Sim - {viewEvolutionData.limitationDetails}</p>
+                        ) : (
+                            <p className="text-green-600 mb-1"><strong>Limitação:</strong> Não</p>
+                        )}
+
+                        {viewEvolutionData.contraindication ? (
+                            <p className="text-red-600 mb-1"><strong>Contraindicação:</strong> Sim - {viewEvolutionData.contraindicationDetails}</p>
+                        ) : (
+                            <p className="text-green-600 mb-1"><strong>Contraindicação:</strong> Não</p>
+                        )}
+                    </div>
+
                     {viewEvolutionData.observations && (
-                        <div className="border-t pt-2 mt-2">
-                            <p className="font-bold">Observações:</p>
-                            <p className="text-slate-600 italic">{viewEvolutionData.observations}</p>
+                        <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded">
+                            <h4 className="font-bold text-brand-700 dark:text-brand-400 mb-2">3. Observações</h4>
+                            <p className="text-slate-600 dark:text-slate-300 italic">{viewEvolutionData.observations}</p>
                         </div>
                     )}
                 </div>
