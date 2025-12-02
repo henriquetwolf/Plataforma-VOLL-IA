@@ -345,6 +345,20 @@ export const updateStudent = async (studentId: string, updates: Partial<Student>
 
 export const deleteStudent = async (studentId: string): Promise<ServiceResponse> => {
   try {
+    // 1. Remover registros dependentes para evitar erro de Foreign Key
+    // Exclui planos de reabilitação vinculados
+    await supabase.from('rehab_lessons').delete().eq('student_id', studentId);
+    
+    // Exclui evoluções do aluno
+    await supabase.from('student_evolutions').delete().eq('student_id', studentId);
+    
+    // Exclui sugestões
+    await supabase.from('suggestions').delete().eq('student_id', studentId);
+    
+    // Exclui avaliações de aula
+    await supabase.from('class_evaluations').delete().eq('student_id', studentId);
+
+    // 2. Excluir o aluno
     const { error } = await supabase
       .from('students')
       .delete()
