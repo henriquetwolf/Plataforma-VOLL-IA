@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { AppRoute, StudioProfile } from '../types';
 import { Users, Sparkles, Compass, ArrowRight, Building2, Calculator, Banknote, Activity, MessageSquare, Newspaper, Wand2, Star } from 'lucide-react';
 import { fetchProfile } from '../services/storage';
@@ -12,13 +12,12 @@ export const Dashboard: React.FC = () => {
   const [profile, setProfile] = useState<StudioProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // PROTEÇÃO: Se for instrutor, redireciona para o painel correto
-    if (user?.isInstructor) {
-      navigate(AppRoute.INSTRUCTOR_DASHBOARD);
-      return;
-    }
+  // REDIRECT IMMEDIATELY if Instructor
+  if (user?.isInstructor) {
+      return <Navigate to={AppRoute.INSTRUCTOR_DASHBOARD} replace />;
+  }
 
+  useEffect(() => {
     const loadProfile = async () => {
       // Se for dono, usa o id.
       const targetId = user?.id;
@@ -39,9 +38,6 @@ export const Dashboard: React.FC = () => {
       </div>
     );
   }
-
-  // Double check visual
-  if (user?.isInstructor) return null;
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">

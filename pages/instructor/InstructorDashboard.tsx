@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppRoute } from '../../types';
-import { Users, Activity, ArrowRight, User, Building2 } from 'lucide-react';
+import { Users, Activity, ArrowRight, User, Building2, Newspaper, CheckCircle2 } from 'lucide-react';
 import { fetchProfile } from '../../services/storage';
 import { StudioProfile } from '../../types';
 
@@ -33,76 +33,117 @@ export const InstructorDashboard: React.FC = () => {
   if (user && !user.isInstructor) return null;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4">
+    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4">
       {/* Header Personalizado do Instrutor */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="h-16 w-16 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-2xl font-bold">
-            {user?.name.charAt(0)}
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-              Olá, {user?.name}!
-            </h1>
-            <p className="text-slate-500 dark:text-slate-400 flex items-center gap-2">
-              <User className="w-4 h-4" /> Área do Instrutor 
-              {studioProfile && (
-                <span className="inline-flex items-center gap-1 font-medium text-brand-700 bg-brand-50 px-3 py-0.5 rounded-full text-sm border border-brand-100 ml-2">
-                   <Building2 className="w-3 h-3"/> Vinculado a: {studioProfile.studioName}
-                </span>
-              )}
-            </p>
-          </div>
+      <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-5">
+           <User size={150} />
         </div>
-        {studioProfile?.logoUrl && (
-          <img src={studioProfile.logoUrl} alt="Logo Studio" className="h-14 w-auto object-contain opacity-90" />
-        )}
+        
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="flex items-center gap-5">
+            <div className="h-20 w-20 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 text-white flex items-center justify-center text-3xl font-bold shadow-lg">
+              {user?.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+                Olá, {user?.name.split(' ')[0]}!
+              </h1>
+              <div className="flex items-center gap-2 mt-2 text-slate-600 dark:text-slate-400">
+                <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full text-sm font-medium">
+                   <User className="w-4 h-4" /> Portal do Instrutor
+                </span>
+                {studioProfile && (
+                  <span className="flex items-center gap-1 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 px-3 py-1 rounded-full text-sm font-medium border border-brand-100 dark:border-brand-800">
+                     <Building2 className="w-4 h-4"/> {studioProfile.studioName}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {studioProfile?.logoUrl && (
+            <div className="bg-white p-2 rounded-lg shadow-sm border border-slate-100">
+               <img src={studioProfile.logoUrl} alt="Logo Studio" className="h-16 w-auto object-contain" />
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         {/* Pilar 1: Meus Alunos */}
-        <Link to={AppRoute.STUDENTS} className="group relative overflow-hidden bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-brand-300 transition-all duration-300">
+        <Link to={AppRoute.STUDENTS} className="group relative overflow-hidden bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-blue-300 transition-all duration-300 flex flex-col">
           <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110">
-            <Users size={100} />
+            <Users size={120} />
           </div>
-          <div className="relative z-10 flex flex-col h-full">
-            <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-xl flex items-center justify-center mb-6">
-              <Users className="w-7 h-7" />
-            </div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Alunos do Studio</h2>
-            <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 flex-grow">
-              Acesse os dados dos alunos vinculados a este studio.
-            </p>
-            <div className="flex items-center text-blue-600 font-bold text-sm group-hover:gap-2 transition-all">
-              Ver Lista <ArrowRight className="w-4 h-4 ml-1" />
-            </div>
+          
+          <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <Users className="w-7 h-7" />
+          </div>
+          
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 group-hover:text-blue-600 transition-colors">
+            Alunos do Studio
+          </h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 flex-grow leading-relaxed">
+            Visualize a lista de alunos, contatos e fichas técnicas. 
+            <span className="block mt-2 text-xs opacity-70">* Visualização e edição permitidas.</span>
+          </p>
+          
+          <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center text-blue-600 font-bold text-sm group-hover:gap-2 transition-all">
+            Acessar Lista <ArrowRight className="w-4 h-4 ml-1" />
           </div>
         </Link>
 
         {/* Pilar 2: Pilates Rehab */}
-        <Link to={AppRoute.REHAB} className="group relative overflow-hidden bg-gradient-to-br from-brand-50 to-white dark:from-slate-800 dark:to-slate-900 p-8 rounded-2xl border border-brand-100 dark:border-brand-900/50 shadow-sm hover:shadow-xl hover:border-brand-400 transition-all duration-300">
+        <Link to={AppRoute.REHAB} className="group relative overflow-hidden bg-gradient-to-br from-brand-50 to-white dark:from-slate-800 dark:to-slate-900 p-8 rounded-2xl border border-brand-100 dark:border-brand-900/50 shadow-sm hover:shadow-xl hover:border-brand-400 transition-all duration-300 flex flex-col">
           <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110">
-            <Activity size={100} />
+            <Activity size={120} />
           </div>
-          <div className="relative z-10 flex flex-col h-full">
-            <div className="w-14 h-14 bg-brand-100 dark:bg-brand-900/40 text-brand-600 rounded-xl flex items-center justify-center mb-6">
-              <Activity className="w-7 h-7" />
-            </div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Pilates Rehab</h2>
-            <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 flex-grow">
-              Ferramentas de reabilitação e planos de aula do studio.
-            </p>
-            <div className="flex items-center text-brand-700 dark:text-brand-400 font-bold text-sm group-hover:gap-2 transition-all">
-              Acessar Agente <ArrowRight className="w-4 h-4 ml-1" />
-            </div>
+          
+          <div className="w-14 h-14 bg-brand-100 dark:bg-brand-900/40 text-brand-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <Activity className="w-7 h-7" />
+          </div>
+          
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 group-hover:text-brand-600 transition-colors">
+            Pilates Rehab & Aulas
+          </h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 flex-grow leading-relaxed">
+            Ferramenta de IA para criar planos de aula baseados em patologias e consultar o histórico clínico.
+          </p>
+          
+          <div className="mt-auto pt-4 border-t border-brand-100 dark:border-slate-800 flex items-center text-brand-700 dark:text-brand-400 font-bold text-sm group-hover:gap-2 transition-all">
+            Criar Aula <ArrowRight className="w-4 h-4 ml-1" />
+          </div>
+        </Link>
+
+        {/* Pilar 3: Newsletters */}
+        <Link to={AppRoute.INSTRUCTOR_NEWSLETTERS} className="group relative overflow-hidden bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-purple-300 transition-all duration-300 flex flex-col">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110">
+            <Newspaper size={120} />
+          </div>
+          
+          <div className="w-14 h-14 bg-purple-50 dark:bg-purple-900/20 text-purple-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <Newspaper className="w-7 h-7" />
+          </div>
+          
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 group-hover:text-purple-600 transition-colors">
+            Mural de Avisos
+          </h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 flex-grow leading-relaxed">
+            Fique por dentro dos comunicados internos, novidades e recados da gestão do studio.
+          </p>
+          
+          <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center text-purple-600 font-bold text-sm group-hover:gap-2 transition-all">
+            Ver Comunicados <ArrowRight className="w-4 h-4 ml-1" />
           </div>
         </Link>
 
       </div>
 
-      <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-6 text-center text-slate-500 text-sm mt-8">
-        <p>Você está acessando a <strong>Área do Instrutor</strong>. Os dados exibidos são exclusivos do studio ao qual você está vinculado.</p>
+      <div className="mt-8 flex items-center justify-center gap-2 text-xs text-slate-400">
+        <CheckCircle2 className="w-3 h-3 text-green-500" />
+        <span>Ambiente seguro. Acesso restrito a funcionalidades operacionais.</span>
       </div>
     </div>
   );

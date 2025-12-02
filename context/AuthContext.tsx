@@ -51,24 +51,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // 2. Verifica INSTRUTOR
+      // Verifica primeiro via Metadata (mais rápido e seguro se setado)
+      const isInstructorMeta = sessionUser.user_metadata?.role === 'instructor';
+      
       const instructor = await getInstructorProfile(sessionUser.id, sessionUser.email);
-      if (instructor) {
-        if (instructor.active === false) {
+      
+      if (instructor || isInstructorMeta) {
+        // Se achou no banco, usa os dados do banco. Se não, usa metadata + sessão (fallback)
+        const active = instructor ? instructor.active : true;
+        
+        if (active === false) {
            await supabase.auth.signOut();
            setState({ user: null, isAuthenticated: false, isLoading: false });
            return null;
         }
+
         const userObj: User = {
           id: sessionUser.id,
-          dbId: instructor.id, // Primary Key from instructors table
+          dbId: instructor?.id, 
           email: sessionUser.email || '',
-          name: instructor.name,
+          name: instructor?.name || sessionUser.user_metadata?.name || 'Instrutor',
           password: '',
           isAdmin: false,
           isInstructor: true, 
           isOwner: false,
           isStudent: false,
-          studioId: instructor.studio_user_id 
+          studioId: instructor?.studio_user_id // ID do Dono
         };
         setState({ user: userObj, isAuthenticated: true, isLoading: false });
         return userObj;

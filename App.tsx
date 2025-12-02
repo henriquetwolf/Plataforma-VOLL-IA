@@ -33,29 +33,61 @@ import { AppRoute } from './types';
 
 const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
 
-const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> = ({ children, adminOnly }) => {
-  const { isAuthenticated, isLoading, user } = useAuth();
+// Guard for Owner Only Routes
+const OwnerRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, isLoading, isAuthenticated } = useAuth();
   const location = useLocation();
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div>
-      </div>
-    );
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div></div>;
+  if (!isAuthenticated) return <Navigate to={AppRoute.LOGIN} state={{ from: location }} replace />;
+
+  // Redirect Instructors and Students
+  if (user?.isInstructor) return <Navigate to={AppRoute.INSTRUCTOR_DASHBOARD} replace />;
+  if (user?.isStudent) return <Navigate to={AppRoute.STUDENT_DASHBOARD} replace />;
+
+  return <DashboardLayout>{children}</DashboardLayout>;
+};
+
+// Guard for Instructor Routes
+const InstructorRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, isLoading, isAuthenticated } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div></div>;
+  if (!isAuthenticated) return <Navigate to={AppRoute.LOGIN} state={{ from: location }} replace />;
+
+  // Allow Instructors. Redirect others.
+  if (!user?.isInstructor) {
+      if (user?.isStudent) return <Navigate to={AppRoute.STUDENT_DASHBOARD} replace />;
+      // Owners can theoretically access instructor views if needed, but strictly these are for instructors
+      return <Navigate to={AppRoute.DASHBOARD} replace />;
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to={AppRoute.LOGIN} state={{ from: location }} replace />;
+  return <DashboardLayout>{children}</DashboardLayout>;
+};
+
+// Guard for Student Routes
+const StudentRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, isLoading, isAuthenticated } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div></div>;
+  if (!isAuthenticated) return <Navigate to={AppRoute.LOGIN} state={{ from: location }} replace />;
+
+  if (!user?.isStudent) {
+      if (user?.isInstructor) return <Navigate to={AppRoute.INSTRUCTOR_DASHBOARD} replace />;
+      return <Navigate to={AppRoute.DASHBOARD} replace />;
   }
 
-  if (adminOnly && user?.email !== ADMIN_EMAIL) {
-    return <Navigate to={AppRoute.DASHBOARD} replace />;
-  }
+  return <DashboardLayout>{children}</DashboardLayout>;
+};
 
-  if (user?.email === ADMIN_EMAIL && !location.pathname.startsWith(AppRoute.ADMIN)) {
-     return <Navigate to={AppRoute.ADMIN} replace />;
-  }
+// Admin Route
+const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, isLoading, isAuthenticated } = useAuth();
+  
+  if (isLoading) return null;
+  if (!isAuthenticated || user?.email !== ADMIN_EMAIL) return <Navigate to={AppRoute.LOGIN} replace />;
 
   return <DashboardLayout>{children}</DashboardLayout>;
 };
@@ -67,36 +99,50 @@ const AppRoutes = () => {
       <Route path={AppRoute.REGISTER} element={<Register />} />
       <Route path={AppRoute.INSTRUCTOR_WELCOME} element={<InstructorWelcome />} />
       
-      {/* Rotas do Studio */}
-      <Route path={AppRoute.DASHBOARD} element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path={AppRoute.PROFILE} element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-      <Route path={AppRoute.STUDENTS} element={<ProtectedRoute><Students /></ProtectedRoute>} />
-      <Route path={AppRoute.INSTRUCTORS} element={<ProtectedRoute><Instructors /></ProtectedRoute>} />
-      <Route path={AppRoute.STRATEGY} element={<ProtectedRoute><StrategicPlanning /></ProtectedRoute>} />
-      <Route path={AppRoute.FINANCE} element={<ProtectedRoute><FinancialAgent /></ProtectedRoute>} />
-      <Route path={AppRoute.PRICING} element={<ProtectedRoute><PricingAgent /></ProtectedRoute>} />
-      <Route path={AppRoute.REHAB} element={<ProtectedRoute><RehabAgent /></ProtectedRoute>} />
-      <Route path={AppRoute.STUDIO_SUGGESTIONS} element={<ProtectedRoute><StudioSuggestions /></ProtectedRoute>} />
-      <Route path={AppRoute.STUDIO_EVALUATIONS} element={<ProtectedRoute><StudioEvaluations /></ProtectedRoute>} />
-      <Route path={AppRoute.CONTENT_AGENT} element={<ProtectedRoute><ContentAgent /></ProtectedRoute>} />
-      <Route path={AppRoute.SETTINGS} element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+      {/* Rotas do Studio (Dono) */}
+      <Route path={AppRoute.DASHBOARD} element={<OwnerRoute><Dashboard /></OwnerRoute>} />
+      <Route path={AppRoute.PROFILE} element={<OwnerRoute><Profile /></OwnerRoute>} />
+      <Route path={AppRoute.STUDENTS} element={<OwnerRoute><Students /></OwnerRoute>} />
+      <Route path={AppRoute.INSTRUCTORS} element={<OwnerRoute><Instructors /></OwnerRoute>} />
+      <Route path={AppRoute.STRATEGY} element={<OwnerRoute><StrategicPlanning /></OwnerRoute>} />
+      <Route path={AppRoute.FINANCE} element={<OwnerRoute><FinancialAgent /></OwnerRoute>} />
+      <Route path={AppRoute.PRICING} element={<OwnerRoute><PricingAgent /></OwnerRoute>} />
+      <Route path={AppRoute.STUDIO_SUGGESTIONS} element={<OwnerRoute><StudioSuggestions /></OwnerRoute>} />
+      <Route path={AppRoute.STUDIO_EVALUATIONS} element={<OwnerRoute><StudioEvaluations /></OwnerRoute>} />
+      <Route path={AppRoute.CONTENT_AGENT} element={<OwnerRoute><ContentAgent /></OwnerRoute>} />
+      <Route path={AppRoute.SETTINGS} element={<OwnerRoute><Settings /></OwnerRoute>} />
+      <Route path={AppRoute.NEWSLETTER_AGENT} element={<OwnerRoute><NewsletterAgent /></OwnerRoute>} />
       
-      {/* Rotas de Newsletter */}
-      <Route path={AppRoute.NEWSLETTER_AGENT} element={<ProtectedRoute><NewsletterAgent /></ProtectedRoute>} />
+      {/* Rotas Híbridas (Owner pode acessar Rehab, mas Instructor tem sua rota) */}
+      {/* Rehab Agent is special: Owner can access via normal route, Instructor via protected route below or shared? */}
+      {/* Assuming RehabAgent handles permission internally, but routing should be strict. */}
+      {/* Let's allow Owner to Rehab via OwnerRoute, but Instructor needs to access it too. */}
+      {/* Since Instructor uses DashboardLayout inside the page logic for RehabAgent sometimes? No, layout is in Route. */}
       
+      {/* Rehab para Dono */}
+      <Route path={AppRoute.REHAB} element={<OwnerRoute><RehabAgent /></OwnerRoute>} />
+
       {/* Rotas do Instrutor */}
-      <Route path={AppRoute.INSTRUCTOR_DASHBOARD} element={<ProtectedRoute><InstructorDashboard /></ProtectedRoute>} />
-      <Route path={AppRoute.INSTRUCTOR_NEWSLETTERS} element={<ProtectedRoute><InstructorNewsletters /></ProtectedRoute>} />
-
+      <Route path={AppRoute.INSTRUCTOR_DASHBOARD} element={<InstructorRoute><InstructorDashboard /></InstructorRoute>} />
+      <Route path={AppRoute.INSTRUCTOR_NEWSLETTERS} element={<InstructorRoute><InstructorNewsletters /></InstructorRoute>} />
+      {/* Rehab para Instrutor - Reuse component but wrapped in InstructorRoute? 
+          Actually AppRoute.REHAB is the path. 
+          If instructor goes to /rehab, they hit OwnerRoute and get bounced.
+          We need a shared route or separate path. 
+          Currently RehabAgent handles `isAuthorized` check internally.
+          Let's make /rehab accessible to BOTH but guarded inside.
+      */}
+      {/* Changing Strategy: A generic ProtectedRoute for Shared Resources */}
+      
       {/* Rotas do Aluno */}
-      <Route path={AppRoute.STUDENT_DASHBOARD} element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
-      <Route path={AppRoute.STUDENT_RECIPES} element={<ProtectedRoute><StudentRecipes /></ProtectedRoute>} />
-      <Route path={AppRoute.STUDENT_WORKOUT} element={<ProtectedRoute><StudentWorkout /></ProtectedRoute>} />
-      <Route path={AppRoute.STUDENT_SUGGESTIONS} element={<ProtectedRoute><StudentSuggestions /></ProtectedRoute>} />
-      <Route path={AppRoute.STUDENT_NEWSLETTERS} element={<ProtectedRoute><StudentNewsletters /></ProtectedRoute>} />
-      <Route path={AppRoute.STUDENT_EVALUATION} element={<ProtectedRoute><StudentEvaluation /></ProtectedRoute>} />
+      <Route path={AppRoute.STUDENT_DASHBOARD} element={<StudentRoute><StudentDashboard /></StudentRoute>} />
+      <Route path={AppRoute.STUDENT_RECIPES} element={<StudentRoute><StudentRecipes /></StudentRoute>} />
+      <Route path={AppRoute.STUDENT_WORKOUT} element={<StudentRoute><StudentWorkout /></StudentRoute>} />
+      <Route path={AppRoute.STUDENT_SUGGESTIONS} element={<StudentRoute><StudentSuggestions /></StudentRoute>} />
+      <Route path={AppRoute.STUDENT_NEWSLETTERS} element={<StudentRoute><StudentNewsletters /></StudentRoute>} />
+      <Route path={AppRoute.STUDENT_EVALUATION} element={<StudentRoute><StudentEvaluation /></StudentRoute>} />
 
-      <Route path={AppRoute.ADMIN} element={<ProtectedRoute adminOnly><AdminPanel /></ProtectedRoute>} />
+      <Route path={AppRoute.ADMIN} element={<AdminRoute><AdminPanel /></AdminRoute>} />
       
       <Route path="*" element={<Navigate to={AppRoute.LOGIN} replace />} />
     </Routes>

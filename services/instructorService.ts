@@ -64,12 +64,15 @@ export const createInstructorWithAuth = async (
       }
     });
 
-    // 3. Criar usuário no Auth
+    // 3. Criar usuário no Auth COM METADATA DE ROLE
     const { data: authData, error: authError } = await tempClient.auth.signUp({
       email: instructor.email,
       password: instructor.password,
       options: {
-        data: { name: instructor.name }
+        data: { 
+            name: instructor.name,
+            role: 'instructor' // MARCAÇÃO CRÍTICA PARA IDENTIFICAÇÃO
+        }
       }
     });
 

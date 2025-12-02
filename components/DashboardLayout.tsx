@@ -55,7 +55,8 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         { label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.STUDENT_NEWSLETTERS },
       ];
     } else if (isInstructor) {
-      // MENU INSTRUTOR - COMPLETAMENTE EM BRANCO
+      // MENU INSTRUTOR - ESTRITAMENTE VAZIO
+      // O instrutor navega apenas pelo dashboard principal dele.
       items = [];
     } else if (isOwner) {
       items = [
