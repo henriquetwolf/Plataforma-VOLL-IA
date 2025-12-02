@@ -18,6 +18,7 @@ interface DBProfile {
   brand_color?: string;
   is_admin?: boolean;
   is_active?: boolean;
+  max_students?: number; // Novo campo
   settings?: any; // JSONB
 }
 
@@ -35,6 +36,7 @@ const toDBProfile = (profile: Partial<StudioProfile>): Partial<DBProfile> => {
     logo_url: profile.logoUrl,
     brand_color: profile.brandColor,
     is_admin: profile.isAdmin,
+    max_students: profile.maxStudents, // Mapeamento novo
     // REMOVIDO: is_active não deve ser atualizado por aqui para evitar que 
     // o usuário sobrescreva o bloqueio do admin ao salvar o perfil.
     settings: profile.settings
@@ -79,6 +81,7 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
     brandColor: dbProfile.brand_color || '#14b8a6',
     isAdmin: dbProfile.is_admin || false,
     isActive: isActive, 
+    maxStudents: dbProfile.max_students,
     settings: settings
   };
 };
@@ -114,10 +117,6 @@ export const fetchProfile = async (userId: string): Promise<StudioProfile | null
 export const upsertProfile = async (userId: string, profile: Partial<StudioProfile>): Promise<{ success: boolean; error?: string }> => {
   try {
     const dbPayload = toDBProfile(profile);
-    
-    // Garantir que is_active não seja sobrescrito acidentalmente se não for passado
-    // No entanto, upsert normalmente faz merge se configurado, mas aqui estamos passando o payload completo de update.
-    // Se profile.isActive for undefined, toDBProfile retorna undefined, o que é bom.
     
     const { error } = await supabase
       .from('studio_profiles')
@@ -203,6 +202,24 @@ export const toggleUserStatus = async (userId: string, isActive: boolean): Promi
       return { success: false, error: "Registro não encontrado ou bloqueado por RLS." };
     }
 
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+};
+
+// Admin reset password feature
+export const adminResetPassword = async (targetUserId: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // Uses the existing RPC function which needs to be available in DB
+    const { error } = await supabase.rpc('update_user_password', {
+      target_id: targetUserId,
+      new_password: newPassword
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };

@@ -1,22 +1,24 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { fetchAllProfiles, toggleUserStatus } from '../services/storage';
+import { fetchAllProfiles, toggleUserStatus, adminResetPassword, upsertProfile } from '../services/storage';
 import { fetchInstructors, toggleInstructorStatus } from '../services/instructorService';
 import { fetchStudents, revokeStudentAccess } from '../services/studentService';
 import { Button } from '../components/ui/Button';
-import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image } from 'lucide-react';
+import { Input } from '../components/ui/Input';
+import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save } from 'lucide-react';
 
 const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
 
 interface AdminUserView {
   id: string; // Database ID
-  targetId: string; // ID used for toggling (user_id for owners, id for others)
+  targetId: string; // ID used for toggling/resetting (user_id for owners, id for others)
   name: string;
   email: string;
   role: 'owner' | 'instructor' | 'student';
   isActive: boolean;
   contextInfo?: string; // Studio name or Owner name
+  maxStudents?: number; // Only for owners
 }
 
 export const AdminPanel: React.FC = () => {
@@ -29,6 +31,16 @@ export const AdminPanel: React.FC = () => {
   
   // Controle de estado para ação de toggle (loading por item)
   const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  // Password Reset Modal
+  const [resetModalUser, setResetModalUser] = useState<AdminUserView | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [resetting, setResetting] = useState(false);
+
+  // Owner Drill Down View
+  const [viewingOwner, setViewingOwner] = useState<AdminUserView | null>(null);
+  const [ownerPlanLimit, setOwnerPlanLimit] = useState<number | undefined>(undefined);
+  const [savingPlan, setSavingPlan] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -48,7 +60,8 @@ export const AdminPanel: React.FC = () => {
           email: p.email || '-',
           role: 'owner',
           isActive: p.isActive,
-          contextInfo: p.studioName
+          contextInfo: p.studioName,
+          maxStudents: p.maxStudents
         });
       });
 
@@ -62,7 +75,7 @@ export const AdminPanel: React.FC = () => {
           email: i.email,
           role: 'instructor',
           isActive: i.active,
-          contextInfo: 'Instrutor' // Could fetch studio name if needed
+          contextInfo: i.studioUserId // Link to studio
         });
       });
 
@@ -76,7 +89,7 @@ export const AdminPanel: React.FC = () => {
           email: s.email || '-',
           role: 'student',
           isActive: !!s.authUserId, // Students are "active" if they have login access
-          contextInfo: 'Aluno'
+          contextInfo: s.userId // Link to studio
         });
       });
 
@@ -136,6 +149,79 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
+  const handleResetPassword = async () => {
+    if (!resetModalUser || !newPassword || newPassword.length < 6) {
+      alert("Senha deve ter no mínimo 6 caracteres.");
+      return;
+    }
+
+    setResetting(true);
+    // Para Donos, targetId é o userId (auth id), que é o que precisamos.
+    // O RPC update_user_password espera o ID da tabela auth.users.
+    let targetAuthId = resetModalUser.targetId;
+    
+    const result = await adminResetPassword(targetAuthId, newPassword);
+    
+    if (result.success) {
+      alert(`Senha redefinida com sucesso para ${resetModalUser.name}.`);
+      setResetModalUser(null);
+      setNewPassword('');
+    } else {
+      alert("Erro ao redefinir senha: " + result.error);
+    }
+    setResetting(false);
+  };
+
+  const openViewDetails = (owner: AdminUserView) => {
+    setViewingOwner(owner);
+    setOwnerPlanLimit(owner.maxStudents);
+  };
+
+  const handleSavePlanLimit = async () => {
+    if (!viewingOwner) return;
+    setSavingPlan(true);
+    
+    const result = await upsertProfile(viewingOwner.targetId, {
+      maxStudents: ownerPlanLimit
+    });
+
+    if (result.success) {
+      alert("Plano atualizado com sucesso!");
+      // Update local state
+      setAllUsers(prev => prev.map(u => u.id === viewingOwner.id ? { ...u, maxStudents: ownerPlanLimit } : u));
+    } else {
+      alert("Erro ao salvar plano: " + result.error);
+    }
+    setSavingPlan(false);
+  };
+
+  const copySql = () => {
+    const sql = `
+-- GARANTIR COLUNA IS_ACTIVE E MAX_STUDENTS
+ALTER TABLE studio_profiles 
+ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE,
+ADD COLUMN IF NOT EXISTS max_students INTEGER;
+
+-- Função Helper para pegar ID por email (Segurança)
+create or replace function get_user_id_by_email(email_input text)
+returns uuid language plpgsql security definer as $$
+begin
+  return (select id from auth.users where email = email_input);
+end;
+$$;
+
+-- Função para atualizar senha (ADMIN RPC)
+create or replace function update_user_password(target_id uuid, new_password text)
+returns void language plpgsql security definer set search_path = extensions, public, auth as $$
+begin
+  update auth.users set encrypted_password = crypt(new_password, gen_salt('bf')) where id = target_id;
+end;
+$$;
+    `;
+    navigator.clipboard.writeText(sql.trim());
+    alert('SQL copiado! Cole no SQL Editor do Supabase para ativar as novas funções.');
+  };
+
   const filteredUsers = allUsers.filter(u => {
     const matchesSearch = 
       u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -146,118 +232,9 @@ export const AdminPanel: React.FC = () => {
     return matchesSearch && u.role === activeTab;
   });
 
-  const copySql = () => {
-    const sql = `
--- =========================================================
--- SCRIPT DE CORREÇÃO DE ESTRUTURA E PERMISSÕES
--- Copie e cole no SQL Editor do Supabase
--- =========================================================
-
--- 1. GARANTIR COLUNA IS_ACTIVE PARA STUDIOS
-ALTER TABLE studio_profiles 
-ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
-
--- 2. Helper Function (Segurança para verificar vínculo)
-CREATE OR REPLACE FUNCTION public.is_instructor_at_studio(target_studio_id uuid)
-RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM instructors
-    WHERE auth_user_id = auth.uid() AND studio_user_id = target_studio_id
-  );
-$$;
-
--- 3. Permitir que Instrutor veja seu próprio perfil (Essencial para Login)
-DROP POLICY IF EXISTS "Instructors can view own profile" ON instructors;
-CREATE POLICY "Instructors can view own profile" ON instructors
-  FOR SELECT TO authenticated USING ( auth_user_id = auth.uid() );
-
--- 4. Permitir que Instrutor veja dados básicos do Studio (Nome, Configs)
-DROP POLICY IF EXISTS "Instructors can view employing studio" ON studio_profiles;
-CREATE POLICY "Instructors can view employing studio" ON studio_profiles
-  FOR SELECT TO authenticated USING ( 
-    user_id IN (SELECT studio_user_id FROM instructors WHERE auth_user_id = auth.uid())
-  );
-
--- 5. ALUNOS: Visualização e Edição por Instrutores
-DROP POLICY IF EXISTS "Instructors can view studio students" ON students;
-CREATE POLICY "Instructors can view studio students" ON students
-  FOR SELECT TO authenticated USING ( is_instructor_at_studio(user_id) );
-
-DROP POLICY IF EXISTS "Instructors can insert studio students" ON students;
-CREATE POLICY "Instructors can insert studio students" ON students
-  FOR INSERT TO authenticated WITH CHECK ( is_instructor_at_studio(user_id) );
-
-DROP POLICY IF EXISTS "Instructors can update studio students" ON students;
-CREATE POLICY "Instructors can update studio students" ON students
-  FOR UPDATE TO authenticated USING ( is_instructor_at_studio(user_id) );
-
--- 6. REHAB: Acesso a Aulas e Histórico
-DROP POLICY IF EXISTS "Instructors can view studio lessons" ON rehab_lessons;
-CREATE POLICY "Instructors can view studio lessons" ON rehab_lessons
-  FOR SELECT TO authenticated USING ( is_instructor_at_studio(user_id) );
-
-DROP POLICY IF EXISTS "Instructors can create studio lessons" ON rehab_lessons;
-CREATE POLICY "Instructors can create studio lessons" ON rehab_lessons
-  FOR INSERT TO authenticated WITH CHECK ( is_instructor_at_studio(user_id) );
-
-DROP POLICY IF EXISTS "Instructors can delete studio lessons" ON rehab_lessons;
-CREATE POLICY "Instructors can delete studio lessons" ON rehab_lessons
-  FOR DELETE TO authenticated USING ( is_instructor_at_studio(user_id) );
-
--- 7. NEWSLETTERS: Visualização
-DROP POLICY IF EXISTS "Instructors can view newsletters" ON newsletters;
-CREATE POLICY "Instructors can view newsletters" ON newsletters
-  FOR SELECT TO authenticated USING ( is_instructor_at_studio(studio_id) );
-
--- 8. EXERCÍCIOS: Banco do Studio
-DROP POLICY IF EXISTS "Instructors can view exercises" ON studio_exercises;
-CREATE POLICY "Instructors can view exercises" ON studio_exercises
-  FOR SELECT TO authenticated USING ( is_instructor_at_studio(studio_id) );
-  
-DROP POLICY IF EXISTS "Instructors can create exercises" ON studio_exercises;
-CREATE POLICY "Instructors can create exercises" ON studio_exercises
-  FOR INSERT TO authenticated WITH CHECK ( is_instructor_at_studio(studio_id) );
-    `;
-    navigator.clipboard.writeText(sql.trim());
-    alert('SCRIPT COPIADO! Cole no SQL Editor do Supabase e execute para garantir que a coluna is_active existe e corrigir permissões.');
-  };
-
-  const copyStorageSql = () => {
-    const sql = `
--- 1. BUCKET DE IMAGENS DE EXERCÍCIOS
-insert into storage.buckets (id, name, public) 
-values ('exercise-images', 'exercise-images', true)
-ON CONFLICT (id) DO NOTHING;
-
-drop policy if exists "Public Access Exercises" on storage.objects;
-create policy "Public Access Exercises" on storage.objects for select using ( bucket_id = 'exercise-images' );
-
-drop policy if exists "Auth Upload Exercises" on storage.objects;
-create policy "Auth Upload Exercises" on storage.objects for insert to authenticated with check ( bucket_id = 'exercise-images' );
-
-drop policy if exists "Auth Update Exercises" on storage.objects;
-create policy "Auth Update Exercises" on storage.objects for update to authenticated using ( bucket_id = 'exercise-images' );
-
-drop policy if exists "Auth Delete Exercises" on storage.objects;
-create policy "Auth Delete Exercises" on storage.objects for delete to authenticated using ( bucket_id = 'exercise-images' );
-
--- 2. BUCKET DE LOGOS
-insert into storage.buckets (id, name, public) 
-values ('studio-logos', 'studio-logos', true)
-ON CONFLICT (id) DO NOTHING;
-
-drop policy if exists "Public Access Logos" on storage.objects;
-create policy "Public Access Logos" on storage.objects for select using ( bucket_id = 'studio-logos' );
-
-drop policy if exists "Auth Upload Logos" on storage.objects;
-create policy "Auth Upload Logos" on storage.objects for insert to authenticated with check ( bucket_id = 'studio-logos' );
-
-drop policy if exists "Auth Update Logos" on storage.objects;
-create policy "Auth Update Logos" on storage.objects for update to authenticated using ( bucket_id = 'studio-logos' );
-    `;
-    navigator.clipboard.writeText(sql.trim());
-    alert('SQL Completo de Storage (Exercícios e Logos) copiado! Cole no SQL Editor do Supabase.');
-  };
+  // Filter linked users for drill down
+  const linkedInstructors = viewingOwner ? allUsers.filter(u => u.role === 'instructor' && u.contextInfo === viewingOwner.targetId) : [];
+  const linkedStudents = viewingOwner ? allUsers.filter(u => u.role === 'student' && u.contextInfo === viewingOwner.targetId) : [];
 
   if (user?.email !== ADMIN_EMAIL) {
     return (
@@ -269,6 +246,92 @@ create policy "Auth Update Logos" on storage.objects for update to authenticated
     );
   }
 
+  // --- DRILL DOWN VIEW (DETALHES DO DONO) ---
+  if (viewingOwner) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in">
+        <div className="flex items-center gap-4 border-b pb-4 mb-4">
+          <Button variant="outline" onClick={() => setViewingOwner(null)}>
+            <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{viewingOwner.contextInfo || viewingOwner.name}</h1>
+            <p className="text-slate-500 text-sm">Gerenciando Studio de {viewingOwner.name} ({viewingOwner.email})</p>
+          </div>
+        </div>
+
+        {/* Plan Settings */}
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-white flex items-center gap-2">
+            <Building2 className="w-5 h-5 text-brand-600"/> Plano do Studio
+          </h3>
+          <div className="flex items-end gap-4 max-w-md">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Limite de Alunos</label>
+              <Input 
+                type="number" 
+                value={ownerPlanLimit || ''} 
+                onChange={e => setOwnerPlanLimit(e.target.value ? parseInt(e.target.value) : undefined)} 
+                placeholder="Ilimitado"
+                className="mb-0"
+              />
+              <p className="text-xs text-slate-500 mt-1">Deixe em branco para ilimitado.</p>
+            </div>
+            <Button onClick={handleSavePlanLimit} isLoading={savingPlan}>
+              <Save className="w-4 h-4 mr-2"/> Salvar Limite
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Instructors List */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <div className="p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 font-bold flex justify-between">
+              <span>Instrutores ({linkedInstructors.length})</span>
+            </div>
+            <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-96 overflow-y-auto">
+              {linkedInstructors.length === 0 ? <p className="p-4 text-slate-500 text-sm">Nenhum instrutor.</p> : linkedInstructors.map(u => (
+                <div key={u.id} className="p-4 flex justify-between items-center">
+                  <div>
+                    <p className="font-medium text-sm text-slate-800 dark:text-white">{u.name}</p>
+                    <p className="text-xs text-slate-500">{u.email}</p>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded-full font-bold ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {u.isActive ? 'Ativo' : 'Inativo'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Students List */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <div className="p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 font-bold flex justify-between">
+              <span>Alunos ({linkedStudents.length})</span>
+              <span className={`text-xs px-2 py-1 rounded ${linkedStudents.length >= (ownerPlanLimit || 9999) ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                {linkedStudents.length} / {ownerPlanLimit || '∞'}
+              </span>
+            </div>
+            <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-96 overflow-y-auto">
+              {linkedStudents.length === 0 ? <p className="p-4 text-slate-500 text-sm">Nenhum aluno.</p> : linkedStudents.map(u => (
+                <div key={u.id} className="p-4 flex justify-between items-center">
+                  <div>
+                    <p className="font-medium text-sm text-slate-800 dark:text-white">{u.name}</p>
+                    <p className="text-xs text-slate-500">{u.email}</p>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded-full font-bold ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                    {u.isActive ? 'Com Acesso' : 'Sem Acesso'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- MAIN LIST VIEW ---
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -281,39 +344,13 @@ create policy "Auth Update Logos" on storage.objects for update to authenticated
         
         <div className="flex gap-2">
            <Button size="sm" variant="outline" onClick={copySql}>
-             <Database className="h-3 w-3 mr-2" /> Copiar SQL de Correção
-           </Button>
-           <Button size="sm" variant="outline" onClick={copyStorageSql} className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/30">
-             <Image className="h-3 w-3 mr-2" /> SQL Storage
+             <Database className="h-3 w-3 mr-2" /> SQL Plans
            </Button>
            <Button onClick={loadData} disabled={loading}>
              {loading ? <Loader2 className="animate-spin h-4 w-4"/> : "Atualizar Lista"}
            </Button>
         </div>
       </div>
-
-      {/* Alerta de Configuração Inicial */}
-      {!loading && allUsers.length === 0 && (
-        <div className="bg-orange-50 border-l-4 border-orange-500 p-6 rounded-r-lg shadow-sm mb-6">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="h-6 w-6 text-orange-600 mt-1" />
-            <div>
-              <h3 className="font-bold text-orange-800 text-lg">Configuração Necessária</h3>
-              <p className="text-orange-700 text-sm mt-1">
-                A lista está vazia. Isso geralmente significa que o <strong>Supabase RLS</strong> está bloqueando sua visão ou a dos instrutores.
-                <br/>
-                Para corrigir o acesso dos instrutores aos alunos, execute o SQL de permissões.
-              </p>
-              <button 
-                onClick={copySql}
-                className="mt-3 bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold py-2 px-4 rounded inline-flex items-center text-sm transition-colors"
-              >
-                <Copy className="w-4 h-4 mr-2" /> Copiar SQL
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {dbError && (
         <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg shadow-sm">
@@ -416,29 +453,44 @@ create policy "Auth Update Logos" on storage.objects for update to authenticated
                     </td>
                     <td className="px-6 py-4 text-right">
                       {u.id !== user?.id && (
-                        <Button 
-                          size="sm"
-                          onClick={() => handleToggleStatus(u)}
-                          isLoading={togglingId === u.id}
-                          disabled={togglingId !== null && togglingId !== u.id}
-                          className={`font-medium shadow-sm transition-all ${
-                            u.isActive 
-                              ? 'bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300' 
-                              : 'bg-green-600 hover:bg-green-700 text-white border-transparent'
-                          }`}
-                          title={u.role === 'student' && !u.isActive ? 'Alunos inativos devem ter o acesso recriado no painel do estúdio.' : ''}
-                        >
-                          {u.isActive 
-                            ? <><UserX className="h-4 w-4 mr-2"/> {u.role === 'student' ? 'Remover Acesso' : 'Desativar'}</> 
-                            : <><UserCheck className="h-4 w-4 mr-2"/> Ativar</>}
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          {/* Owner Actions */}
+                          {u.role === 'owner' && (
+                            <>
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Ver Detalhes (Instrutores/Alunos/Plano)" onClick={() => openViewDetails(u)}>
+                                <Eye className="w-4 h-4 text-slate-500" />
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Redefinir Senha Provisória" onClick={() => { setResetModalUser(u); setNewPassword(''); }}>
+                                <Key className="w-4 h-4 text-blue-500" />
+                              </Button>
+                            </>
+                          )}
+                          
+                          {/* Toggle Status */}
+                          <Button 
+                            size="sm"
+                            onClick={() => handleToggleStatus(u)}
+                            isLoading={togglingId === u.id}
+                            disabled={togglingId !== null && togglingId !== u.id}
+                            className={`font-medium shadow-sm transition-all h-8 px-3 ${
+                              u.isActive 
+                                ? 'bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300' 
+                                : 'bg-green-600 hover:bg-green-700 text-white border-transparent'
+                            }`}
+                            title={u.role === 'student' && !u.isActive ? 'Alunos inativos devem ter o acesso recriado no painel do estúdio.' : ''}
+                          >
+                            {u.isActive 
+                              ? <><UserX className="h-4 w-4"/></> 
+                              : <><UserCheck className="h-4 w-4"/></>}
+                          </Button>
+                        </div>
                       )}
                     </td>
                   </tr>
                 )) : (
                   <tr>
                     <td colSpan={5} className="p-12 text-center text-slate-500 bg-slate-50/50">
-                      {allUsers.length === 0 ? 'Nenhum usuário encontrado. Verifique se o SQL foi aplicado.' : 'Nenhum usuário encontrado com este filtro.'}
+                      {allUsers.length === 0 ? 'Nenhum usuário encontrado.' : 'Nenhum usuário encontrado com este filtro.'}
                     </td>
                   </tr>
                 )}
@@ -447,6 +499,29 @@ create policy "Auth Update Logos" on storage.objects for update to authenticated
           </div>
         )}
       </div>
+
+      {/* Password Reset Modal */}
+      {resetModalUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-xl p-6 border border-slate-200 dark:border-slate-800">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Redefinir Senha Provisória</h3>
+            <p className="text-sm text-slate-500 mb-4">
+              Defina uma nova senha para o dono <strong>{resetModalUser.name}</strong>.
+            </p>
+            <Input 
+              label="Nova Senha" 
+              type="text" 
+              value={newPassword} 
+              onChange={e => setNewPassword(e.target.value)} 
+              placeholder="Mínimo 6 caracteres"
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="ghost" onClick={() => setResetModalUser(null)}>Cancelar</Button>
+              <Button onClick={handleResetPassword} isLoading={resetting}>Salvar Senha</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

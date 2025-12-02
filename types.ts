@@ -27,6 +27,7 @@ export interface StudioProfile {
   brandColor?: string;
   isAdmin: boolean; 
   isActive: boolean;
+  maxStudents?: number; // Limite do plano
   settings?: {
     sender_email?: string; // Email configurado para envios (Gmail)
     instructor_permissions?: {

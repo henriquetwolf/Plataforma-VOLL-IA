@@ -2,6 +2,7 @@
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase';
 import { Student } from '../types';
 import { createClient } from '@supabase/supabase-js';
+import { fetchProfile } from './storage';
 
 /*
   ⚠️ SQL NECESSÁRIO NO SUPABASE (Execute no SQL Editor):
@@ -75,6 +76,31 @@ export const createStudentWithAutoAuth = async (
   password: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
+    // --- VERIFICAÇÃO DE PLANO DO STUDIO ---
+    // 1. Obter o perfil do studio para ver o limite
+    const profile = await fetchProfile(studioUserId);
+    const maxStudents = profile?.maxStudents;
+
+    if (maxStudents !== undefined && maxStudents !== null) {
+        // 2. Contar alunos atuais
+        const { count, error: countError } = await supabase
+            .from('students')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', studioUserId);
+        
+        if (countError) {
+            return { success: false, error: "Erro ao verificar limite do plano." };
+        }
+
+        if (count !== null && count >= maxStudents) {
+            return { 
+                success: false, 
+                error: `Limite de alunos atingido (${maxStudents}). Entre em contato com o suporte para aumentar seu plano.` 
+            };
+        }
+    }
+    // --------------------------------------
+
     if (!password || password.length < 6) {
       return { success: false, error: "A senha deve ter no mínimo 6 caracteres." };
     }
