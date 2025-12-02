@@ -1,4 +1,3 @@
-
 import { LogoConfig } from "../types";
 
 export const compositeImageWithLogo = async (
@@ -30,24 +29,30 @@ export const compositeImageWithLogo = async (
       logoImg.src = logoUrl;
 
       logoImg.onload = () => {
-        // Calculate Size
-        let logoWidth = 0;
-        let logoHeight = 0;
-        const aspectRatio = logoImg.width / logoImg.height;
+        // Calculate Size based on the largest dimension to fit within the target percentage relative to the smallest canvas side
+        // This ensures the logo fits regardless if it's wide or tall, or if the canvas is portrait/landscape.
+        const baseMinDim = Math.min(canvas.width, canvas.height);
+        let targetSize = 0;
 
+        // Adjusted percentages to be safe and visible
         if (config.size === 'small') {
-          logoWidth = canvas.width * 0.15; // 15% width (looks small on high res)
+          targetSize = baseMinDim * 0.15; 
         } else if (config.size === 'medium') {
-          logoWidth = canvas.width * 0.25;
+          targetSize = baseMinDim * 0.20;
         } else {
-          logoWidth = canvas.width * 0.35;
+          targetSize = baseMinDim * 0.30;
         }
-        logoHeight = logoWidth / aspectRatio;
 
-        // Calculate Position
+        // Calculate scale to fit the logo's largest dimension into the target size
+        const scale = targetSize / Math.max(logoImg.width, logoImg.height);
+        
+        const logoWidth = logoImg.width * scale;
+        const logoHeight = logoImg.height * scale;
+
+        // Calculate Position with padding
         let x = 0;
         let y = 0;
-        const padding = canvas.width * 0.05; // 5% padding
+        const padding = baseMinDim * 0.05; // 5% padding relative to image size
 
         if (config.position.includes('left')) {
           x = padding;
@@ -62,10 +67,13 @@ export const compositeImageWithLogo = async (
         }
 
         // Apply Opacity/Watermark
-        ctx.globalAlpha = config.type === 'watermark' ? 0.3 : 1.0;
+        ctx.globalAlpha = config.type === 'watermark' ? 0.5 : 1.0; 
 
         // Draw Logo
         ctx.drawImage(logoImg, x, y, logoWidth, logoHeight);
+
+        // Reset alpha for safety
+        ctx.globalAlpha = 1.0;
 
         // Return result
         resolve(canvas.toDataURL('image/png'));
