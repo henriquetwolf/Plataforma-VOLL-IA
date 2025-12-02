@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -46,6 +45,25 @@ const OwnerRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   if (user?.isStudent) return <Navigate to={AppRoute.STUDENT_DASHBOARD} replace />;
 
   return <DashboardLayout>{children}</DashboardLayout>;
+};
+
+// Guard for Shared Routes (Owner AND Instructor)
+const SharedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, isLoading, isAuthenticated } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div></div>;
+  if (!isAuthenticated) return <Navigate to={AppRoute.LOGIN} state={{ from: location }} replace />;
+
+  // Students have their own dashboard
+  if (user?.isStudent) return <Navigate to={AppRoute.STUDENT_DASHBOARD} replace />;
+
+  // Allow Owner and Instructor
+  if (user?.isOwner || user?.isInstructor) {
+      return <DashboardLayout>{children}</DashboardLayout>;
+  }
+
+  return <Navigate to={AppRoute.LOGIN} replace />;
 };
 
 // Guard for Instructor Routes
@@ -99,10 +117,9 @@ const AppRoutes = () => {
       <Route path={AppRoute.REGISTER} element={<Register />} />
       <Route path={AppRoute.INSTRUCTOR_WELCOME} element={<InstructorWelcome />} />
       
-      {/* Rotas do Studio (Dono) */}
+      {/* Rotas Exclusivas do Studio (Dono) */}
       <Route path={AppRoute.DASHBOARD} element={<OwnerRoute><Dashboard /></OwnerRoute>} />
       <Route path={AppRoute.PROFILE} element={<OwnerRoute><Profile /></OwnerRoute>} />
-      <Route path={AppRoute.STUDENTS} element={<OwnerRoute><Students /></OwnerRoute>} />
       <Route path={AppRoute.INSTRUCTORS} element={<OwnerRoute><Instructors /></OwnerRoute>} />
       <Route path={AppRoute.STRATEGY} element={<OwnerRoute><StrategicPlanning /></OwnerRoute>} />
       <Route path={AppRoute.FINANCE} element={<OwnerRoute><FinancialAgent /></OwnerRoute>} />
@@ -113,26 +130,13 @@ const AppRoutes = () => {
       <Route path={AppRoute.SETTINGS} element={<OwnerRoute><Settings /></OwnerRoute>} />
       <Route path={AppRoute.NEWSLETTER_AGENT} element={<OwnerRoute><NewsletterAgent /></OwnerRoute>} />
       
-      {/* Rotas Híbridas (Owner pode acessar Rehab, mas Instructor tem sua rota) */}
-      {/* Rehab Agent is special: Owner can access via normal route, Instructor via protected route below or shared? */}
-      {/* Assuming RehabAgent handles permission internally, but routing should be strict. */}
-      {/* Let's allow Owner to Rehab via OwnerRoute, but Instructor needs to access it too. */}
-      {/* Since Instructor uses DashboardLayout inside the page logic for RehabAgent sometimes? No, layout is in Route. */}
-      
-      {/* Rehab para Dono */}
-      <Route path={AppRoute.REHAB} element={<OwnerRoute><RehabAgent /></OwnerRoute>} />
+      {/* Rotas Compartilhadas (Dono e Instrutor) */}
+      <Route path={AppRoute.STUDENTS} element={<SharedRoute><Students /></SharedRoute>} />
+      <Route path={AppRoute.REHAB} element={<SharedRoute><RehabAgent /></SharedRoute>} />
 
-      {/* Rotas do Instrutor */}
+      {/* Rotas Exclusivas do Instrutor */}
       <Route path={AppRoute.INSTRUCTOR_DASHBOARD} element={<InstructorRoute><InstructorDashboard /></InstructorRoute>} />
       <Route path={AppRoute.INSTRUCTOR_NEWSLETTERS} element={<InstructorRoute><InstructorNewsletters /></InstructorRoute>} />
-      {/* Rehab para Instrutor - Reuse component but wrapped in InstructorRoute? 
-          Actually AppRoute.REHAB is the path. 
-          If instructor goes to /rehab, they hit OwnerRoute and get bounced.
-          We need a shared route or separate path. 
-          Currently RehabAgent handles `isAuthorized` check internally.
-          Let's make /rehab accessible to BOTH but guarded inside.
-      */}
-      {/* Changing Strategy: A generic ProtectedRoute for Shared Resources */}
       
       {/* Rotas do Aluno */}
       <Route path={AppRoute.STUDENT_DASHBOARD} element={<StudentRoute><StudentDashboard /></StudentRoute>} />
