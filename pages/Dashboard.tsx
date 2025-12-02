@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppRoute, StudioProfile } from '../types';
-import { Users, Sparkles, Compass, ArrowRight, Building2, Calculator, Banknote, Activity, MessageSquare, Newspaper } from 'lucide-react';
+import { Users, Sparkles, Compass, ArrowRight, Building2, Calculator, Banknote, Activity, MessageSquare, Newspaper, Wand2, Star } from 'lucide-react';
 import { fetchProfile } from '../services/storage';
 
 export const Dashboard: React.FC = () => {
@@ -110,6 +110,57 @@ export const Dashboard: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           
           <Link 
+            to={AppRoute.CONTENT_AGENT} 
+            className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
+          >
+            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+              <Wand2 size={120} />
+            </div>
+            <div className="relative z-10">
+              <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Wand2 className="h-6 w-6" />
+              </div>
+              <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Assistente Conteúdo</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">Crie posts, legendas e calendários para redes sociais.</p>
+              <span className="inline-flex items-center text-sm font-bold text-brand-700 dark:text-brand-400 group-hover:gap-2 transition-all">Acessar Agente <ArrowRight className="h-4 w-4 ml-1" /></span>
+            </div>
+          </Link>
+
+          <Link 
+            to={AppRoute.STUDIO_EVALUATIONS} 
+            className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
+          >
+            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+              <Star size={120} />
+            </div>
+            <div className="relative z-10">
+              <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Star className="h-6 w-6" />
+              </div>
+              <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Avaliações Aulas</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">Monitore o feedback das aulas e a satisfação dos alunos.</p>
+              <span className="inline-flex items-center text-sm font-bold text-brand-700 dark:text-brand-400 group-hover:gap-2 transition-all">Acessar Agente <ArrowRight className="h-4 w-4 ml-1" /></span>
+            </div>
+          </Link>
+
+          <Link 
+            to={AppRoute.STUDIO_SUGGESTIONS} 
+            className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
+          >
+            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+              <MessageSquare size={120} />
+            </div>
+            <div className="relative z-10">
+              <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <MessageSquare className="h-6 w-6" />
+              </div>
+              <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Sugestões dos Alunos</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">Analise feedbacks e crie planos de ação de melhoria.</p>
+              <span className="inline-flex items-center text-sm font-bold text-brand-700 dark:text-brand-400 group-hover:gap-2 transition-all">Acessar Agente <ArrowRight className="h-4 w-4 ml-1" /></span>
+            </div>
+          </Link>
+          
+          <Link 
             to={AppRoute.REHAB} 
             className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
           >
@@ -146,23 +197,6 @@ export const Dashboard: React.FC = () => {
               </div>
               <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Criador Newsletter</h3>
               <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">Crie comunicados e avisos com IA.</p>
-              <span className="inline-flex items-center text-sm font-bold text-brand-700 dark:text-brand-400 group-hover:gap-2 transition-all">Acessar Agente <ArrowRight className="h-4 w-4 ml-1" /></span>
-            </div>
-          </Link>
-
-          <Link 
-            to={AppRoute.STUDIO_SUGGESTIONS} 
-            className="group relative overflow-hidden bg-gradient-to-br from-white to-brand-50/30 dark:from-slate-900 dark:to-brand-900/10 p-6 rounded-xl shadow-sm border border-brand-100 dark:border-brand-900/50 hover:border-brand-400 dark:hover:border-brand-700 hover:shadow-lg transition-all"
-          >
-            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-              <MessageSquare size={120} />
-            </div>
-            <div className="relative z-10">
-              <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <MessageSquare className="h-6 w-6" />
-              </div>
-              <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Analisador de Feedback</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">Crie planos de ação com base em sugestões.</p>
               <span className="inline-flex items-center text-sm font-bold text-brand-700 dark:text-brand-400 group-hover:gap-2 transition-all">Acessar Agente <ArrowRight className="h-4 w-4 ml-1" /></span>
             </div>
           </Link>
