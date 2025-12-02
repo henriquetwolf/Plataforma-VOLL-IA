@@ -178,10 +178,11 @@ export const fetchAllProfiles = async (): Promise<{ data: StudioProfile[], error
   }
 };
 
-export const toggleUserStatus = async (userId: string, isActive: boolean): Promise<boolean> => {
+export const toggleUserStatus = async (userId: string, isActive: boolean): Promise<{ success: boolean; error?: string }> => {
   try {
     console.log(`Tentando atualizar status do usuário ${userId} para ${isActive}...`);
     
+    // IMPORTANTE: .select() é crucial para verificar se o RLS permitiu a atualização
     const { error, data } = await supabase
       .from('studio_profiles')
       .update({ is_active: isActive })
@@ -189,19 +190,20 @@ export const toggleUserStatus = async (userId: string, isActive: boolean): Promi
       .select(); 
 
     if (error) {
-      console.error("Erro no toggleUserStatus:", error.message, error.details);
-      throw error;
+      console.error("Erro no toggleUserStatus:", error.message);
+      return { success: false, error: error.message };
     }
 
     if (!data || data.length === 0) {
-      console.warn("FALHA: Nenhum registro foi atualizado. Verifique a permissão 'Admins Update All' no Supabase.");
-      return false;
+      const msg = "Nenhum registro foi atualizado. O Supabase RLS pode estar bloqueando a escrita do Admin.";
+      console.warn(msg);
+      return { success: false, error: msg };
     }
 
     console.log("Status atualizado com sucesso:", data);
-    return true;
-  } catch (err) {
+    return { success: true };
+  } catch (err: any) {
     console.error("Exceção no toggleUserStatus:", err);
-    return false;
+    return { success: false, error: err.message };
   }
 };

@@ -360,7 +360,7 @@ export const RehabAgent: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in">
-      {(refData || lessonData || activeTab === 'bank' || !(!refData && !lessonData && activeTab !== 'bank')) && (
+      {(refData || lessonData || activeTab === 'bank') && (
         <header className="flex justify-between items-center border-b pb-6">
           <div className="flex items-center gap-3">
             {user?.isInstructor && (

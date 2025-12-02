@@ -7,7 +7,7 @@ import { saveNewsletter, fetchNewslettersByStudio, deleteNewsletter } from '../s
 import { NewsletterAudience, Newsletter, AppRoute } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Newspaper, Send, Save, Trash2, RotateCcw, Users, User, Layout, Wand2, ArrowRight, AlertTriangle, ArrowLeft, Home } from 'lucide-react';
+import { Newspaper, Send, Save, Trash2, RotateCcw, Users, User, Layout, Wand2, ArrowRight, AlertTriangle, ArrowLeft, Home, MessageCircle } from 'lucide-react';
 
 export const NewsletterAgent: React.FC = () => {
   const { user } = useAuth();
@@ -92,6 +92,32 @@ export const NewsletterAgent: React.FC = () => {
       await deleteNewsletter(id);
       loadHistory();
     }
+  };
+
+  // Function to convert HTML to WhatsApp-friendly text
+  const handleWhatsAppShare = () => {
+    if (!generatedContent) return;
+
+    // 1. Create a temporary DOM element to handle HTML parsing
+    const tempDiv = document.createElement('div');
+    
+    // 2. Pre-process specific tags for better formatting before stripping
+    let processedHtml = generatedContent.content
+      .replace(/<br\s*\/?>/gi, '\n') // Replace <br> with newline
+      .replace(/<\/p>/gi, '\n\n')    // Replace </p> with double newline
+      .replace(/<li>/gi, '• ');      // Add bullet point to list items
+
+    tempDiv.innerHTML = processedHtml;
+
+    // 3. Get text content (strips tags)
+    const bodyText = tempDiv.textContent || tempDiv.innerText || "";
+
+    // 4. Format for WhatsApp (Bold Title + Body)
+    const whatsappMessage = `*${generatedContent.title}*\n\n${bodyText.trim()}`;
+
+    // 5. Open WhatsApp API
+    const url = `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`;
+    window.open(url, '_blank');
   };
 
   const audienceOptions = [
@@ -248,12 +274,20 @@ export const NewsletterAgent: React.FC = () => {
                       </div>
                    </div>
                    
-                   <div className="flex gap-3">
-                     <Button variant="outline" className="flex-1" onClick={() => setGeneratedContent(null)}>
+                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                     <Button variant="outline" onClick={() => setGeneratedContent(null)}>
                        <RotateCcw className="h-4 w-4 mr-2" /> Descartar
                      </Button>
-                     <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={handleSave} isLoading={isSaving}>
-                       <Save className="h-4 w-4 mr-2" /> Salvar e Publicar
+                     
+                     <Button 
+                       className="bg-[#25D366] hover:bg-[#128C7E] text-white border-transparent" 
+                       onClick={handleWhatsAppShare}
+                     >
+                       <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp
+                     </Button>
+
+                     <Button className="bg-brand-600 hover:bg-brand-700 text-white md:col-span-1 col-span-2" onClick={handleSave} isLoading={isSaving}>
+                       <Save className="h-4 w-4 mr-2" /> Salvar
                      </Button>
                    </div>
                  </div>

@@ -135,6 +135,29 @@ export const createStudentWithAuth = async (
   }
 };
 
+export const revokeStudentAccess = async (studentId: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { error, data } = await supabase
+      .from('students')
+      .update({ auth_user_id: null })
+      .eq('id', studentId)
+      .select();
+
+    if (error) {
+      console.error("Erro ao revogar acesso do aluno:", error);
+      return { success: false, error: error.message };
+    }
+
+    if (!data || data.length === 0) {
+        return { success: false, error: "Registro não encontrado ou permissão negada (RLS)." };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+};
+
 export const updateStudent = async (studentId: string, updates: Partial<Student>): Promise<ServiceResponse> => {
   try {
     const payload: any = {};

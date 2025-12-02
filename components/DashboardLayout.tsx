@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -13,71 +12,79 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
   const { logout, user } = useAuth();
   const { theme, toggleTheme, setBrandColor } = useTheme();
   const location = useLocation();
-  const [permissions, setPermissions] = useState({ rehab: true, newsletters: true, students: true });
+  
+  const [menuItems, setMenuItems] = useState<any[]>([]);
 
   useEffect(() => {
     const loadBrandAndPermissions = async () => {
-      // Se for instrutor ou aluno, carrega perfil do dono do estúdio
       const targetId = user?.isInstructor || user?.isStudent ? user.studioId : user?.id;
       
       if (targetId) {
         const profile = await fetchProfile(targetId);
         if (profile) {
             if (profile.brandColor) setBrandColor(profile.brandColor);
-            if (profile.settings?.instructor_permissions) {
-                setPermissions(profile.settings.instructor_permissions);
-            }
         }
       }
     };
     loadBrandAndPermissions();
   }, [user, setBrandColor]);
 
+  useEffect(() => {
+    if (!user) {
+        setMenuItems([]);
+        return;
+    }
+
+    const isSuperAdmin = user.email === ADMIN_EMAIL;
+    const isInstructor = user.isInstructor;
+    const isStudent = user.isStudent;
+    const isOwner = user.isOwner;
+
+    let items = [];
+
+    if (isSuperAdmin) {
+      items = [{ label: 'Painel Admin', icon: ShieldAlert, path: AppRoute.ADMIN }];
+    } else if (isStudent) {
+      items = [
+        { label: 'Meu Painel', icon: LayoutDashboard, path: AppRoute.STUDENT_DASHBOARD },
+        { label: 'Receitas', icon: Utensils, path: AppRoute.STUDENT_RECIPES },
+        { label: 'Treino em Casa', icon: Activity, path: AppRoute.STUDENT_WORKOUT },
+        { label: 'Caixa de Sugestões', icon: MessageSquare, path: AppRoute.STUDENT_SUGGESTIONS },
+        { label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.STUDENT_NEWSLETTERS },
+      ];
+    } else if (isInstructor) {
+      // MENU INSTRUTOR
+      // Nota: O botão "Inicial" é renderizado fixo no JSX abaixo para garantir visibilidade
+      items = [
+        { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
+        { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
+        { label: 'Criador Newsletter', icon: Newspaper, path: AppRoute.NEWSLETTER_AGENT },
+        { label: 'Mural de Avisos', icon: MessageSquare, path: AppRoute.INSTRUCTOR_NEWSLETTERS },
+        { label: 'Perfil do Studio', icon: UserCircle, path: AppRoute.PROFILE },
+      ];
+    } else if (isOwner) {
+      items = [
+        { label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.DASHBOARD },
+        { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
+        { label: 'Equipe', icon: BookUser, path: AppRoute.INSTRUCTORS },
+        { label: 'Sugestões Alunos', icon: MessageSquare, path: AppRoute.STUDIO_SUGGESTIONS },
+        { label: 'Criador Newsletter', icon: Newspaper, path: AppRoute.NEWSLETTER_AGENT },
+        { label: 'Planejamento IA', icon: Compass, path: AppRoute.STRATEGY },
+        { label: 'Calculadora Financeira', icon: Calculator, path: AppRoute.FINANCE },
+        { label: 'Preço Inteligente', icon: Banknote, path: AppRoute.PRICING },
+        { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
+        { label: 'Perfil do Studio', icon: UserCircle, path: AppRoute.PROFILE },
+        { label: 'Configurações', icon: Settings, path: AppRoute.SETTINGS },
+      ];
+    }
+
+    setMenuItems(items);
+  }, [user]);
+
   const isSuperAdmin = user?.email === ADMIN_EMAIL;
   const isInstructor = user?.isInstructor;
   const isStudent = user?.isStudent;
   const isOwner = user?.isOwner;
-
-  let navItems = [];
-
-  if (isSuperAdmin) {
-    navItems = [{ label: 'Painel Admin', icon: ShieldAlert, path: AppRoute.ADMIN }];
-  } else if (isStudent) {
-    // Menu do Aluno
-    navItems = [
-      { label: 'Meu Painel', icon: LayoutDashboard, path: AppRoute.STUDENT_DASHBOARD },
-      { label: 'Receitas', icon: Utensils, path: AppRoute.STUDENT_RECIPES },
-      { label: 'Treino em Casa', icon: Activity, path: AppRoute.STUDENT_WORKOUT },
-      { label: 'Caixa de Sugestões', icon: MessageSquare, path: AppRoute.STUDENT_SUGGESTIONS },
-      { label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.STUDENT_NEWSLETTERS },
-    ];
-  } else if (isInstructor) {
-    // Menu do Instrutor - ESTRITO (Com Home no topo)
-    navItems = [
-      { label: 'Home', icon: Home, path: AppRoute.INSTRUCTOR_DASHBOARD },
-      { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
-      { label: 'Criador Newsletter', icon: Newspaper, path: AppRoute.NEWSLETTER_AGENT },
-      { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
-    ];
-  } else if (isOwner) {
-    // Dono do Estúdio - ESTRITO (Só mostra se for confirmado Dono)
-    navItems = [
-      { label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.DASHBOARD },
-      { label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
-      { label: 'Equipe', icon: BookUser, path: AppRoute.INSTRUCTORS },
-      { label: 'Sugestões Alunos', icon: MessageSquare, path: AppRoute.STUDIO_SUGGESTIONS },
-      { label: 'Criador Newsletter', icon: Newspaper, path: AppRoute.NEWSLETTER_AGENT },
-      { label: 'Planejamento IA', icon: Compass, path: AppRoute.STRATEGY },
-      { label: 'Calculadora Financeira', icon: Calculator, path: AppRoute.FINANCE },
-      { label: 'Preço Inteligente', icon: Banknote, path: AppRoute.PRICING },
-      { label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
-      { label: 'Perfil do Studio', icon: UserCircle, path: AppRoute.PROFILE },
-      { label: 'Configurações', icon: Settings, path: AppRoute.SETTINGS },
-    ];
-  } else {
-    // Fallback de segurança: Usuário não identificado corretamente
-    navItems = []; 
-  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex transition-colors duration-300">
@@ -90,7 +97,22 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
+          {/* BOTÃO INICIAL FIXO PARA INSTRUTORES - GARANTE VISIBILIDADE */}
+          {isInstructor && (
+            <Link
+              to={AppRoute.INSTRUCTOR_DASHBOARD}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors mb-1 ${
+                location.pathname === AppRoute.INSTRUCTOR_DASHBOARD
+                  ? 'bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300' 
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              <Home className={`h-5 w-5 ${location.pathname === AppRoute.INSTRUCTOR_DASHBOARD ? 'text-brand-500 dark:text-brand-400' : 'text-slate-400 dark:text-slate-500'}`} />
+              Inicial
+            </Link>
+          )}
+
+          {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
             return (
@@ -118,7 +140,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
               isStudent ? 'bg-green-100 text-green-600' : 
               'bg-brand-100 text-brand-600'
             }`}>
-              {user?.name.charAt(0).toUpperCase()}
+              {user?.name?.charAt(0).toUpperCase()}
             </div>
             <div className="overflow-hidden">
               <p className="text-sm font-medium text-slate-900 dark:text-slate-200 truncate">{user?.name}</p>

@@ -1,3 +1,4 @@
+
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase'; // Importa chaves exportadas
 import { Instructor } from '../types';
 import { createClient } from '@supabase/supabase-js';
@@ -150,6 +151,30 @@ export const updateInstructor = async (id: string, updates: Partial<Instructor>)
     if (error) throw error;
     return { success: true };
   } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+};
+
+export const toggleInstructorStatus = async (id: string, isActive: boolean): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { error, data } = await supabase
+      .from('instructors')
+      .update({ active: isActive })
+      .eq('id', id)
+      .select();
+
+    if (error) {
+      console.error("Erro ao atualizar status do instrutor:", error);
+      return { success: false, error: error.message };
+    }
+    
+    if (!data || data.length === 0) {
+       return { success: false, error: "Registro não encontrado ou permissão negada (RLS)." };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("Exceção toggleInstructorStatus:", err);
     return { success: false, error: err.message };
   }
 };

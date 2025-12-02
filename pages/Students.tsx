@@ -5,20 +5,14 @@ import { useNavigate } from 'react-router-dom';
 import { Student, AppRoute } from '../types';
 import { fetchStudents, addStudent, updateStudent, deleteStudent, createStudentWithAuth } from '../services/studentService';
 import { fetchRehabLessonsByStudent } from '../services/rehabService'; 
-import { fetchProfile } from '../services/storage';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Users, Plus, Trash2, Search, Pencil, Activity, X, Key, CheckCircle, Loader2, Home, Building2, ArrowLeft } from 'lucide-react';
+import { Users, Plus, Trash2, Search, Pencil, Activity, X, Key, CheckCircle, Loader2, Home, Building2, ArrowLeft, ShieldAlert } from 'lucide-react';
 
 export const Students: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   
-  // Auth Check States
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [checkingAuth, setCheckingAuth] = useState(true);
-
-  // App States
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,59 +35,34 @@ export const Students: React.FC = () => {
 
   const isInstructor = user?.isInstructor;
 
-  // Verificação de Permissão (Fail Closed)
-  useEffect(() => {
-    const checkPermission = async () => {
-      if (!user) return;
-
-      if (!user.isInstructor) {
-        // Owner always has access
-        setIsAuthorized(true);
-        setCheckingAuth(false);
-        return;
-      }
-
-      if (user.isInstructor) {
-        // Instructors rely on studioId. If missing, wait or fail.
-        if (!user.studioId) return;
-
-        try {
-          const profile = await fetchProfile(user.studioId);
-          // O permission check deve ser strict
-          if (profile && profile.settings?.instructor_permissions?.students !== false) {
-            setIsAuthorized(true);
-          } else {
-            setIsAuthorized(false);
-            navigate(AppRoute.DASHBOARD);
-          }
-        } catch (error) {
-          console.error("Erro ao verificar permissão:", error);
-          setIsAuthorized(false);
-          navigate(AppRoute.DASHBOARD);
-        }
-      }
-      setCheckingAuth(false);
-    };
-    checkPermission();
-  }, [user, navigate]);
-
   const loadStudents = async () => {
-    // Busca TODOS os alunos do estúdio (identificado pelo studioId do usuário logado)
-    const targetId = user?.isInstructor ? user.studioId : user?.id;
+    if (!user) return;
+
+    // DEFINIÇÃO DO ID ALVO:
+    // Se for Instrutor, usa o studioId (que aponta para o ID do Dono).
+    // Se for Dono, usa o próprio ID (user.id).
+    const targetId = user.isInstructor ? user.studioId : user.id;
     
-    if (!targetId) return;
+    if (!targetId) {
+        console.warn("Nenhum ID de estúdio encontrado.");
+        setIsLoading(false);
+        return;
+    }
 
     setIsLoading(true);
-    const data = await fetchStudents(targetId);
-    setStudents(data);
+    // fetchStudents filtra pelo user_id do dono (targetId) no banco
+    try {
+        const data = await fetchStudents(targetId);
+        setStudents(data);
+    } catch (e) {
+        console.error("Erro ao buscar alunos:", e);
+    }
     setIsLoading(false);
   };
 
   useEffect(() => {
-    if (user && isAuthorized) {
-        loadStudents();
-    }
-  }, [user, isAuthorized]);
+    loadStudents();
+  }, [user]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -101,7 +70,7 @@ export const Students: React.FC = () => {
   };
 
   const handleEdit = (student: Student) => {
-    if (isInstructor) return; 
+    // Instrutores agora podem editar dados básicos (observações, telefone)
     setFormData({
       name: student.name,
       email: student.email || '',
@@ -129,6 +98,7 @@ export const Students: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Garante que o aluno seja salvo vinculado ao Dono do Studio
     const ownerId = user?.isInstructor ? user.studioId : user?.id;
     
     if (!ownerId || !formData.name) return;
@@ -152,7 +122,11 @@ export const Students: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (isInstructor) return;
+    // Apenas donos podem excluir para segurança
+    if (isInstructor) {
+        alert("Apenas o proprietário pode excluir alunos permanentemente.");
+        return;
+    }
     if (window.confirm('Tem certeza que deseja remover este aluno?')) {
       const result = await deleteStudent(id);
       if (result.success) {
@@ -196,14 +170,6 @@ export const Students: React.FC = () => {
     student.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (checkingAuth) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950"><Loader2 className="animate-spin h-8 w-8 text-brand-600" /></div>;
-  }
-
-  if (!isAuthorized && !checkingAuth) {
-    return null;
-  }
-
   // Modal de Detalhes
   if (selectedStudent) {
     return (
@@ -229,15 +195,13 @@ export const Students: React.FC = () => {
                     <CheckCircle className="w-4 h-4"/> Acesso Ativo
                   </span>
                ) : (
-                  !isInstructor && (
-                    <button 
-                        onClick={() => openAccessModal(selectedStudent)}
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-2 hover:underline"
-                        disabled={!selectedStudent.email}
-                    >
-                        <Key className="w-4 h-4"/> {selectedStudent.email ? 'Criar Acesso ao Portal' : 'Adicione um email para criar acesso'}
-                    </button>
-                  )
+                  <button 
+                      onClick={() => openAccessModal(selectedStudent)}
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-2 hover:underline"
+                      disabled={!selectedStudent.email}
+                  >
+                      <Key className="w-4 h-4"/> {selectedStudent.email ? 'Criar Acesso ao Portal' : 'Adicione um email para criar acesso'}
+                  </button>
                )}
             </div>
           </div>
@@ -282,13 +246,14 @@ export const Students: React.FC = () => {
           )}
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              Alunos {isInstructor && <span className="text-xs font-normal bg-brand-100 text-brand-700 px-2 py-1 rounded-full ml-2 flex items-center gap-1"><Building2 className="w-3 h-3"/> Studio</span>}
+              {isInstructor ? 'Alunos do Studio' : 'Alunos'} 
+              {isInstructor && <span className="text-xs font-normal bg-brand-100 text-brand-700 px-2 py-1 rounded-full ml-2 flex items-center gap-1"><Building2 className="w-3 h-3"/> Base Completa</span>}
             </h1>
             <p className="text-slate-500 dark:text-slate-400">Gerencie o cadastro e histórico dos seus alunos</p>
           </div>
         </div>
         
-        {!showForm && !isInstructor && (
+        {!showForm && (
           <Button onClick={() => setShowForm(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Novo Aluno
@@ -296,7 +261,7 @@ export const Students: React.FC = () => {
         )}
       </div>
 
-      {showForm && !isInstructor && (
+      {showForm && (
         <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-top-4 relative">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-slate-800 dark:text-white">
@@ -372,6 +337,7 @@ export const Students: React.FC = () => {
           <div className="p-12 text-center text-slate-500">
             <Users className="h-12 w-12 mx-auto text-slate-300 mb-3" />
             <p>Nenhum aluno encontrado.</p>
+            {isInstructor && <p className="text-xs mt-2 text-slate-400">Os alunos do proprietário aparecerão aqui.</p>}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -393,11 +359,9 @@ export const Students: React.FC = () => {
                        {student.authUserId ? (
                          <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">Ativo</span>
                        ) : (
-                         !isInstructor ? (
-                           <button onClick={() => openAccessModal(student)} className="text-xs text-blue-600 hover:underline flex items-center justify-center gap-1 mx-auto">
-                             <Key className="w-3 h-3"/> Criar Acesso
-                           </button>
-                         ) : <span className="text-xs text-slate-400">-</span>
+                         <button onClick={() => openAccessModal(student)} className="text-xs text-blue-600 hover:underline flex items-center justify-center gap-1 mx-auto">
+                           <Key className="w-3 h-3"/> Criar Acesso
+                         </button>
                        )}
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -405,11 +369,15 @@ export const Students: React.FC = () => {
                         <button onClick={() => handleViewDetails(student)} className="text-brand-600 hover:text-brand-800 font-medium text-xs border border-brand-200 px-3 py-1 rounded hover:bg-brand-50 transition-colors">
                           Ver Detalhes
                         </button>
+                        
+                        <button onClick={() => handleEdit(student)} className="text-slate-400 hover:text-brand-600 p-1" title="Editar">
+                            <Pencil className="h-4 w-4" />
+                        </button>
+                        
                         {!isInstructor && (
-                          <>
-                            <button onClick={() => handleEdit(student)} className="text-slate-400 hover:text-brand-600 p-1"><Pencil className="h-4 w-4" /></button>
-                            <button onClick={() => handleDelete(student.id)} className="text-slate-400 hover:text-red-600 p-1"><Trash2 className="h-4 w-4" /></button>
-                          </>
+                            <button onClick={() => handleDelete(student.id)} className="text-slate-400 hover:text-red-600 p-1" title="Excluir">
+                                <Trash2 className="h-4 w-4" />
+                            </button>
                         )}
                       </div>
                     </td>
