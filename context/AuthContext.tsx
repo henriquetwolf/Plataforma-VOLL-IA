@@ -36,6 +36,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 1. Verifica ALUNO (Prioridade)
       const student = await getStudentProfile(sessionUser.id);
       if (student) {
+        // --- NOVO: VERIFICAÇÃO EM CASCATA ---
+        // Verifica se o Studio (Dono) está ativo. Se não, bloqueia o aluno.
+        if (student.user_id) {
+            const studioProfile = await fetchProfile(student.user_id);
+            if (studioProfile && studioProfile.isActive === false) {
+                console.warn("Acesso negado: O Studio deste aluno está desativado.");
+                await supabase.auth.signOut();
+                setState({ user: null, isAuthenticated: false, isLoading: false });
+                return null;
+            }
+        }
+        // ------------------------------------
+
         const userObj: User = {
           id: sessionUser.id,
           dbId: student.id, 
@@ -67,6 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (instructor || isInstructorMeta) {
         const active = instructor ? instructor.active : true;
         
+        // Verifica status individual do instrutor
         if (active === false) {
            console.warn("Acesso negado: Instrutor inativo.");
            await supabase.auth.signOut();
@@ -82,6 +96,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
            return null;
         }
 
+        // --- NOVO: VERIFICAÇÃO EM CASCATA ---
+        // Verifica se o Studio (Dono) está ativo. Se não, bloqueia o instrutor.
+        const parentStudioId = instructor?.studio_user_id || sessionUser.user_metadata?.studio_id;
+        if (parentStudioId) {
+            const studioProfile = await fetchProfile(parentStudioId);
+            if (studioProfile && studioProfile.isActive === false) {
+                console.warn("Acesso negado: O Studio deste instrutor está desativado.");
+                await supabase.auth.signOut();
+                setState({ user: null, isAuthenticated: false, isLoading: false });
+                return null;
+            }
+        }
+        // ------------------------------------
+
         const userObj: User = {
           id: sessionUser.id,
           dbId: instructor?.id, 
@@ -92,13 +120,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isInstructor: true, 
           isOwner: false,
           isStudent: false,
-          studioId: instructor?.studio_user_id || sessionUser.user_metadata?.studio_id
+          studioId: parentStudioId
         };
         setState({ user: userObj, isAuthenticated: true, isLoading: false });
         return userObj;
       }
 
-      // 3. Verifica DONO
+      // 3. Verifica DONO (STUDIO)
       const profile = await fetchProfile(sessionUser.id);
       
       // SEGURANÇA CRÍTICA: Se não achou perfil de dono, mas o usuário tem role de 'student' ou 'instructor'
@@ -110,6 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return null;
       }
 
+      // BLOQUEIO DO STUDIO
       if (profile && profile.isActive === false) {
           console.warn("Acesso negado: Studio inativo.");
           await supabase.auth.signOut();
@@ -176,8 +205,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.session?.user) {
         const loadedUser = await loadUser(data.session.user);
         if (!loadedUser) {
-            // Se loadUser retornou null, significa que foi bloqueado por segurança
-            return { success: false, error: 'Acesso negado. Conta desativada ou perfil não encontrado.' };
+            // Se loadUser retornou null, significa que foi bloqueado por segurança (Studio Inativo)
+            return { success: false, error: 'Acesso negado. Conta desativada ou Studio suspenso.' };
         }
         return { success: true, user: loadedUser };
       }
