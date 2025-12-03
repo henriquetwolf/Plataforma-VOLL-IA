@@ -279,6 +279,7 @@ export const SurveyManager: React.FC = () => {
                         <thead className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-xs font-bold">
                             <tr>
                                 <th className="p-4">Título</th>
+                                <th className="p-4">Data</th>
                                 <th className="p-4">Público</th>
                                 <th className="p-4 text-center">Respostas</th>
                                 <th className="p-4 text-center">Status</th>
@@ -287,11 +288,12 @@ export const SurveyManager: React.FC = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {surveys.length === 0 ? (
-                                <tr><td colSpan={5} className="p-8 text-center text-slate-500">Nenhuma pesquisa criada.</td></tr>
+                                <tr><td colSpan={6} className="p-8 text-center text-slate-500">Nenhuma pesquisa criada.</td></tr>
                             ) : (
                                 surveys.map(s => (
                                     <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                                         <td className="p-4 font-medium">{s.title}</td>
+                                        <td className="p-4 text-slate-500">{new Date(s.createdAt).toLocaleDateString()}</td>
                                         <td className="p-4 capitalize text-slate-500">
                                             {s.targetAudience === 'students' ? 'Alunos' : s.targetAudience === 'instructors' ? 'Instrutores' : 'Todos'}
                                         </td>
