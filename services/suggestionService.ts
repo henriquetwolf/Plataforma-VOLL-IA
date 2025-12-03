@@ -59,6 +59,36 @@ export const fetchSuggestionsByStudio = async (studioId: string): Promise<Sugges
   }
 };
 
+export const fetchAllSuggestions = async (): Promise<(Suggestion & { studioName?: string })[]> => {
+  try {
+    // Simplificado: Busca apenas as sugestões sem JOIN para evitar erros de relacionamento (FK).
+    // O nome do estúdio será mapeado no frontend (AdminPanel) usando a lista de perfis carregada.
+    const { data, error } = await supabase
+      .from('suggestions')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching all suggestions:', error.message);
+      return [];
+    }
+
+    return data.map((item: any) => ({
+      id: item.id,
+      studioId: item.studio_id,
+      studentId: item.student_id,
+      studentName: item.student_name,
+      content: item.content,
+      isRead: item.is_read,
+      createdAt: item.created_at,
+      studioName: 'Carregando...' // Placeholder, será preenchido no AdminPanel
+    }));
+  } catch (err: any) {
+    console.error('Unexpected error fetching suggestions:', err.message || err);
+    return [];
+  }
+};
+
 // --- PLANOS DE AÇÃO ---
 
 export const saveSuggestionActionPlan = async (

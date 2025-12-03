@@ -2,10 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchSuggestionsByStudio, saveSuggestionActionPlan, fetchSuggestionActionPlans, deleteSuggestionActionPlan } from '../services/suggestionService';
-import { generateActionPlanFromSuggestions } from '../services/geminiService';
+import { generateActionPlanFromSuggestions, generateSuggestionTrends } from '../services/geminiService';
 import { Suggestion, SuggestionActionPlan } from '../types';
 import { Button } from '../components/ui/Button';
-import { MessageSquare, CheckSquare, Sparkles, FileText, Download, Save, Trash2, ChevronRight, Loader2 } from 'lucide-react';
+import { MessageSquare, CheckSquare, Sparkles, FileText, Download, Save, Trash2, ChevronRight, Loader2, Calendar, Filter, X } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -19,6 +19,14 @@ export const StudioSuggestions: React.FC = () => {
   const [ownerObservations, setOwnerObservations] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<string | null>(null); // Conteúdo HTML gerado
+  
+  // Analysis Report State
+  const [analysisReport, setAnalysisReport] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // Filters State
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
 
   // Plans State
   const [savedPlans, setSavedPlans] = useState<SuggestionActionPlan[]>([]);
@@ -51,6 +59,21 @@ export const StudioSuggestions: React.FC = () => {
     setSelectedIds(newSet);
   };
 
+  // Filter Logic
+  const filteredSuggestions = suggestions.filter(s => {
+    if (filterStartDate) {
+      const start = new Date(filterStartDate);
+      start.setHours(0,0,0,0);
+      if (new Date(s.createdAt) < start) return false;
+    }
+    if (filterEndDate) {
+      const end = new Date(filterEndDate);
+      end.setHours(23,59,59,999);
+      if (new Date(s.createdAt) > end) return false;
+    }
+    return true;
+  });
+
   const handleGeneratePlan = async () => {
     if (selectedIds.size === 0) {
       alert("Selecione pelo menos uma sugestão.");
@@ -67,6 +90,23 @@ export const StudioSuggestions: React.FC = () => {
       alert("Erro ao gerar plano. Tente novamente.");
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleGenerateAnalysis = async () => {
+    if (filteredSuggestions.length === 0) {
+      alert("Nenhuma sugestão encontrada com os filtros atuais.");
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      const reportHtml = await generateSuggestionTrends(filteredSuggestions);
+      setAnalysisReport(reportHtml);
+    } catch (e) {
+      alert("Erro ao gerar análise. Tente novamente.");
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -159,15 +199,50 @@ export const StudioSuggestions: React.FC = () => {
       {activeTab === 'inbox' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
+            
+            {/* Filters */}
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-3 items-center">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+                    <Filter className="w-4 h-4"/> Filtros:
+                </div>
+                <div className="flex items-center gap-2 flex-1 w-full">
+                    <input 
+                        type="date" 
+                        value={filterStartDate} 
+                        onChange={e => setFilterStartDate(e.target.value)}
+                        className="p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-sm flex-1"
+                        placeholder="Início"
+                    />
+                    <span className="text-slate-400">-</span>
+                    <input 
+                        type="date" 
+                        value={filterEndDate} 
+                        onChange={e => setFilterEndDate(e.target.value)}
+                        className="p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-sm flex-1"
+                        placeholder="Fim"
+                    />
+                </div>
+                <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => { setFilterStartDate(''); setFilterEndDate(''); }}>
+                        Limpar
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={handleGenerateAnalysis} isLoading={isAnalyzing} disabled={filteredSuggestions.length === 0}>
+                        <FileText className="w-4 h-4 mr-2" /> Analisar Lista ({filteredSuggestions.length})
+                    </Button>
+                </div>
+            </div>
+
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
               <div className="p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 font-bold text-sm text-slate-700 dark:text-slate-300">
                 Sugestões Recentes
               </div>
-              {suggestions.length === 0 ? (
-                <div className="p-12 text-center text-slate-500">Nenhuma sugestão recebida ainda.</div>
+              {filteredSuggestions.length === 0 ? (
+                <div className="p-12 text-center text-slate-500">
+                    {suggestions.length > 0 ? "Nenhuma sugestão encontrada com estes filtros." : "Nenhuma sugestão recebida ainda."}
+                </div>
               ) : (
-                <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {suggestions.map(s => (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[600px] overflow-y-auto">
+                  {filteredSuggestions.map(s => (
                     <div key={s.id} className={`p-4 flex gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer ${selectedIds.has(s.id) ? 'bg-brand-50/50 dark:bg-brand-900/10' : ''}`} onClick={() => toggleSelection(s.id)}>
                       <div className="pt-1">
                         <input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleSelection(s.id)} className="w-5 h-5 rounded text-brand-600 focus:ring-brand-500 cursor-pointer" />
@@ -212,6 +287,7 @@ export const StudioSuggestions: React.FC = () => {
         </div>
       )}
 
+      {/* Action Plan Modal */}
       {currentPlan && activeTab === 'inbox' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
@@ -224,7 +300,7 @@ export const StudioSuggestions: React.FC = () => {
                   <Button size="sm" onClick={handleSavePlan}>
                     <Save className="w-4 h-4 mr-2"/> Salvar
                   </Button>
-                  <button onClick={() => setCurrentPlan(null)} className="p-2 hover:bg-slate-200 rounded-lg"><Trash2 className="w-4 h-4"/></button>
+                  <button onClick={() => setCurrentPlan(null)} className="p-2 hover:bg-slate-200 rounded-lg"><X className="w-4 h-4"/></button>
                </div>
              </div>
              <div className="overflow-y-auto p-8 bg-slate-100 dark:bg-slate-900">
@@ -234,6 +310,35 @@ export const StudioSuggestions: React.FC = () => {
                       <p className="text-slate-500 mt-2">Baseado em {selectedIds.size} sugestões dos alunos.</p>
                    </div>
                    <div dangerouslySetInnerHTML={{ __html: currentPlan }} className="prose prose-slate max-w-none" />
+                </div>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detailed Analysis Modal */}
+      {analysisReport && activeTab === 'inbox' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+             <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
+               <h3 className="font-bold text-lg flex items-center gap-2">
+                   <FileText className="w-5 h-5 text-purple-600" /> Relatório de Tendências
+               </h3>
+               <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => downloadPDF('analysis-report-content', 'Relatorio_Sugestoes')}>
+                    <Download className="w-4 h-4 mr-2"/> PDF
+                  </Button>
+                  <button onClick={() => setAnalysisReport(null)} className="p-2 hover:bg-slate-200 rounded-lg"><X className="w-4 h-4"/></button>
+               </div>
+             </div>
+             <div className="overflow-y-auto p-8 bg-slate-100 dark:bg-slate-900">
+                <div id="analysis-report-content" className="bg-white p-12 shadow-lg max-w-3xl mx-auto min-h-[600px] text-slate-800">
+                   <div className="border-b-2 border-purple-500 pb-4 mb-6">
+                      <h1 className="text-3xl font-bold text-slate-900">Análise de Feedback</h1>
+                      <p className="text-slate-500 mt-2">Baseado em {filteredSuggestions.length} sugestões filtradas.</p>
+                      <p className="text-xs text-slate-400 mt-1">Período: {filterStartDate || 'Início'} até {filterEndDate || 'Hoje'}</p>
+                   </div>
+                   <div dangerouslySetInnerHTML={{ __html: analysisReport }} className="prose prose-slate max-w-none" />
                 </div>
              </div>
           </div>

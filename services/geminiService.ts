@@ -363,6 +363,37 @@ export const generateActionPlanFromSuggestions = async (suggestions: Suggestion[
     return response.text || '';
 };
 
+// New function for detailed analysis
+export const generateSuggestionTrends = async (suggestions: (Suggestion & { studioName?: string })[]): Promise<string> => {
+    // Adiciona o nome do studio ao texto se disponível
+    const suggestionsText = suggestions.map(s => {
+      const studioInfo = s.studioName ? `[Studio: ${s.studioName}]` : '';
+      return `- "${s.content}" ${studioInfo} (${new Date(s.createdAt).toLocaleDateString()})`;
+    }).join('\n');
+
+    const prompt = `
+    Atue como um Consultor de Experiência do Cliente para Redes de Pilates.
+    Analise esta lista de sugestões enviadas pelos alunos (possivelmente de múltiplos studios):
+    
+    ${suggestionsText}
+    
+    Gere um relatório analítico executivo em HTML (sem tags html/body) contendo:
+    1. **Visão Geral**: Resumo dos principais tópicos abordados globalmente.
+    2. **Análise por Categoria**: Agrupe por Infraestrutura, Aulas, Atendimento, etc.
+    3. **Tendências e Padrões**: Identifique problemas recorrentes (ex: ar condicionado, horários). Se houver dados de múltiplos studios, destaque se um problema é geral ou específico de um local.
+    4. **Top Prioridades**: O que deve ser resolvido com urgência.
+    5. **Oportunidades de Inovação**: Ideias criativas dadas pelos alunos.
+    
+    Seja objetivo, profissional e foque na melhoria da retenção de alunos.
+    `;
+    
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+    });
+    return response.text || '';
+};
+
 // --- Newsletter ---
 
 export const generateNewsletter = async (senderName: string, audience: NewsletterAudience, topic: string, style: string): Promise<{ title: string; content: string } | null> => {

@@ -1,15 +1,18 @@
 
-
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchAllProfiles, toggleUserStatus, adminResetPassword, upsertProfile, fetchSubscriptionPlans, updateSubscriptionPlan } from '../services/storage';
 import { fetchInstructors, toggleInstructorStatus } from '../services/instructorService';
 import { fetchStudents, revokeStudentAccess } from '../services/studentService';
 import { uploadBannerImage, upsertBanner, fetchBannerByType, deleteBanner } from '../services/bannerService';
+import { fetchAllSuggestions } from '../services/suggestionService';
+import { generateSuggestionTrends } from '../services/geminiService';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2 } from 'lucide-react';
-import { SubscriptionPlan, SystemBanner } from '../types';
+import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2, MessageSquare, Sparkles, FileText, Download } from 'lucide-react';
+import { SubscriptionPlan, SystemBanner, Suggestion } from '../types';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
 
@@ -32,7 +35,7 @@ export const AdminPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'owner' | 'instructor' | 'student'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'owner' | 'instructor' | 'student' | 'suggestions'>('all');
   
   // Controle de estado para ação de toggle (loading por item)
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -61,6 +64,13 @@ export const AdminPanel: React.FC = () => {
   const [studioBannerLink, setStudioBannerLink] = useState('');
   const [instructorBannerLink, setInstructorBannerLink] = useState('');
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+
+  // Global Suggestions
+  const [allSuggestions, setAllSuggestions] = useState<(Suggestion & { studioName?: string })[]>([]);
+  const [suggestionStartDate, setSuggestionStartDate] = useState('');
+  const [suggestionEndDate, setSuggestionEndDate] = useState('');
+  const [isAnalyzingSuggestions, setIsAnalyzingSuggestions] = useState(false);
+  const [analysisReport, setAnalysisReport] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -120,6 +130,20 @@ export const AdminPanel: React.FC = () => {
       });
 
       setAllUsers(usersList);
+
+      // 4. Fetch All Suggestions & Map Studio Names manually
+      const suggestionsData = await fetchAllSuggestions();
+      
+      const suggestionsWithNames = suggestionsData.map(s => {
+          // Find the owner/studio profile corresponding to the suggestion
+          const owner = usersList.find(u => u.role === 'owner' && u.targetId === s.studioId);
+          return {
+              ...s,
+              studioName: owner ? (owner.contextInfo || owner.name) : 'Studio Desconhecido'
+          };
+      });
+
+      setAllSuggestions(suggestionsWithNames);
 
     } catch (err: any) {
       console.error("Admin Load Error:", err);
@@ -309,6 +333,70 @@ export const AdminPanel: React.FC = () => {
       }
     } else {
       alert("Erro ao remover banner: " + result.error);
+    }
+  };
+
+  // --- GLOBAL SUGGESTIONS LOGIC ---
+  const getFilteredSuggestions = () => {
+    return allSuggestions.filter(s => {
+        if (suggestionStartDate) {
+            const start = new Date(suggestionStartDate);
+            start.setHours(0,0,0,0);
+            if (new Date(s.createdAt) < start) return false;
+        }
+        if (suggestionEndDate) {
+            const end = new Date(suggestionEndDate);
+            end.setHours(23,59,59,999);
+            if (new Date(s.createdAt) > end) return false;
+        }
+        return true;
+    });
+  };
+
+  const handleAnalyzeGlobalSuggestions = async () => {
+    const filtered = getFilteredSuggestions();
+    if (filtered.length === 0) {
+        alert("Nenhuma sugestão encontrada com os filtros atuais.");
+        return;
+    }
+
+    setIsAnalyzingSuggestions(true);
+    setAnalysisReport(null);
+    try {
+        // Envia para a IA
+        const report = await generateSuggestionTrends(filtered);
+        setAnalysisReport(report);
+    } catch (e) {
+        alert("Erro ao gerar análise.");
+    } finally {
+        setIsAnalyzingSuggestions(false);
+    }
+  };
+
+  const downloadReportPDF = async () => {
+    const element = document.getElementById('admin-analysis-report');
+    if (!element) return;
+    try {
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
+      pdf.save('Relatorio_Global_Sugestoes.pdf');
+    } catch (error) {
+      alert('Erro ao gerar PDF.');
     }
   };
 
@@ -520,9 +608,71 @@ select 'Plano 1', 50, 5 where not exists (select 1 from subscription_plans where
         >
           <GraduationCap className="h-4 w-4"/> Alunos ({allUsers.filter(u => u.role === 'student').length})
         </button>
+        <button 
+          onClick={() => setActiveTab('suggestions')} 
+          className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'suggestions' ? 'bg-white shadow text-yellow-600' : 'text-slate-500'}`}
+        >
+          <MessageSquare className="h-4 w-4"/> Sugestões Globais ({allSuggestions.length})
+        </button>
       </div>
 
-      {/* Filters & Table */}
+      {activeTab === 'suggestions' && (
+        <div className="space-y-6 animate-in fade-in">
+            {/* Suggestions Controls */}
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-4 items-center">
+                <div className="flex items-center gap-2 flex-1 w-full">
+                    <span className="text-sm font-bold text-slate-500">Filtrar Data:</span>
+                    <input type="date" value={suggestionStartDate} onChange={e => setSuggestionStartDate(e.target.value)} className="p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-sm"/>
+                    <span className="text-slate-400">-</span>
+                    <input type="date" value={suggestionEndDate} onChange={e => setSuggestionEndDate(e.target.value)} className="p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-sm"/>
+                    <Button size="sm" variant="outline" onClick={() => { setSuggestionStartDate(''); setSuggestionEndDate(''); }}>Limpar</Button>
+                </div>
+                <Button onClick={handleAnalyzeGlobalSuggestions} isLoading={isAnalyzingSuggestions} disabled={getFilteredSuggestions().length === 0} className="bg-purple-600 hover:bg-purple-700">
+                    <Sparkles className="w-4 h-4 mr-2"/> Analisar Tendências ({getFilteredSuggestions().length})
+                </Button>
+            </div>
+
+            {/* Analysis Result */}
+            {analysisReport && (
+                <div className="bg-white dark:bg-slate-900 p-8 rounded-xl border border-slate-200 dark:border-slate-800 shadow-lg relative animate-in slide-in-from-top-4">
+                    <div className="absolute top-4 right-4 flex gap-2">
+                        <Button size="sm" variant="outline" onClick={downloadReportPDF}><Download className="w-4 h-4 mr-2"/> PDF</Button>
+                        <button onClick={() => setAnalysisReport(null)} className="p-2 text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+                    </div>
+                    <div id="admin-analysis-report" className="prose prose-slate dark:prose-invert max-w-none">
+                        <div className="border-b pb-4 mb-4">
+                            <h2 className="text-2xl font-bold text-purple-700">Relatório de Feedback Global</h2>
+                            <p className="text-sm text-slate-500">Análise gerada por IA baseada em {getFilteredSuggestions().length} sugestões.</p>
+                        </div>
+                        <div dangerouslySetInnerHTML={{ __html: analysisReport }} />
+                    </div>
+                </div>
+            )}
+
+            {/* List */}
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                <div className="max-h-[600px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                    {getFilteredSuggestions().length === 0 ? (
+                        <p className="p-12 text-center text-slate-500">Nenhuma sugestão encontrada.</p>
+                    ) : (
+                        getFilteredSuggestions().map(s => (
+                            <div key={s.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                <div className="flex justify-between items-start mb-1">
+                                    <h4 className="font-bold text-slate-800 dark:text-white text-sm">{s.studioName || 'Studio Desconhecido'}</h4>
+                                    <span className="text-xs text-slate-400">{new Date(s.createdAt).toLocaleDateString()}</span>
+                                </div>
+                                <p className="text-sm text-slate-600 dark:text-slate-300 italic">"{s.content}"</p>
+                                <p className="text-xs text-slate-400 mt-2 flex items-center gap-1"><GraduationCap className="w-3 h-3"/> {s.studentName}</p>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* Filters & Table (Original Users List) */}
+      {activeTab !== 'suggestions' && (
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
           <div className="relative max-w-md">
@@ -633,6 +783,7 @@ select 'Plano 1', 50, 5 where not exists (select 1 from subscription_plans where
           </div>
         )}
       </div>
+      )}
 
       {/* Password Reset Modal */}
       {resetModalUser && (
