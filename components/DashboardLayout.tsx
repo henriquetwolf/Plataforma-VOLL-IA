@@ -1,5 +1,3 @@
-
-
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -119,6 +117,15 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
   const isStudent = user?.isStudent;
   const isOwner = user?.isOwner;
 
+  // Função auxiliar para garantir link absoluto
+  const getSafeLink = (url?: string) => {
+    if (!url) return '#';
+    // Se já começa com http ou https, retorna como está
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    // Caso contrário, assume que é https
+    return `https://${url}`;
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex transition-colors duration-300">
       <aside className="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 hidden md:flex flex-col fixed h-full z-10 transition-colors duration-300">
@@ -134,9 +141,10 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
           {promoBanner && (
             <div className="mb-6 px-1">
               <a 
-                href={promoBanner.linkUrl || '#'} 
+                href={getSafeLink(promoBanner.linkUrl)} 
                 target="_blank" 
                 rel="noopener noreferrer"
+                onClick={(e) => { if(!promoBanner.linkUrl) e.preventDefault(); }}
                 className={`block rounded-lg overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm transition-transform hover:scale-[1.02] ${!promoBanner.linkUrl ? 'cursor-default pointer-events-none' : ''}`}
               >
                 <img 
