@@ -5,7 +5,7 @@ import { Instructor } from '../types';
 import { fetchInstructors, createInstructorWithAuth, updateInstructor, deleteInstructor, toggleInstructorStatus, uploadInstructorPhoto } from '../services/instructorService';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Plus, Trash2, Search, Phone, Mail, Pencil, X, BookUser, MapPin, CheckCircle, Ban, Share2, Award, Camera, Loader2, Filter, MoreVertical } from 'lucide-react';
+import { Plus, Trash2, Search, Phone, Mail, Pencil, X, BookUser, MapPin, CheckCircle, Ban, Share2, Award, Camera, Loader2, Filter, MoreVertical, LayoutGrid, List } from 'lucide-react';
 
 export const Instructors: React.FC = () => {
   const { user } = useAuth();
@@ -14,9 +14,10 @@ export const Instructors: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   
-  // Filtros
+  // Filtros e View Mode
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -373,9 +374,27 @@ export const Instructors: React.FC = () => {
                         <option value="inactive">Inativos</option>
                     </select>
                 </div>
+
+                {/* Toggle View Mode */}
+                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                    <button 
+                        onClick={() => setViewMode('grid')}
+                        className={`p-1.5 rounded transition-colors ${viewMode === 'grid' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-brand-400' : 'text-slate-500'}`}
+                        title="Grade"
+                    >
+                        <LayoutGrid className="w-4 h-4" />
+                    </button>
+                    <button 
+                        onClick={() => setViewMode('list')}
+                        className={`p-1.5 rounded transition-colors ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-brand-400' : 'text-slate-500'}`}
+                        title="Lista"
+                    >
+                        <List className="w-4 h-4" />
+                    </button>
+                </div>
             </div>
 
-            {/* Cards Grid */}
+            {/* List/Grid Content */}
             {isLoading ? (
                 <div className="p-12 flex justify-center"><Loader2 className="animate-spin h-8 w-8 text-brand-600"/></div>
             ) : filtered.length === 0 ? (
@@ -384,89 +403,176 @@ export const Instructors: React.FC = () => {
                     <p>Nenhum instrutor encontrado com os filtros atuais.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filtered.map((inst) => (
-                        <div key={inst.id} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden hover:shadow-md transition-all flex flex-col group relative">
-                            {/* Card Header */}
-                            <div className="p-5 flex items-start gap-4 border-b border-slate-100 dark:border-slate-800">
-                                <div className="flex-shrink-0">
-                                    {inst.photoUrl ? (
-                                        <img src={inst.photoUrl} alt={inst.name} className="w-16 h-16 rounded-full object-cover border-2 border-slate-100 dark:border-slate-700 shadow-sm" />
-                                    ) : (
-                                        <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 font-bold text-xl border-2 border-slate-200 dark:border-slate-700">
-                                            {inst.name.charAt(0)}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate" title={inst.name}>{inst.name}</h3>
-                                    <div className="flex flex-col gap-1 mt-1">
-                                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider w-fit px-2 py-0.5 rounded-full ${inst.active ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
-                                            {inst.active ? <><CheckCircle className="w-3 h-3"/> Ativo</> : <><Ban className="w-3 h-3"/> Inativo</>}
-                                        </span>
-                                        {inst.city && (
-                                            <span className="text-xs text-slate-500 flex items-center gap-1 truncate">
-                                                <MapPin className="w-3 h-3"/> {inst.city}, {inst.state}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Card Body */}
-                            <div className="p-5 flex-1 flex flex-col gap-4">
-                                <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
-                                    <div className="flex items-center gap-2">
-                                        <Mail className="w-4 h-4 text-brand-500"/> <span className="truncate">{inst.email}</span>
-                                    </div>
-                                    {inst.phone && (
-                                        <div className="flex items-center gap-2">
-                                            <Phone className="w-4 h-4 text-brand-500"/> <span>{inst.phone}</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {inst.certifications && inst.certifications.length > 0 && (
-                                    <div className="mt-2">
-                                        <p className="text-xs font-bold text-slate-400 uppercase mb-2">Especialidades</p>
-                                        <div className="flex flex-wrap gap-1">
-                                            {inst.certifications.slice(0, 3).map((cert, idx) => (
-                                                <span key={idx} className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-1 rounded border border-slate-200 dark:border-slate-700 truncate max-w-[150px]">
-                                                    {cert}
-                                                </span>
-                                            ))}
-                                            {inst.certifications.length > 3 && (
-                                                <span className="text-[10px] bg-slate-50 text-slate-400 px-2 py-1 rounded">+{inst.certifications.length - 3}</span>
+                <>
+                    {/* GRID VIEW (CARDS) */}
+                    {viewMode === 'grid' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {filtered.map((inst) => (
+                                <div key={inst.id} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden hover:shadow-md transition-all flex flex-col group relative">
+                                    {/* Card Header */}
+                                    <div className="p-5 flex items-start gap-4 border-b border-slate-100 dark:border-slate-800">
+                                        <div className="flex-shrink-0">
+                                            {inst.photoUrl ? (
+                                                <img src={inst.photoUrl} alt={inst.name} className="w-16 h-16 rounded-full object-cover border-2 border-slate-100 dark:border-slate-700 shadow-sm" />
+                                            ) : (
+                                                <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 font-bold text-xl border-2 border-slate-200 dark:border-slate-700">
+                                                    {inst.name.charAt(0)}
+                                                </div>
                                             )}
                                         </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate" title={inst.name}>{inst.name}</h3>
+                                            <div className="flex flex-col gap-1 mt-1">
+                                                <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider w-fit px-2 py-0.5 rounded-full ${inst.active ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                                    {inst.active ? <><CheckCircle className="w-3 h-3"/> Ativo</> : <><Ban className="w-3 h-3"/> Inativo</>}
+                                                </span>
+                                                {inst.city && (
+                                                    <span className="text-xs text-slate-500 flex items-center gap-1 truncate">
+                                                        <MapPin className="w-3 h-3"/> {inst.city}, {inst.state}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                )}
-                            </div>
 
-                            {/* Card Footer Actions */}
-                            <div className="p-3 bg-slate-50 dark:bg-slate-950/50 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center gap-2">
-                                <button 
-                                    onClick={() => handleToggleStatus(inst.id, inst.active, inst.name)}
-                                    className={`flex-1 py-1.5 rounded text-xs font-bold transition-colors ${inst.active ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}
-                                >
-                                    {inst.active ? 'Bloquear' : 'Ativar'}
-                                </button>
-                                <div className="h-4 w-px bg-slate-200 dark:bg-slate-700"></div>
-                                <div className="flex gap-1">
-                                    <button onClick={() => shareInstructions(inst.email)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Compartilhar Acesso">
-                                        <Share2 className="w-4 h-4"/>
-                                    </button>
-                                    <button onClick={() => handleEdit(inst)} className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="Editar">
-                                        <Pencil className="w-4 h-4"/>
-                                    </button>
-                                    <button onClick={() => handleDelete(inst.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir">
-                                        <Trash2 className="w-4 h-4"/>
-                                    </button>
+                                    {/* Card Body */}
+                                    <div className="p-5 flex-1 flex flex-col gap-4">
+                                        <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
+                                            <div className="flex items-center gap-2">
+                                                <Mail className="w-4 h-4 text-brand-500"/> <span className="truncate">{inst.email}</span>
+                                            </div>
+                                            {inst.phone && (
+                                                <div className="flex items-center gap-2">
+                                                    <Phone className="w-4 h-4 text-brand-500"/> <span>{inst.phone}</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {inst.certifications && inst.certifications.length > 0 && (
+                                            <div className="mt-2">
+                                                <p className="text-xs font-bold text-slate-400 uppercase mb-2">Especialidades</p>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {inst.certifications.slice(0, 3).map((cert, idx) => (
+                                                        <span key={idx} className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-1 rounded border border-slate-200 dark:border-slate-700 truncate max-w-[150px]">
+                                                            {cert}
+                                                        </span>
+                                                    ))}
+                                                    {inst.certifications.length > 3 && (
+                                                        <span className="text-[10px] bg-slate-50 text-slate-400 px-2 py-1 rounded">+{inst.certifications.length - 3}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Card Footer Actions */}
+                                    <div className="p-3 bg-slate-50 dark:bg-slate-950/50 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center gap-2">
+                                        <button 
+                                            onClick={() => handleToggleStatus(inst.id, inst.active, inst.name)}
+                                            className={`flex-1 py-1.5 rounded text-xs font-bold transition-colors ${inst.active ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}
+                                        >
+                                            {inst.active ? 'Bloquear' : 'Ativar'}
+                                        </button>
+                                        <div className="h-4 w-px bg-slate-200 dark:bg-slate-700"></div>
+                                        <div className="flex gap-1">
+                                            <button onClick={() => shareInstructions(inst.email)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Compartilhar Acesso">
+                                                <Share2 className="w-4 h-4"/>
+                                            </button>
+                                            <button onClick={() => handleEdit(inst)} className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="Editar">
+                                                <Pencil className="w-4 h-4"/>
+                                            </button>
+                                            <button onClick={() => handleDelete(inst.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir">
+                                                <Trash2 className="w-4 h-4"/>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
+                    )}
+
+                    {/* LIST VIEW (TABLE) */}
+                    {viewMode === 'list' && (
+                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-xs font-bold">
+                                    <tr>
+                                        <th className="px-6 py-4">Instrutor</th>
+                                        <th className="px-6 py-4">Contato</th>
+                                        <th className="px-6 py-4">Localização</th>
+                                        <th className="px-6 py-4">Especialidades</th>
+                                        <th className="px-6 py-4 text-center">Status</th>
+                                        <th className="px-6 py-4 text-right">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {filtered.map(inst => (
+                                        <tr key={inst.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex-shrink-0 w-10 h-10">
+                                                        {inst.photoUrl ? (
+                                                            <img src={inst.photoUrl} alt={inst.name} className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-slate-700" />
+                                                        ) : (
+                                                            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 font-bold">
+                                                                {inst.name.charAt(0)}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="font-bold text-slate-900 dark:text-white">{inst.name}</div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="text-slate-600 dark:text-slate-300">{inst.email}</div>
+                                                {inst.phone && <div className="text-xs text-slate-500">{inst.phone}</div>}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {inst.city ? (
+                                                    <span className="text-slate-600 dark:text-slate-300">{inst.city}, {inst.state}</span>
+                                                ) : (
+                                                    <span className="text-slate-400">-</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                                    {inst.certifications?.slice(0, 2).map((cert, i) => (
+                                                        <span key={i} className="text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 truncate max-w-[100px]">{cert}</span>
+                                                    ))}
+                                                    {(inst.certifications?.length || 0) > 2 && <span className="text-[10px] text-slate-400">+{inst.certifications!.length - 2}</span>}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${inst.active ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                                    {inst.active ? 'Ativo' : 'Inativo'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button onClick={() => shareInstructions(inst.email)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Compartilhar Acesso">
+                                                        <Share2 className="w-4 h-4"/>
+                                                    </button>
+                                                    <button onClick={() => handleEdit(inst)} className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded transition-colors" title="Editar">
+                                                        <Pencil className="w-4 h-4"/>
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleToggleStatus(inst.id, inst.active, inst.name)} 
+                                                        className={`p-1.5 rounded transition-colors ${inst.active ? 'text-slate-400 hover:text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}
+                                                        title={inst.active ? "Bloquear" : "Ativar"}
+                                                    >
+                                                        {inst.active ? <Ban className="w-4 h-4"/> : <CheckCircle className="w-4 h-4"/>}
+                                                    </button>
+                                                    <button onClick={() => handleDelete(inst.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Excluir">
+                                                        <Trash2 className="w-4 h-4"/>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </>
             )}
         </>
       )}

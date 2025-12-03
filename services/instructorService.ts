@@ -35,7 +35,7 @@ export const fetchInstructors = async (studioId?: string): Promise<Instructor[]>
       query = query.eq('studio_user_id', studioId);
     }
 
-    // Alterado para ordenar por nome em ordem alfabética
+    // Ordenação Alfabética
     const { data, error } = await query.order('name', { ascending: true });
 
     if (error) {

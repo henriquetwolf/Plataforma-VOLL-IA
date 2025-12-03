@@ -3,12 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
-import { Student, AppRoute } from '../types';
+import { Student, AppRoute, StudentEvolution, ClassEvaluation, SavedRehabLesson } from '../types';
 import { fetchStudents, createStudentWithAutoAuth, updateStudent, deleteStudent, createStudentWithAuth, revokeStudentAccess, uploadStudentPhoto } from '../services/studentService';
 import { fetchRehabLessonsByStudent } from '../services/rehabService'; 
+import { fetchEvolutionsByStudent } from '../services/evolutionService';
+import { fetchStudentEvaluations } from '../services/evaluationService';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Users, Plus, Trash2, Search, Pencil, Activity, X, Key, CheckCircle, Home, Building2, ArrowLeft, AlertCircle, Ban, MapPin, Phone, User, Camera, Filter, Mail, Eye, Lock, Unlock } from 'lucide-react';
+import { Users, Plus, Trash2, Search, Pencil, Activity, X, Lock, Unlock, CheckCircle, Home, AlertCircle, Ban, MapPin, Phone, User, Camera, Filter, Mail, Eye, Calendar, TrendingUp, Star, ClipboardList, ChevronRight, FileText, LayoutGrid, List } from 'lucide-react';
 
 export const Students: React.FC = () => {
   const { user } = useAuth();
@@ -20,14 +22,21 @@ export const Students: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   
-  // Filtros
+  // Filtros e Visualização
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
+  // Estados de Detalhes
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [studentLessons, setStudentLessons] = useState<any[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [detailsTab, setDetailsTab] = useState<'profile' | 'rehab' | 'evolution' | 'ratings'>('profile');
+  
+  // Dados Carregados para Detalhes
+  const [studentLessons, setStudentLessons] = useState<SavedRehabLesson[]>([]);
+  const [studentEvolutions, setStudentEvolutions] = useState<StudentEvolution[]>([]);
+  const [studentRatings, setStudentRatings] = useState<ClassEvaluation[]>([]);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   
   // Modal de Acesso (Reativação)
   const [accessModalOpen, setAccessModalOpen] = useState(false);
@@ -144,10 +153,20 @@ export const Students: React.FC = () => {
 
   const handleViewDetails = async (student: Student) => {
     setSelectedStudent(student);
-    setLoadingHistory(true);
-    const lessons = await fetchRehabLessonsByStudent(student.id);
+    setDetailsTab('profile'); // Reset to profile tab
+    setLoadingDetails(true);
+    
+    // Fetch all related data in parallel
+    const [lessons, evolutions, ratings] = await Promise.all([
+        fetchRehabLessonsByStudent(student.id),
+        fetchEvolutionsByStudent(student.id),
+        fetchStudentEvaluations(student.id)
+    ]);
+
     setStudentLessons(lessons);
-    setLoadingHistory(false);
+    setStudentEvolutions(evolutions);
+    setStudentRatings(ratings);
+    setLoadingDetails(false);
   };
 
   const handleCancel = () => {
@@ -471,9 +490,27 @@ export const Students: React.FC = () => {
                         <option value="inactive">Sem Acesso</option>
                     </select>
                 </div>
+
+                {/* Toggle View Mode */}
+                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                    <button 
+                        onClick={() => setViewMode('grid')}
+                        className={`p-1.5 rounded transition-colors ${viewMode === 'grid' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-brand-400' : 'text-slate-500'}`}
+                        title="Grade"
+                    >
+                        <LayoutGrid className="w-4 h-4" />
+                    </button>
+                    <button 
+                        onClick={() => setViewMode('list')}
+                        className={`p-1.5 rounded transition-colors ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-brand-400' : 'text-slate-500'}`}
+                        title="Lista"
+                    >
+                        <List className="w-4 h-4" />
+                    </button>
+                </div>
             </div>
 
-            {/* Cards Grid */}
+            {/* List/Grid Content */}
             {isLoading ? (
                 <div className="p-12 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div></div>
             ) : filteredStudents.length === 0 ? (
@@ -482,92 +519,183 @@ export const Students: React.FC = () => {
                     <p>{t('no_students_found')}</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredStudents.map((student) => (
-                        <div key={student.id} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden hover:shadow-md transition-all flex flex-col group">
-                            {/* Card Header */}
-                            <div className="p-5 flex items-start gap-4 border-b border-slate-100 dark:border-slate-800">
-                                <div className="flex-shrink-0">
-                                    {student.photoUrl ? (
-                                        <img src={student.photoUrl} alt={student.name} className="w-16 h-16 rounded-full object-cover border-2 border-slate-100 dark:border-slate-700 shadow-sm" />
-                                    ) : (
-                                        <div className="w-16 h-16 rounded-full bg-brand-100 dark:bg-brand-900 text-brand-600 flex items-center justify-center font-bold text-xl border-2 border-brand-200 dark:border-brand-800">
-                                            {student.name.charAt(0)}
+                <>
+                    {/* VIEW GRID (CARDS) */}
+                    {viewMode === 'grid' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {filteredStudents.map((student) => (
+                                <div key={student.id} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden hover:shadow-md transition-all flex flex-col group">
+                                    {/* Card Header */}
+                                    <div className="p-5 flex items-start gap-4 border-b border-slate-100 dark:border-slate-800">
+                                        <div className="flex-shrink-0">
+                                            {student.photoUrl ? (
+                                                <img src={student.photoUrl} alt={student.name} className="w-16 h-16 rounded-full object-cover border-2 border-slate-100 dark:border-slate-700 shadow-sm" />
+                                            ) : (
+                                                <div className="w-16 h-16 rounded-full bg-brand-100 dark:bg-brand-900 text-brand-600 flex items-center justify-center font-bold text-xl border-2 border-brand-200 dark:border-brand-800">
+                                                    {student.name.charAt(0)}
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate" title={student.name}>{student.name}</h3>
-                                    <div className="mt-1">
-                                        {student.authUserId ? (
-                                            <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                                                <CheckCircle className="w-3 h-3"/> {t('active')}
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                                                <Ban className="w-3 h-3"/> {t('inactive')}
-                                            </span>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate" title={student.name}>{student.name}</h3>
+                                            <div className="mt-1">
+                                                {student.authUserId ? (
+                                                    <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                                        <CheckCircle className="w-3 h-3"/> {t('active')}
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                                        <Ban className="w-3 h-3"/> {t('inactive')}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Card Body */}
+                                    <div className="p-5 flex-1 flex flex-col gap-3">
+                                        <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
+                                            <div className="flex items-center gap-2">
+                                                <Mail className="w-4 h-4 text-brand-500"/> <span className="truncate">{student.email || '-'}</span>
+                                            </div>
+                                            {student.phone && (
+                                                <div className="flex items-center gap-2">
+                                                    <Phone className="w-4 h-4 text-brand-500"/> <span>{student.phone}</span>
+                                                </div>
+                                            )}
+                                            {student.city && (
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin className="w-4 h-4 text-brand-500"/> <span>{student.city}, {student.state}</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {student.goals && (
+                                            <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                                                <p className="text-xs font-bold text-slate-400 uppercase mb-1">Objetivos</p>
+                                                <p className="text-xs text-slate-500 italic line-clamp-2">"{student.goals}"</p>
+                                            </div>
                                         )}
                                     </div>
-                                </div>
-                            </div>
 
-                            {/* Card Body */}
-                            <div className="p-5 flex-1 flex flex-col gap-3">
-                                <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
-                                    <div className="flex items-center gap-2">
-                                        <Mail className="w-4 h-4 text-brand-500"/> <span className="truncate">{student.email || '-'}</span>
-                                    </div>
-                                    {student.phone && (
-                                        <div className="flex items-center gap-2">
-                                            <Phone className="w-4 h-4 text-brand-500"/> <span>{student.phone}</span>
-                                        </div>
-                                    )}
-                                    {student.city && (
-                                        <div className="flex items-center gap-2">
-                                            <MapPin className="w-4 h-4 text-brand-500"/> <span>{student.city}, {student.state}</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {student.goals && (
-                                    <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                                        <p className="text-xs font-bold text-slate-400 uppercase mb-1">Objetivos</p>
-                                        <p className="text-xs text-slate-500 italic line-clamp-2">"{student.goals}"</p>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Card Footer Actions */}
-                            <div className="p-3 bg-slate-50 dark:bg-slate-950/50 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center gap-2">
-                                <button 
-                                    onClick={() => handleToggleAccess(student)}
-                                    className={`flex-1 py-1.5 rounded text-xs font-bold transition-colors flex items-center justify-center gap-1 ${
-                                        student.authUserId 
-                                            ? 'text-red-600 hover:bg-red-50' 
-                                            : 'text-green-600 hover:bg-green-50'
-                                    }`}
-                                >
-                                    {student.authUserId ? <><Lock className="w-3 h-3"/> Bloquear</> : <><Unlock className="w-3 h-3"/> Liberar</>}
-                                </button>
-                                <div className="h-4 w-px bg-slate-200 dark:bg-slate-700"></div>
-                                <div className="flex gap-1">
-                                    <button onClick={() => handleViewDetails(student)} className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="Ver Detalhes">
-                                        <Eye className="w-4 h-4"/>
-                                    </button>
-                                    <button onClick={() => handleEdit(student)} className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="Editar">
-                                        <Pencil className="w-4 h-4"/>
-                                    </button>
-                                    {!isInstructor && (
-                                        <button onClick={() => handleDelete(student.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir">
-                                            <Trash2 className="w-4 h-4"/>
+                                    {/* Card Footer Actions */}
+                                    <div className="p-3 bg-slate-50 dark:bg-slate-950/50 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center gap-2">
+                                        <button 
+                                            onClick={() => handleToggleAccess(student)}
+                                            className={`flex-1 py-1.5 rounded text-xs font-bold transition-colors flex items-center justify-center gap-1 ${
+                                                student.authUserId 
+                                                    ? 'text-red-600 hover:bg-red-50' 
+                                                    : 'text-green-600 hover:bg-green-50'
+                                            }`}
+                                        >
+                                            {student.authUserId ? <><Lock className="w-3 h-3"/> Bloquear</> : <><Unlock className="w-3 h-3"/> Liberar</>}
                                         </button>
-                                    )}
+                                        <div className="h-4 w-px bg-slate-200 dark:bg-slate-700"></div>
+                                        <div className="flex gap-1">
+                                            <button onClick={() => handleViewDetails(student)} className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="Ver Detalhes">
+                                                <Eye className="w-4 h-4"/>
+                                            </button>
+                                            <button onClick={() => handleEdit(student)} className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="Editar">
+                                                <Pencil className="w-4 h-4"/>
+                                            </button>
+                                            {!isInstructor && (
+                                                <button onClick={() => handleDelete(student.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir">
+                                                    <Trash2 className="w-4 h-4"/>
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
+                    )}
+
+                    {/* VIEW LIST (TABLE) */}
+                    {viewMode === 'list' && (
+                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-xs font-bold">
+                                    <tr>
+                                        <th className="px-6 py-4">Aluno</th>
+                                        <th className="px-6 py-4">Contato</th>
+                                        <th className="px-6 py-4">Localização</th>
+                                        <th className="px-6 py-4 text-center">Status</th>
+                                        <th className="px-6 py-4 text-right">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {filteredStudents.map(student => (
+                                        <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex-shrink-0 w-10 h-10">
+                                                        {student.photoUrl ? (
+                                                            <img src={student.photoUrl} alt={student.name} className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-slate-700" />
+                                                        ) : (
+                                                            <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900 text-brand-600 flex items-center justify-center font-bold">
+                                                                {student.name.charAt(0)}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-bold text-slate-900 dark:text-white">{student.name}</div>
+                                                        {student.birthDate && <div className="text-xs text-slate-500">Nasc: {new Date(student.birthDate).toLocaleDateString()}</div>}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="text-slate-600 dark:text-slate-300 truncate max-w-[200px]" title={student.email}>{student.email || '-'}</div>
+                                                {student.phone && <div className="text-xs text-slate-500">{student.phone}</div>}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {student.city ? (
+                                                    <div className="text-slate-600 dark:text-slate-300">
+                                                        {student.city}, {student.state}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-slate-400">-</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                {student.authUserId ? (
+                                                    <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                                        <CheckCircle className="w-3 h-3"/> {t('active')}
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                                        <Ban className="w-3 h-3"/> {t('inactive')}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button onClick={() => handleViewDetails(student)} className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded transition-colors" title="Ver Detalhes">
+                                                        <Eye className="w-4 h-4"/>
+                                                    </button>
+                                                    <button onClick={() => handleEdit(student)} className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded transition-colors" title="Editar">
+                                                        <Pencil className="w-4 h-4"/>
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleToggleAccess(student)} 
+                                                        className={`p-1.5 rounded transition-colors ${student.authUserId ? 'text-green-600 hover:bg-green-50' : 'text-slate-400 hover:bg-slate-100'}`}
+                                                        title={student.authUserId ? "Bloquear Acesso" : "Liberar Acesso"}
+                                                    >
+                                                        {student.authUserId ? <Lock className="w-4 h-4"/> : <Unlock className="w-4 h-4"/>}
+                                                    </button>
+                                                    {!isInstructor && (
+                                                        <button onClick={() => handleDelete(student.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Excluir">
+                                                            <Trash2 className="w-4 h-4"/>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </>
             )}
         </>
       )}
@@ -600,80 +728,275 @@ export const Students: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de Detalhes (Visualização Rápida) */}
+      {/* DETALHES DO ALUNO (MODAL ORGANIZADO) */}
       {selectedStudent && (
-        <div className="fixed inset-0 z-50 bg-white dark:bg-slate-950 overflow-y-auto animate-in slide-in-from-right">
-           <div className="max-w-4xl mx-auto p-6 space-y-6">
-              <div className="flex items-center gap-4 mb-6">
-                <Button variant="outline" onClick={() => setSelectedStudent(null)}>
-                  <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
-                </Button>
-                <div className="flex items-center gap-3">
-                    {selectedStudent.photoUrl ? (
-                        <img src={selectedStudent.photoUrl} alt={selectedStudent.name} className="w-12 h-12 rounded-full object-cover" />
-                    ) : (
-                        <div className="w-12 h-12 rounded-full bg-brand-100 dark:bg-brand-900 text-brand-600 flex items-center justify-center font-bold text-xl">
-                            {selectedStudent.name.charAt(0)}
-                        </div>
-                    )}
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedStudent.name}</h1>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+           <div className="bg-white dark:bg-slate-900 w-full max-w-5xl h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800">
+              
+              {/* Header */}
+              <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
+                <div className="flex items-center gap-4">
+                    <div className="relative">
+                        {selectedStudent.photoUrl ? (
+                            <img src={selectedStudent.photoUrl} alt={selectedStudent.name} className="w-16 h-16 rounded-full object-cover border-4 border-white dark:border-slate-800 shadow-md" />
+                        ) : (
+                            <div className="w-16 h-16 rounded-full bg-brand-100 dark:bg-brand-900 text-brand-600 flex items-center justify-center font-bold text-2xl border-4 border-white dark:border-slate-800 shadow-md">
+                                {selectedStudent.name.charAt(0)}
+                            </div>
+                        )}
+                        <span className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-white dark:border-slate-800 ${selectedStudent.authUserId ? 'bg-green-500' : 'bg-slate-400'}`}></span>
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedStudent.name}</h2>
+                        <p className="text-sm text-slate-500">{selectedStudent.email}</p>
+                    </div>
                 </div>
+                <button onClick={() => setSelectedStudent(null)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors">
+                    <X className="w-6 h-6 text-slate-500"/>
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
-                  <h3 className="font-bold border-b pb-2">{t('contact_label')} & Pessoal</h3>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                      <p className="text-slate-500">Email:</p> <p>{selectedStudent.email}</p>
-                      <p className="text-slate-500">Telefone:</p> <p>{selectedStudent.phone}</p>
-                      <p className="text-slate-500">CPF:</p> <p>{selectedStudent.cpf || '-'}</p>
-                      <p className="text-slate-500">Nascimento:</p> <p>{selectedStudent.birthDate ? new Date(selectedStudent.birthDate).toLocaleDateString() : '-'}</p>
-                  </div>
-                  
-                  <h3 className="font-bold border-b pb-2 mt-4">Endereço</h3>
-                  <p className="text-sm">{selectedStudent.address}</p>
-                  <p className="text-sm">{selectedStudent.city} - {selectedStudent.state}</p>
-                  <p className="text-sm">CEP: {selectedStudent.cep}</p>
+              {/* Tabs Nav */}
+              <div className="flex border-b border-slate-100 dark:border-slate-800 px-6 gap-6 bg-white dark:bg-slate-900">
+                  <button 
+                    onClick={() => setDetailsTab('profile')}
+                    className={`py-4 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${detailsTab === 'profile' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}
+                  >
+                    <User className="w-4 h-4"/> Perfil & Clínico
+                  </button>
+                  <button 
+                    onClick={() => setDetailsTab('rehab')}
+                    className={`py-4 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${detailsTab === 'rehab' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}
+                  >
+                    <Activity className="w-4 h-4"/> Histórico Aulas (Rehab)
+                  </button>
+                  <button 
+                    onClick={() => setDetailsTab('evolution')}
+                    className={`py-4 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${detailsTab === 'evolution' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}
+                  >
+                    <TrendingUp className="w-4 h-4"/> Evolução
+                  </button>
+                  <button 
+                    onClick={() => setDetailsTab('ratings')}
+                    className={`py-4 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${detailsTab === 'ratings' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}
+                  >
+                    <Star className="w-4 h-4"/> Avaliações
+                  </button>
+              </div>
 
-                  {selectedStudent.emergencyContactName && (
-                      <>
-                        <h3 className="font-bold border-b pb-2 mt-4 flex items-center gap-2"><AlertCircle className="w-4 h-4 text-red-500"/> Emergência</h3>
-                        <p className="text-sm"><strong>{selectedStudent.emergencyContactName}</strong></p>
-                        <p className="text-sm">{selectedStudent.emergencyContactPhone}</p>
-                      </>
-                  )}
-                </div>
-                
-                <div className="space-y-6">
-                    <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800">
-                        <h3 className="font-bold mb-4 flex items-center gap-2"><Activity className="w-5 h-5"/> Dados Clínicos</h3>
-                        <div className="space-y-3">
-                            <div>
-                                <p className="text-xs font-bold text-slate-500 uppercase">Objetivos</p>
-                                <p className="text-sm">{selectedStudent.goals || 'Não informado.'}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-bold text-slate-500 uppercase">Observações</p>
-                                <p className="text-sm italic">{selectedStudent.observations || 'Nenhuma observação registrada.'}</p>
-                            </div>
-                        </div>
+              {/* Content Area */}
+              <div className="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-slate-950">
+                {loadingDetails ? (
+                    <div className="h-full flex items-center justify-center text-slate-500">
+                        Carregando informações...
                     </div>
+                ) : (
+                    <>
+                        {/* TAB 1: PERFIL */}
+                        {detailsTab === 'profile' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in">
+                                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 h-fit">
+                                    <h3 className="font-bold border-b border-slate-100 dark:border-slate-800 pb-2 text-slate-800 dark:text-white flex items-center gap-2">
+                                        <Users className="w-4 h-4"/> Dados Pessoais
+                                    </h3>
+                                    <div className="space-y-3 text-sm">
+                                        <div className="flex justify-between"><span className="text-slate-500">CPF:</span> <span className="font-medium">{selectedStudent.cpf || '-'}</span></div>
+                                        <div className="flex justify-between"><span className="text-slate-500">Telefone:</span> <span className="font-medium">{selectedStudent.phone || '-'}</span></div>
+                                        <div className="flex justify-between"><span className="text-slate-500">Nascimento:</span> <span className="font-medium">{selectedStudent.birthDate ? new Date(selectedStudent.birthDate).toLocaleDateString() : '-'}</span></div>
+                                    </div>
 
-                    <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800">
-                        <h3 className="font-bold mb-4">Histórico de Aulas (Rehab)</h3>
-                        {loadingHistory ? <p>{t('loading')}</p> : (
-                            studentLessons.length > 0 ? (
-                                <ul className="space-y-2 text-sm">
-                                {studentLessons.map(l => (
-                                    <li key={l.id} className="p-2 border rounded bg-slate-50 dark:bg-slate-800">
-                                        <strong>{l.pathologyName}</strong> - {new Date(l.createdAt).toLocaleDateString()}
-                                    </li>
-                                ))}
-                                </ul>
-                            ) : <p className="text-slate-500 text-sm">Nenhum plano salvo.</p>
+                                    <h3 className="font-bold border-b border-slate-100 dark:border-slate-800 pb-2 mt-6 text-slate-800 dark:text-white flex items-center gap-2">
+                                        <MapPin className="w-4 h-4"/> Endereço
+                                    </h3>
+                                    <div className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
+                                        <p>{selectedStudent.address || 'Endereço não informado'}</p>
+                                        {selectedStudent.city && <p>{selectedStudent.city} - {selectedStudent.state}</p>}
+                                        {selectedStudent.cep && <p>CEP: {selectedStudent.cep}</p>}
+                                    </div>
+
+                                    {selectedStudent.emergencyContactName && (
+                                        <>
+                                            <h3 className="font-bold border-b border-slate-100 dark:border-slate-800 pb-2 mt-6 text-red-600 flex items-center gap-2">
+                                                <AlertCircle className="w-4 h-4"/> Emergência
+                                            </h3>
+                                            <div className="text-sm">
+                                                <p className="font-bold text-slate-800 dark:text-white">{selectedStudent.emergencyContactName}</p>
+                                                <p className="text-slate-500">{selectedStudent.emergencyContactPhone}</p>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+
+                                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 h-fit">
+                                    <h3 className="font-bold border-b border-slate-100 dark:border-slate-800 pb-2 text-slate-800 dark:text-white flex items-center gap-2">
+                                        <Activity className="w-4 h-4"/> Ficha Clínica
+                                    </h3>
+                                    
+                                    <div>
+                                        <p className="text-xs font-bold text-slate-500 uppercase mb-1">Objetivos</p>
+                                        <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm text-slate-700 dark:text-slate-300">
+                                            {selectedStudent.goals || 'Não informado.'}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <p className="text-xs font-bold text-slate-500 uppercase mb-1">Observações / Patologias</p>
+                                        <div className="p-3 bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-100 dark:border-yellow-800 rounded-lg text-sm text-yellow-800 dark:text-yellow-200">
+                                            {selectedStudent.observations || 'Nenhuma observação registrada.'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         )}
-                    </div>
-                </div>
+
+                        {/* TAB 2: REHAB */}
+                        {detailsTab === 'rehab' && (
+                            <div className="space-y-4 animate-in fade-in">
+                                {studentLessons.length === 0 ? (
+                                    <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+                                        <ClipboardList className="w-10 h-10 mx-auto mb-2 opacity-50"/>
+                                        <p>Nenhum plano de aula (Rehab) gerado ainda.</p>
+                                    </div>
+                                ) : (
+                                    studentLessons.map(lesson => (
+                                        <div key={lesson.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:border-brand-300 transition-all group">
+                                            <div className="flex justify-between items-start mb-3">
+                                                <div>
+                                                    <h4 className="font-bold text-lg text-brand-700 dark:text-brand-400">{lesson.pathologyName}</h4>
+                                                    <p className="text-xs text-slate-500 flex items-center gap-1">
+                                                        <Calendar className="w-3 h-3"/> {new Date(lesson.createdAt).toLocaleDateString()}
+                                                    </p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-slate-600 dark:text-slate-400 font-medium">
+                                                        {lesson.exercises?.length || 0} exercícios
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="space-y-2">
+                                                {lesson.exercises?.slice(0, 3).map((ex, idx) => (
+                                                    <div key={idx} className="text-sm flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                                                        <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-bold shrink-0">{idx+1}</span>
+                                                        <span className="truncate">{ex.name}</span>
+                                                        <span className="text-xs text-slate-400 ml-auto">{ex.apparatus}</span>
+                                                    </div>
+                                                ))}
+                                                {lesson.exercises?.length > 3 && (
+                                                    <p className="text-xs text-brand-600 font-medium pl-7">+ {lesson.exercises.length - 3} outros...</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+
+                        {/* TAB 3: EVOLUÇÃO */}
+                        {detailsTab === 'evolution' && (
+                            <div className="space-y-4 animate-in fade-in">
+                                {studentEvolutions.length === 0 ? (
+                                    <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+                                        <TrendingUp className="w-10 h-10 mx-auto mb-2 opacity-50"/>
+                                        <p>Nenhum registro de evolução encontrado.</p>
+                                    </div>
+                                ) : (
+                                    studentEvolutions.map(evo => (
+                                        <div key={evo.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-4">
+                                            <div className="md:w-48 shrink-0 border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800 pb-2 md:pb-0 md:pr-4 flex flex-col justify-center">
+                                                <span className="text-lg font-bold text-slate-800 dark:text-white block">{new Date(evo.date).toLocaleDateString()}</span>
+                                                <span className="text-xs text-slate-500 flex items-center gap-1"><User className="w-3 h-3"/> {evo.instructorName}</span>
+                                            </div>
+                                            
+                                            <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                                                <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded">
+                                                    <span className="text-xs text-slate-400 block uppercase">Estabilidade</span>
+                                                    <span className="font-medium">{evo.stability}</span>
+                                                </div>
+                                                <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded">
+                                                    <span className="text-xs text-slate-400 block uppercase">Mobilidade</span>
+                                                    <span className="font-medium">{evo.mobility}</span>
+                                                </div>
+                                                <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded">
+                                                    <span className="text-xs text-slate-400 block uppercase">Força</span>
+                                                    <span className="font-medium">{evo.strength}</span>
+                                                </div>
+                                                <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded">
+                                                    <span className="text-xs text-slate-400 block uppercase">Coordenação</span>
+                                                    <span className="font-medium">{evo.coordination}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="md:w-48 shrink-0 flex flex-col gap-1 justify-center">
+                                                {evo.pain && (
+                                                    <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded flex items-center gap-1 font-medium">
+                                                        <AlertCircle className="w-3 h-3"/> Dor: {evo.painLocation}
+                                                    </span>
+                                                )}
+                                                {evo.limitation && (
+                                                    <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded font-medium">
+                                                        Limitação: {evo.limitationDetails}
+                                                    </span>
+                                                )}
+                                                {!evo.pain && !evo.limitation && (
+                                                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded flex items-center gap-1 font-medium w-fit">
+                                                        <CheckCircle className="w-3 h-3"/> Tudo bem
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+
+                        {/* TAB 4: AVALIAÇÕES */}
+                        {detailsTab === 'ratings' && (
+                            <div className="space-y-4 animate-in fade-in">
+                                {studentRatings.length === 0 ? (
+                                    <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+                                        <Star className="w-10 h-10 mx-auto mb-2 opacity-50"/>
+                                        <p>Nenhuma avaliação de aula enviada pelo aluno.</p>
+                                    </div>
+                                ) : (
+                                    studentRatings.map(rating => (
+                                        <div key={rating.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div className="flex gap-1">
+                                                    {[1, 2, 3, 4, 5].map(star => (
+                                                        <Star key={star} className={`w-4 h-4 ${star <= rating.rating ? 'fill-yellow-400 text-yellow-400' : 'text-slate-200'}`} />
+                                                    ))}
+                                                </div>
+                                                <span className="text-xs text-slate-500">{new Date(rating.classDate).toLocaleDateString()}</span>
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-2 gap-4 text-sm mb-2">
+                                                <div><span className="text-slate-400 text-xs">Sensação:</span> <span className="font-medium text-slate-700 dark:text-slate-300">{rating.feeling}</span></div>
+                                                <div><span className="text-slate-400 text-xs">Ritmo:</span> <span className="font-medium text-slate-700 dark:text-slate-300">{rating.pace}</span></div>
+                                            </div>
+
+                                            {rating.discomfort && (
+                                                <div className="bg-red-50 dark:bg-red-900/10 p-2 rounded text-xs text-red-700 dark:text-red-300 mb-2 border border-red-100 dark:border-red-900/30">
+                                                    <strong>Desconforto:</strong> {rating.discomfort}
+                                                </div>
+                                            )}
+
+                                            {rating.suggestions && (
+                                                <div className="text-xs text-slate-500 italic border-t border-slate-100 dark:border-slate-800 pt-2">
+                                                    "{rating.suggestions}"
+                                                </div>
+                                            )}
+                                            
+                                            <div className="mt-2 text-xs text-slate-400 text-right">
+                                                Instrutor: {rating.instructorName}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+                    </>
+                )}
               </div>
            </div>
         </div>

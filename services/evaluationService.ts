@@ -38,7 +38,7 @@ import { ClassEvaluation, Instructor, SavedEvaluationAnalysis } from '../types';
     content text,
     evaluation_count int,
     date_range text,
-    created_at timestamptz DEFAULT now()
+    created_at timestamptz default now()
   );
   
   ALTER TABLE evaluation_analyses ENABLE ROW LEVEL SECURITY;
@@ -133,6 +133,39 @@ export const fetchEvaluationsByStudio = async (studioId: string): Promise<ClassE
     }));
   } catch (err) {
     console.error('Unexpected error fetching evaluations:', err);
+    return [];
+  }
+};
+
+export const fetchStudentEvaluations = async (studentId: string): Promise<ClassEvaluation[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('class_evaluations')
+      .select('*')
+      .eq('student_id', studentId)
+      .order('class_date', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching student evaluations:', error.message);
+        return [];
+    }
+
+    return data.map((item: any) => ({
+      id: item.id,
+      studioId: item.studio_id,
+      studentId: item.student_id,
+      studentName: item.student_name,
+      instructorId: item.instructor_id,
+      instructorName: item.instructor_name,
+      classDate: item.class_date,
+      rating: item.rating,
+      feeling: item.feeling,
+      pace: item.pace,
+      discomfort: item.discomfort,
+      suggestions: item.suggestions,
+      createdAt: item.created_at
+    }));
+  } catch (err) {
     return [];
   }
 };
