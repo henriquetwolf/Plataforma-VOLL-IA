@@ -33,11 +33,15 @@ export interface StudioProfile {
   studioName: string;
   ownerName: string;
   ownerCpf?: string; // Novo
+  ownerBirthDate?: string; // Novo
   ownerPhotoUrl?: string; // Novo: Foto do Proprietário
   cnpj?: string; // Novo
   email?: string; 
   description: string;
   address: string;
+  city?: string; // Novo
+  state?: string; // Novo
+  cep?: string; // Novo
   phone: string;
   whatsapp?: string; // Novo
   instagram?: string; // Novo

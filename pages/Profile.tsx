@@ -1,8 +1,4 @@
 
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -37,6 +33,9 @@ export const Profile: React.FC = () => {
     ownerName: '',
     description: '',
     address: '',
+    city: '',
+    state: '',
+    cep: '',
     phone: '',
     website: '',
     specialties: [],
@@ -48,6 +47,7 @@ export const Profile: React.FC = () => {
     instagram: '',
     whatsapp: '',
     ownerCpf: '',
+    ownerBirthDate: '',
     ownerPhotoUrl: ''
   });
   
@@ -262,14 +262,24 @@ export const Profile: React.FC = () => {
                 onChange={handleChange}
                 disabled={isReadOnly}
               />
-              <Input
-                label="CPF do Proprietário (Opcional)"
-                name="ownerCpf"
-                placeholder="000.000.000-00"
-                value={formData.ownerCpf || ''}
-                onChange={handleChange}
-                disabled={isReadOnly}
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                    label="CPF (Opcional)"
+                    name="ownerCpf"
+                    placeholder="000.000.000-00"
+                    value={formData.ownerCpf || ''}
+                    onChange={handleChange}
+                    disabled={isReadOnly}
+                />
+                <Input
+                    label="Data Nascimento"
+                    name="ownerBirthDate"
+                    type="date"
+                    value={formData.ownerBirthDate || ''}
+                    onChange={handleChange}
+                    disabled={isReadOnly}
+                />
+              </div>
             </div>
 
             <div className="mt-4 border-t border-slate-100 dark:border-slate-800 pt-4">
@@ -385,7 +395,20 @@ export const Profile: React.FC = () => {
              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
               <MapPin className="h-5 w-5 text-brand-500" /> {t('contact_label')}
             </h2>
-            <Input label="Endereço Completo do Studio" name="address" value={formData.address} onChange={handleChange} disabled={isReadOnly} />
+            <div className="grid grid-cols-3 gap-2">
+               <div className="col-span-3">
+                   <Input label="CEP" name="cep" value={formData.cep || ''} onChange={handleChange} disabled={isReadOnly} placeholder="00000-000" />
+               </div>
+               <div className="col-span-2">
+                   <Input label="Cidade" name="city" value={formData.city || ''} onChange={handleChange} disabled={isReadOnly} />
+               </div>
+               <div className="col-span-1">
+                   <Input label="UF" name="state" value={formData.state || ''} onChange={handleChange} disabled={isReadOnly} maxLength={2} />
+               </div>
+            </div>
+            
+            <Input label="Endereço Completo (Rua, Nº, Bairro)" name="address" value={formData.address} onChange={handleChange} disabled={isReadOnly} />
+            
             <Input label={t('phone_label')} name="phone" value={formData.phone} onChange={handleChange} disabled={isReadOnly} />
             
             <div className="relative">

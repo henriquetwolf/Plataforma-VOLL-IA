@@ -1,10 +1,4 @@
 
-
-
-
-
-
-
 import { supabase } from './supabase';
 import { StudioProfile, SubscriptionPlan } from '../types';
 
@@ -17,6 +11,10 @@ interface DBProfile {
   email?: string;
   description?: string;
   address?: string;
+  city?: string; // Coluna Real
+  state?: string; // Coluna Real
+  cep?: string; // Coluna Real
+  owner_birth_date?: string; // Coluna Real
   phone?: string;
   website?: string;
   specialties?: string[];
@@ -44,7 +42,11 @@ const toDBProfile = (profile: Partial<StudioProfile>): Partial<DBProfile> => {
     instagram: profile.instagram,
     whatsapp: profile.whatsapp,
     owner_cpf: profile.ownerCpf,
-    owner_photo_url: profile.ownerPhotoUrl // Map to snake_case
+    owner_photo_url: profile.ownerPhotoUrl,
+    // Campos movidos para colunas reais, mas mantidos no settings por segurança/legado se necessário
+    // city: profile.city, 
+    // state: profile.state,
+    // cep: profile.cep
   };
 
   return {
@@ -53,6 +55,10 @@ const toDBProfile = (profile: Partial<StudioProfile>): Partial<DBProfile> => {
     email: profile.email,
     description: profile.description,
     address: profile.address,
+    city: profile.city,
+    state: profile.state,
+    cep: profile.cep,
+    owner_birth_date: profile.ownerBirthDate,
     phone: profile.phone,
     website: profile.website,
     specialties: profile.specialties,
@@ -60,9 +66,7 @@ const toDBProfile = (profile: Partial<StudioProfile>): Partial<DBProfile> => {
     brand_color: profile.brandColor,
     is_admin: profile.isAdmin,
     max_students: profile.maxStudents, 
-    plan_id: profile.planId, // Mapeamento novo
-    // REMOVIDO: is_active não deve ser atualizado por aqui para evitar que 
-    // o usuário sobrescreva o bloqueio do admin ao salvar o perfil.
+    plan_id: profile.planId, 
     settings: settings
   };
 };
@@ -99,6 +103,10 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
     email: dbProfile.email || '',
     description: dbProfile.description || '',
     address: dbProfile.address || '',
+    city: dbProfile.city || dbSettings.city || '', // Fallback para settings se coluna vazia
+    state: dbProfile.state || dbSettings.state || '',
+    cep: dbProfile.cep || dbSettings.cep || '',
+    ownerBirthDate: dbProfile.owner_birth_date || dbSettings.owner_birth_date || '',
     phone: dbProfile.phone || '',
     website: dbProfile.website || '',
     specialties: dbProfile.specialties || [],
@@ -117,7 +125,7 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
     instagram: dbSettings.instagram,
     whatsapp: dbSettings.whatsapp,
     ownerCpf: dbSettings.owner_cpf,
-    ownerPhotoUrl: dbSettings.owner_photo_url
+    ownerPhotoUrl: dbSettings.owner_photo_url,
   };
 };
 
