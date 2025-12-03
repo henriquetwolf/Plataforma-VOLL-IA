@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase';
 
 export interface AdminStats {
@@ -115,7 +114,6 @@ export const fetchAdminTimelineStats = async (startDate: string, endDate: string
 
     // Fill missing days
     const result: TimelineDataPoint[] = [];
-    // Clone start date to avoid modifying the original 'start' variable loop issue
     const loopDate = new Date(start);
     
     while (loopDate <= end) {
@@ -144,9 +142,11 @@ export const fetchApiUsageStats = async (): Promise<{ total: number; byUser: Use
 
     if (studioError || !studios) throw studioError || new Error('No studios found');
 
-    // 2. Fetch raw data for aggregation (Optimized: fetching only IDs/FKs)
-    const [postsRes, lessonsRes, analysisRes, financialRes] = await Promise.all([
-      supabase.from('content_posts').select('studio_id'),
+    // 2. Fetch raw data. Use Promise.allSettled to ensure partial failures don't break the whole view.
+    // Optimized: selecting only IDs necessary for counting.
+    const results = await Promise.allSettled([
+      supabase.from('content_generations').select('studio_id'), // New robust tracking
+      supabase.from('content_posts').select('studio_id'),       // Legacy/Saved tracking
       supabase.from('rehab_lessons').select('user_id'),
       supabase.from('evaluation_analyses').select('studio_id'),
       supabase.from('financial_simulations').select('user_id')
@@ -156,22 +156,60 @@ export const fetchApiUsageStats = async (): Promise<{ total: number; byUser: Use
     const usageMap = new Map<string, { posts: number; lessons: number; analysis: number }>();
 
     // Helper
-    const increment = (id: string, type: 'posts' | 'lessons' | 'analysis') => {
+    const increment = (id: string, type: 'posts' | 'lessons' | 'analysis', amount: number = 1) => {
+      if (!id) return;
       if (!usageMap.has(id)) usageMap.set(id, { posts: 0, lessons: 0, analysis: 0 });
       const current = usageMap.get(id)!;
-      current[type]++;
+      current[type] += amount;
     };
 
-    postsRes.data?.forEach(row => increment(row.studio_id, 'posts'));
-    lessonsRes.data?.forEach(row => increment(row.user_id, 'lessons'));
-    analysisRes.data?.forEach(row => increment(row.studio_id, 'analysis'));
-    financialRes.data?.forEach(row => increment(row.user_id, 'analysis')); // Financial sim is also analysis
+    // --- Process Posts (Smart Merge of Generations logs and Saved Posts) ---
+    // Why? Saved posts might be less than generations (if user didn't save), 
+    // but Generations table might be empty for old users. We take the MAX of both.
+    
+    const genCounts = new Map<string, number>();
+    if (results[0].status === 'fulfilled' && results[0].value.data) {
+        results[0].value.data.forEach((row: any) => {
+            const id = row.studio_id;
+            genCounts.set(id, (genCounts.get(id) || 0) + 1);
+        });
+    }
+
+    const savedPostCounts = new Map<string, number>();
+    if (results[1].status === 'fulfilled' && results[1].value.data) {
+        results[1].value.data.forEach((row: any) => {
+            const id = row.studio_id;
+            savedPostCounts.set(id, (savedPostCounts.get(id) || 0) + 1);
+        });
+    }
+
+    // Merge logic: Take the max of logged generations OR saved posts for each user
+    const allPostIds = new Set([...genCounts.keys(), ...savedPostCounts.keys()]);
+    allPostIds.forEach(id => {
+        const count = Math.max(genCounts.get(id) || 0, savedPostCounts.get(id) || 0);
+        increment(id, 'posts', count);
+    });
+
+    // --- Rehab Lessons ---
+    if (results[2].status === 'fulfilled' && results[2].value.data) {
+        results[2].value.data.forEach((row: any) => increment(row.user_id, 'lessons'));
+    }
+
+    // --- Analysis (Evaluation Reports) ---
+    if (results[3].status === 'fulfilled' && results[3].value.data) {
+        results[3].value.data.forEach((row: any) => increment(row.studio_id, 'analysis'));
+    }
+
+    // --- Financial Simulations (Count as Analysis) ---
+    if (results[4].status === 'fulfilled' && results[4].value.data) {
+        results[4].value.data.forEach((row: any) => increment(row.user_id, 'analysis'));
+    }
 
     // 4. Calculate Costs
-    // Est. Costs (USD): Post $0.04 | Lesson $0.01 | Analysis $0.005
-    const COST_POST = 0.04;
-    const COST_LESSON = 0.01;
-    const COST_ANALYSIS = 0.005;
+    // Est. Costs (USD) - Adjusted
+    const COST_POST = 0.04;      // ~1000-2000 tokens output + input
+    const COST_LESSON = 0.02;    // Rehab is complex, higher input context
+    const COST_ANALYSIS = 0.01;  // Analysis usually has large input context
 
     let totalGlobalCost = 0;
     const byUser: UserApiCost[] = studios.map(studio => {
