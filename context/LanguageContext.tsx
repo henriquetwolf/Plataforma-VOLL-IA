@@ -213,6 +213,7 @@ const translations: Record<Language, TranslationDict> = {
     'admin_tab_instructors': 'Instrutores',
     'admin_tab_students': 'Alunos',
     'admin_tab_suggestions': 'Sugestões',
+    'admin_tab_costs': 'Custo API',
     'admin_kpi_studios': 'Total Studios',
     'admin_kpi_students': 'Total Alunos',
     'admin_kpi_content': 'Conteúdo Gerado',
@@ -224,6 +225,8 @@ const translations: Record<Language, TranslationDict> = {
     'admin_avg_students': 'Média Alunos',
     'admin_avg_posts': 'Média Posts',
     'admin_avg_engagement': 'Média Engajamento',
+    'admin_cost_total': 'Custo Total Estimado',
+    'admin_cost_per_user': 'Custo por Usuário',
 
     // Strategy Agent
     'strategy_agent_title': 'Planejador Estratégico AI',
@@ -486,6 +489,7 @@ const translations: Record<Language, TranslationDict> = {
     'admin_tab_instructors': 'Instructors',
     'admin_tab_students': 'Students',
     'admin_tab_suggestions': 'Suggestions',
+    'admin_tab_costs': 'API Cost',
     'admin_kpi_studios': 'Total Studios',
     'admin_kpi_students': 'Total Students',
     'admin_kpi_content': 'Content Generated',
@@ -497,6 +501,8 @@ const translations: Record<Language, TranslationDict> = {
     'admin_avg_students': 'Avg Students',
     'admin_avg_posts': 'Avg Posts',
     'admin_avg_engagement': 'Avg Engagement',
+    'admin_cost_total': 'Total Estimated Cost',
+    'admin_cost_per_user': 'Cost per User',
     'strategy_agent_title': 'AI Strategic Planner',
     'strategy_agent_desc': 'Transform your goals into a clear and practical action plan.',
     'create_plan': 'Create New Plan',

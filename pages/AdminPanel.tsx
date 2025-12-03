@@ -8,10 +8,10 @@ import { fetchStudents, revokeStudentAccess } from '../services/studentService';
 import { uploadBannerImage, upsertBanner, fetchBannerByType, deleteBanner } from '../services/bannerService';
 import { fetchAllSuggestions } from '../services/suggestionService';
 import { generateSuggestionTrends } from '../services/geminiService';
-import { fetchAdminDashboardStats, fetchAdminTimelineStats, AdminStats, TimelineDataPoint } from '../services/adminService';
+import { fetchAdminDashboardStats, fetchAdminTimelineStats, fetchApiUsageStats, AdminStats, TimelineDataPoint, UserApiCost } from '../services/adminService';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2, MessageSquare, Sparkles, FileText, Download, BarChart3, PieChart as PieChartIcon, TrendingUp } from 'lucide-react';
+import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2, MessageSquare, Sparkles, FileText, Download, BarChart3, PieChart as PieChartIcon, TrendingUp, Banknote } from 'lucide-react';
 import { SubscriptionPlan, SystemBanner, Suggestion } from '../types';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -39,7 +39,7 @@ export const AdminPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'all' | 'owner' | 'instructor' | 'student' | 'suggestions'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'all' | 'owner' | 'instructor' | 'student' | 'suggestions' | 'costs'>('dashboard');
   
   // Dashboard Stats
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -78,6 +78,10 @@ export const AdminPanel: React.FC = () => {
   const [suggestionEndDate, setSuggestionEndDate] = useState('');
   const [isAnalyzingSuggestions, setIsAnalyzingSuggestions] = useState(false);
   const [analysisReport, setAnalysisReport] = useState<string | null>(null);
+
+  // API Costs
+  const [apiCosts, setApiCosts] = useState<{ total: number; byUser: UserApiCost[] } | null>(null);
+  const [loadingCosts, setLoadingCosts] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -162,6 +166,16 @@ export const AdminPanel: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'costs' && !apiCosts) {
+        setLoadingCosts(true);
+        fetchApiUsageStats().then(data => {
+            setApiCosts(data);
+            setLoadingCosts(false);
+        });
+    }
+  }, [activeTab]);
 
   const loadBanners = async () => {
     const sBanner = await fetchBannerByType('studio');
@@ -601,6 +615,67 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
     );
   };
 
+  // --- API COSTS VIEW ---
+  const ApiCostView = () => {
+    if (loadingCosts) {
+        return <div className="text-center p-12 text-slate-500"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-brand-600" /> Calculando custos...</div>;
+    }
+
+    if (!apiCosts) return null;
+
+    return (
+        <div className="space-y-6 animate-in fade-in">
+            {/* Summary Card */}
+            <div className="bg-gradient-to-r from-emerald-600 to-emerald-800 p-8 rounded-2xl shadow-lg text-white">
+                <h3 className="text-lg font-bold opacity-80 uppercase tracking-wide mb-1">{t('admin_cost_total')}</h3>
+                <p className="text-5xl font-extrabold flex items-center gap-2">
+                    <span className="text-3xl opacity-60">$</span> {apiCosts.total.toFixed(2)}
+                </p>
+                <p className="text-sm opacity-60 mt-2">Valor estimado com base no volume de uso da API Gemini.</p>
+            </div>
+
+            {/* Detailed Table */}
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+                    <h4 className="font-bold text-slate-700 dark:text-slate-300">{t('admin_cost_per_user')}</h4>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase text-xs font-bold tracking-wider">
+                            <tr>
+                                <th className="px-6 py-4">Studio / Dono</th>
+                                <th className="px-6 py-4 text-center">Posts (Img/Vid)</th>
+                                <th className="px-6 py-4 text-center">Planos Rehab</th>
+                                <th className="px-6 py-4 text-center">Análises IA</th>
+                                <th className="px-6 py-4 text-right">Custo Est. (USD)</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {apiCosts.byUser.map(item => (
+                                <tr key={item.studioId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                    <td className="px-6 py-4">
+                                        <p className="font-bold text-slate-900 dark:text-white">{item.studioName}</p>
+                                        <p className="text-xs text-slate-500">{item.ownerName}</p>
+                                    </td>
+                                    <td className="px-6 py-4 text-center font-mono">{item.postCount}</td>
+                                    <td className="px-6 py-4 text-center font-mono">{item.lessonCount}</td>
+                                    <td className="px-6 py-4 text-center font-mono">{item.analysisCount}</td>
+                                    <td className="px-6 py-4 text-right font-bold text-emerald-600">
+                                        $ {item.totalCost.toFixed(2)}
+                                    </td>
+                                </tr>
+                            ))}
+                            {apiCosts.byUser.length === 0 && (
+                                <tr><td colSpan={5} className="p-8 text-center text-slate-500">Sem dados de uso.</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+  };
+
   // --- MAIN VIEW ---
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in pb-12">
@@ -637,6 +712,12 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
           <BarChart3 className="h-4 w-4"/> {t('admin_tab_dashboard')}
         </button>
         <button 
+          onClick={() => setActiveTab('costs')} 
+          className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'costs' ? 'bg-white shadow text-emerald-600' : 'text-slate-500'}`}
+        >
+          <Banknote className="h-4 w-4"/> {t('admin_tab_costs')}
+        </button>
+        <button 
           onClick={() => setActiveTab('all')} 
           className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'all' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}
         >
@@ -669,6 +750,8 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
       </div>
 
       {activeTab === 'dashboard' && <DashboardView />}
+      
+      {activeTab === 'costs' && <ApiCostView />}
 
       {activeTab === 'suggestions' && (
         <div className="space-y-6 animate-in fade-in">
@@ -726,7 +809,7 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
       )}
 
       {/* Users Table */}
-      {activeTab !== 'dashboard' && activeTab !== 'suggestions' && (
+      {activeTab !== 'dashboard' && activeTab !== 'suggestions' && activeTab !== 'costs' && (
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
           <div className="relative max-w-md">

@@ -17,6 +17,16 @@ export interface TimelineDataPoint {
   engagement: number;
 }
 
+export interface UserApiCost {
+  studioId: string;
+  studioName: string;
+  ownerName: string;
+  postCount: number;
+  lessonCount: number;
+  analysisCount: number;
+  totalCost: number;
+}
+
 export const fetchAdminDashboardStats = async (): Promise<AdminStats> => {
   const stats: AdminStats = {
     studios: { total: 0, active: 0, blocked: 0 },
@@ -122,5 +132,79 @@ export const fetchAdminTimelineStats = async (startDate: string, endDate: string
   } catch (error) {
     console.error("Error fetching timeline stats:", error);
     return [];
+  }
+};
+
+export const fetchApiUsageStats = async (): Promise<{ total: number; byUser: UserApiCost[] }> => {
+  try {
+    // 1. Get all studios
+    const { data: studios, error: studioError } = await supabase
+      .from('studio_profiles')
+      .select('user_id, studio_name, owner_name');
+
+    if (studioError || !studios) throw studioError || new Error('No studios found');
+
+    // 2. Fetch raw data for aggregation (Optimized: fetching only IDs/FKs)
+    const [postsRes, lessonsRes, analysisRes, financialRes] = await Promise.all([
+      supabase.from('content_posts').select('studio_id'),
+      supabase.from('rehab_lessons').select('user_id'),
+      supabase.from('evaluation_analyses').select('studio_id'),
+      supabase.from('financial_simulations').select('user_id')
+    ]);
+
+    // 3. Aggregate in Memory
+    const usageMap = new Map<string, { posts: number; lessons: number; analysis: number }>();
+
+    // Helper
+    const increment = (id: string, type: 'posts' | 'lessons' | 'analysis') => {
+      if (!usageMap.has(id)) usageMap.set(id, { posts: 0, lessons: 0, analysis: 0 });
+      const current = usageMap.get(id)!;
+      current[type]++;
+    };
+
+    postsRes.data?.forEach(row => increment(row.studio_id, 'posts'));
+    lessonsRes.data?.forEach(row => increment(row.user_id, 'lessons'));
+    analysisRes.data?.forEach(row => increment(row.studio_id, 'analysis'));
+    financialRes.data?.forEach(row => increment(row.user_id, 'analysis')); // Financial sim is also analysis
+
+    // 4. Calculate Costs
+    // Est. Costs (USD): Post $0.04 | Lesson $0.01 | Analysis $0.005
+    const COST_POST = 0.04;
+    const COST_LESSON = 0.01;
+    const COST_ANALYSIS = 0.005;
+
+    let totalGlobalCost = 0;
+    const byUser: UserApiCost[] = studios.map(studio => {
+      const stats = usageMap.get(studio.user_id) || { posts: 0, lessons: 0, analysis: 0 };
+      
+      const cost = 
+        (stats.posts * COST_POST) + 
+        (stats.lessons * COST_LESSON) + 
+        (stats.analysis * COST_ANALYSIS);
+
+      totalGlobalCost += cost;
+
+      return {
+        studioId: studio.user_id,
+        studioName: studio.studio_name || 'Studio Sem Nome',
+        ownerName: studio.owner_name || 'Desconhecido',
+        postCount: stats.posts,
+        lessonCount: stats.lessons,
+        analysisCount: stats.analysis,
+        totalCost: cost
+      };
+    });
+
+    // Sort by cost desc
+    byUser.sort((a, b) => b.totalCost - a.totalCost);
+
+    return {
+      total: totalGlobalCost,
+      byUser
+    };
+
+  } catch (error) {
+    console.error("Error fetching API usage:", error);
+    return { total: 0, byUser: [] };
   }
 };
