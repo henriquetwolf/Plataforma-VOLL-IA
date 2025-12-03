@@ -7,26 +7,28 @@ import { fetchStudents, revokeStudentAccess } from '../services/studentService';
 import { uploadBannerImage, upsertBanner, fetchBannerByType, deleteBanner } from '../services/bannerService';
 import { fetchAllSuggestions } from '../services/suggestionService';
 import { generateSuggestionTrends } from '../services/geminiService';
+import { fetchAdminDashboardStats, AdminStats } from '../services/adminService';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2, MessageSquare, Sparkles, FileText, Download } from 'lucide-react';
+import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2, MessageSquare, Sparkles, FileText, Download, BarChart3, PieChart as PieChartIcon } from 'lucide-react';
 import { SubscriptionPlan, SystemBanner, Suggestion } from '../types';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
 
 interface AdminUserView {
-  id: string; // Database ID
-  targetId: string; // ID used for toggling/resetting (user_id for owners, id for others)
+  id: string; 
+  targetId: string;
   name: string;
   email: string;
   role: 'owner' | 'instructor' | 'student';
   isActive: boolean;
-  contextInfo?: string; // Studio name or Owner name
-  maxStudents?: number; // Only for owners (legacy)
-  planId?: string; // ID do plano
-  planName?: string; // Nome do plano
+  contextInfo?: string; 
+  maxStudents?: number;
+  planId?: string;
+  planName?: string;
 }
 
 export const AdminPanel: React.FC = () => {
@@ -35,8 +37,11 @@ export const AdminPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'owner' | 'instructor' | 'student' | 'suggestions'>('all');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'all' | 'owner' | 'instructor' | 'student' | 'suggestions'>('dashboard');
   
+  // Dashboard Stats
+  const [stats, setStats] = useState<AdminStats | null>(null);
+
   // Controle de estado para ação de toggle (loading por item)
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
@@ -78,18 +83,20 @@ export const AdminPanel: React.FC = () => {
     const usersList: AdminUserView[] = [];
 
     try {
-      // 0. Fetch Plans
+      // 0. Fetch Stats & Plans
+      const statsData = await fetchAdminDashboardStats();
+      setStats(statsData);
       const plansData = await fetchSubscriptionPlans();
       setPlans(plansData);
 
-      // 1. Fetch Owners (Studio Profiles)
+      // 1. Fetch Owners
       const { data: profiles, error: profileError } = await fetchAllProfiles();
       if (profileError) throw profileError;
       
       profiles.forEach(p => {
         usersList.push({
           id: p.id,
-          targetId: p.userId, // Owners are toggled by auth user_id in studio_profiles
+          targetId: p.userId,
           name: p.ownerName || 'Sem nome',
           email: p.email || '-',
           role: 'owner',
@@ -106,17 +113,17 @@ export const AdminPanel: React.FC = () => {
       instructors.forEach(i => {
         usersList.push({
           id: i.id,
-          targetId: i.id, // Instructors are toggled by table row id
+          targetId: i.id,
           name: i.name,
           email: i.email,
           role: 'instructor',
           isActive: i.active,
-          contextInfo: i.studioUserId // Link to studio
+          contextInfo: i.studioUserId
         });
       });
 
       // 3. Fetch Students
-      const students = await fetchStudents(); // Fetch all globally
+      const students = await fetchStudents();
       students.forEach(s => {
         usersList.push({
           id: s.id,
@@ -124,25 +131,22 @@ export const AdminPanel: React.FC = () => {
           name: s.name,
           email: s.email || '-',
           role: 'student',
-          isActive: !!s.authUserId, // Students are "active" if they have login access
-          contextInfo: s.userId // Link to studio
+          isActive: !!s.authUserId,
+          contextInfo: s.userId
         });
       });
 
       setAllUsers(usersList);
 
-      // 4. Fetch All Suggestions & Map Studio Names manually
+      // 4. Fetch All Suggestions
       const suggestionsData = await fetchAllSuggestions();
-      
       const suggestionsWithNames = suggestionsData.map(s => {
-          // Find the owner/studio profile corresponding to the suggestion
           const owner = usersList.find(u => u.role === 'owner' && u.targetId === s.studioId);
           return {
               ...s,
               studioName: owner ? (owner.contextInfo || owner.name) : 'Studio Desconhecido'
           };
       });
-
       setAllSuggestions(suggestionsWithNames);
 
     } catch (err: any) {
@@ -176,15 +180,9 @@ export const AdminPanel: React.FC = () => {
     const action = targetUser.isActive ? 'DESATIVAR' : 'ATIVAR';
     const isStudent = targetUser.role === 'student';
     
-    // Confirmação explícita
     if (!confirm(`Tem certeza que deseja ${action} o acesso de ${targetUser.name}? ${isStudent && targetUser.isActive ? '\n(Isso removerá o login do aluno, mas manterá os dados.)' : ''}`)) return;
 
-    if (isStudent && !targetUser.isActive) {
-      alert("Para reativar um aluno, é necessário recriar a senha pelo painel do estúdio.");
-      return;
-    }
-
-    setTogglingId(targetUser.id); // Inicia loading no botão específico
+    setTogglingId(targetUser.id);
 
     try {
       let result: { success: boolean; error?: string } = { success: false };
@@ -198,19 +196,18 @@ export const AdminPanel: React.FC = () => {
       }
 
       if (result.success) {
-        // Atualização otimista da UI para feedback imediato
         setAllUsers(prev => prev.map(u => 
           u.id === targetUser.id && u.role === targetUser.role 
             ? { ...u, isActive: isStudent ? false : !u.isActive } 
             : u
         ));
       } else {
-        alert(`Falha ao atualizar status: ${result.error}\n\nDica: Verifique se você executou o SQL de permissões (RLS) no Supabase.`);
+        alert(`Falha ao atualizar status: ${result.error}`);
       }
     } catch (error: any) {
       alert(`Erro inesperado: ${error.message}`);
     } finally {
-      setTogglingId(null); // Remove loading
+      setTogglingId(null);
     }
   };
 
@@ -237,21 +234,15 @@ export const AdminPanel: React.FC = () => {
 
   const openViewDetails = (owner: AdminUserView) => {
     setViewingOwner(owner);
-    // Use planId if available, otherwise undefined
     setOwnerPlanId(owner.planId);
   };
 
   const handleSavePlanAssignment = async () => {
     if (!viewingOwner) return;
     setSavingPlan(true);
-    
-    const result = await upsertProfile(viewingOwner.targetId, {
-      planId: ownerPlanId
-    });
-
+    const result = await upsertProfile(viewingOwner.targetId, { planId: ownerPlanId });
     if (result.success) {
       alert("Plano atualizado com sucesso!");
-      // Update local state
       const selectedPlan = plans.find(p => p.id === ownerPlanId);
       setAllUsers(prev => prev.map(u => 
         u.id === viewingOwner.id 
@@ -266,12 +257,7 @@ export const AdminPanel: React.FC = () => {
 
   const handleUpdatePlan = async (planId: string) => {
     if (editPlanLimit <= 0) return;
-    
-    const result = await updateSubscriptionPlan(planId, {
-        maxStudents: editPlanLimit,
-        maxDailyPosts: editPlanDailyPosts
-    });
-
+    const result = await updateSubscriptionPlan(planId, { maxStudents: editPlanLimit, maxDailyPosts: editPlanDailyPosts });
     if (result.success) {
         setPlans(prev => prev.map(p => p.id === planId ? { ...p, maxStudents: editPlanLimit, maxDailyPosts: editPlanDailyPosts } : p));
         setEditingPlanId(null);
@@ -284,7 +270,6 @@ export const AdminPanel: React.FC = () => {
     setIsUploadingBanner(true);
     const imageUrl = await uploadBannerImage(file);
     if (imageUrl) {
-        // Save to DB immediately with current link input
         const link = type === 'studio' ? studioBannerLink : instructorBannerLink;
         const result = await upsertBanner(type, imageUrl, link);
         if (result.success) {
@@ -293,7 +278,7 @@ export const AdminPanel: React.FC = () => {
             alert("Erro ao salvar banner no banco: " + result.error);
         }
     } else {
-        alert("Erro no upload da imagem. Verifique se o bucket 'system-assets' existe e é público.");
+        alert("Erro no upload da imagem.");
     }
     setIsUploadingBanner(false);
   };
@@ -301,42 +286,24 @@ export const AdminPanel: React.FC = () => {
   const handleBannerLinkUpdate = async (type: 'studio' | 'instructor') => {
     const banner = type === 'studio' ? studioBanner : instructorBanner;
     const link = type === 'studio' ? studioBannerLink : instructorBannerLink;
-    
-    if (!banner) {
-        alert("Faça upload de uma imagem primeiro.");
-        return;
-    }
-    
+    if (!banner) { alert("Faça upload de uma imagem primeiro."); return; }
     setIsUploadingBanner(true);
     const result = await upsertBanner(type, banner.imageUrl, link);
-    if (result.success) {
-        alert("Link atualizado!");
-        await loadBanners();
-    } else {
-        alert("Erro ao atualizar link: " + result.error);
-    }
+    if (result.success) { alert("Link atualizado!"); await loadBanners(); } else { alert("Erro ao atualizar link: " + result.error); }
     setIsUploadingBanner(false);
   };
 
   const handleDeleteBanner = async (type: 'studio' | 'instructor') => {
-    if (!confirm('Tem certeza que deseja remover este banner?')) return;
-    
+    if (!confirm('Tem certeza?')) return;
     const result = await deleteBanner(type);
     if (result.success) {
-      // Clear local state
-      if (type === 'studio') {
-        setStudioBanner(null);
-        setStudioBannerLink('');
-      } else {
-        setInstructorBanner(null);
-        setInstructorBannerLink('');
-      }
+      if (type === 'studio') { setStudioBanner(null); setStudioBannerLink(''); } 
+      else { setInstructorBanner(null); setInstructorBannerLink(''); }
     } else {
       alert("Erro ao remover banner: " + result.error);
     }
   };
 
-  // --- GLOBAL SUGGESTIONS LOGIC ---
   const getFilteredSuggestions = () => {
     return allSuggestions.filter(s => {
         if (suggestionStartDate) {
@@ -355,15 +322,10 @@ export const AdminPanel: React.FC = () => {
 
   const handleAnalyzeGlobalSuggestions = async () => {
     const filtered = getFilteredSuggestions();
-    if (filtered.length === 0) {
-        alert("Nenhuma sugestão encontrada com os filtros atuais.");
-        return;
-    }
-
+    if (filtered.length === 0) { alert("Nenhuma sugestão encontrada."); return; }
     setIsAnalyzingSuggestions(true);
     setAnalysisReport(null);
     try {
-        // Envia para a IA
         const report = await generateSuggestionTrends(filtered);
         setAnalysisReport(report);
     } catch (e) {
@@ -402,48 +364,27 @@ export const AdminPanel: React.FC = () => {
 
   const copySql = () => {
     const sql = `
--- TABELA DE SUGESTÕES E PERMISSÕES
-create table if not exists suggestions (
-  id uuid primary key default gen_random_uuid(),
-  studio_id uuid references studio_profiles(user_id) on delete cascade,
-  student_id uuid references students(id) on delete set null,
-  student_name text,
-  content text,
-  is_read boolean default false,
-  created_at timestamptz default now()
-);
-
+-- GRANT ACCESS FOR ADMIN DASHBOARD
+alter table content_posts enable row level security;
+alter table class_evaluations enable row level security;
+alter table rehab_lessons enable row level security;
 alter table suggestions enable row level security;
 
--- Políticas
-drop policy if exists "Owners view own suggestions" on suggestions;
-create policy "Owners view own suggestions" on suggestions for select to authenticated using (auth.uid() = studio_id);
+-- Admin needs global read access for dashboard stats
+drop policy if exists "Admin view all posts" on content_posts;
+create policy "Admin view all posts" on content_posts for select to authenticated using (auth.jwt() ->> 'email' = '${ADMIN_EMAIL}');
 
-drop policy if exists "Students insert suggestions" on suggestions;
-create policy "Students insert suggestions" on suggestions for insert to authenticated with check (true);
+drop policy if exists "Admin view all evaluations" on class_evaluations;
+create policy "Admin view all evaluations" on class_evaluations for select to authenticated using (auth.jwt() ->> 'email' = '${ADMIN_EMAIL}');
+
+drop policy if exists "Admin view all lessons" on rehab_lessons;
+create policy "Admin view all lessons" on rehab_lessons for select to authenticated using (auth.jwt() ->> 'email' = '${ADMIN_EMAIL}');
 
 drop policy if exists "Admin view all suggestions" on suggestions;
 create policy "Admin view all suggestions" on suggestions for select to authenticated using (auth.jwt() ->> 'email' = '${ADMIN_EMAIL}');
-
--- TABELAS DO SISTEMA
-create table if not exists subscription_plans (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  max_students int not null,
-  max_daily_posts int default 5,
-  created_at timestamptz default now()
-);
-
-alter table studio_profiles 
-add column if not exists is_active BOOLEAN DEFAULT TRUE,
-add column if not exists plan_id uuid references subscription_plans(id);
-
--- Planos Padrão
-insert into subscription_plans (name, max_students, max_daily_posts) 
-select 'Plano Básico', 50, 5 where not exists (select 1 from subscription_plans);
     `;
     navigator.clipboard.writeText(sql.trim());
-    alert('SQL copiado! Execute no Supabase SQL Editor para corrigir permissões.');
+    alert('SQL copiado! Execute no Supabase SQL Editor para liberar as métricas e sugestões globais.');
   };
 
   const filteredUsers = allUsers.filter(u => {
@@ -456,117 +397,131 @@ select 'Plano Básico', 50, 5 where not exists (select 1 from subscription_plans
     return matchesSearch && u.role === activeTab;
   });
 
-  // Filter linked users for drill down
   const linkedInstructors = viewingOwner ? allUsers.filter(u => u.role === 'instructor' && u.contextInfo === viewingOwner.targetId) : [];
   const linkedStudents = viewingOwner ? allUsers.filter(u => u.role === 'student' && u.contextInfo === viewingOwner.targetId) : [];
 
   if (user?.email !== ADMIN_EMAIL) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[50vh] text-center text-red-600">
-        <ShieldAlert className="h-16 w-16 mb-4" />
-        <h1 className="text-2xl font-bold">Acesso Restrito</h1>
-        <p>Apenas o Super Admin pode ver esta página.</p>
-      </div>
-    );
+    return <div className="p-12 text-center text-red-600">Acesso Restrito</div>;
   }
 
-  // --- DRILL DOWN VIEW (DETALHES DO DONO) ---
-  if (viewingOwner) {
-    const currentPlanDetails = plans.find(p => p.id === ownerPlanId);
-    
+  // --- DASHBOARD COMPONENT ---
+  const DashboardView = () => {
+    if (!stats) return <div className="text-center p-8">Carregando estatísticas...</div>;
+
+    const COLORS = ['#8884d8', '#00C49F', '#FFBB28', '#FF8042'];
+    const activeData = [
+        { name: 'Donos', value: stats.studios.active },
+        { name: 'Instrutores', value: stats.instructors.active },
+        { name: 'Alunos', value: stats.students.active }
+    ];
+
+    const volumeData = [
+        { name: 'Posts IA', value: stats.content.posts },
+        { name: 'Avaliações', value: stats.engagement.evaluations },
+        { name: 'Sugestões', value: stats.engagement.suggestions },
+        { name: 'Aulas Criadas', value: stats.rehab.lessons }
+    ];
+
+    const activeStudios = stats.studios.active || 1; // Avoid division by zero
+    const activeStudents = stats.students.active || 1;
+
     return (
-      <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in">
-        <div className="flex items-center gap-4 border-b pb-4 mb-4">
-          <Button variant="outline" onClick={() => setViewingOwner(null)}>
-            <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{viewingOwner.contextInfo || viewingOwner.name}</h1>
-            <p className="text-slate-500 text-sm">Gerenciando Studio de {viewingOwner.name} ({viewingOwner.email})</p>
-          </div>
-        </div>
-
-        {/* Plan Settings */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-white flex items-center gap-2">
-            <Crown className="w-5 h-5 text-yellow-500"/> Assinatura e Limites
-          </h3>
-          <div className="flex items-end gap-4 max-w-lg">
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Plano Selecionado</label>
-              <select 
-                className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 focus:ring-2 focus:ring-brand-500 outline-none"
-                value={ownerPlanId || ''}
-                onChange={e => setOwnerPlanId(e.target.value || undefined)}
-              >
-                <option value="">-- Sem Plano Definido --</option>
-                {plans.map(p => (
-                    <option key={p.id} value={p.id}>{p.name} (Max: {p.maxStudents} alunos | {p.maxDailyPosts} posts/dia)</option>
-                ))}
-              </select>
-              {currentPlanDetails && (
-                  <p className="text-xs text-green-600 mt-1 font-medium">Limites: {currentPlanDetails.maxStudents} alunos, {currentPlanDetails.maxDailyPosts} posts/dia</p>
-              )}
-            </div>
-            <Button onClick={handleSavePlanAssignment} isLoading={savingPlan}>
-              <Save className="w-4 h-4 mr-2"/> Salvar Plano
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Instructors List */}
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div className="p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 font-bold flex justify-between">
-              <span>Instrutores ({linkedInstructors.length})</span>
-            </div>
-            <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-96 overflow-y-auto">
-              {linkedInstructors.length === 0 ? <p className="p-4 text-slate-500 text-sm">Nenhum instrutor.</p> : linkedInstructors.map(u => (
-                <div key={u.id} className="p-4 flex justify-between items-center">
-                  <div>
-                    <p className="font-medium text-sm text-slate-800 dark:text-white">{u.name}</p>
-                    <p className="text-xs text-slate-500">{u.email}</p>
-                  </div>
-                  <span className={`text-xs px-2 py-1 rounded-full font-bold ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {u.isActive ? 'Ativo' : 'Inativo'}
-                  </span>
+        <div className="space-y-8 animate-in fade-in">
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-500 uppercase">Total Studios</h3>
+                    <div className="flex items-end gap-2 mt-2">
+                        <span className="text-3xl font-bold text-slate-900 dark:text-white">{stats.studios.total}</span>
+                        <span className="text-sm text-green-600 font-medium mb-1">({stats.studios.active} ativos)</span>
+                    </div>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Students List */}
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div className="p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 font-bold flex justify-between">
-              <span>Alunos ({linkedStudents.length})</span>
-              {currentPlanDetails ? (
-                  <span className={`text-xs px-2 py-1 rounded ${linkedStudents.length >= currentPlanDetails.maxStudents ? 'bg-red-100 text-red-700 font-bold' : 'bg-green-100 text-green-700'}`}>
-                    {linkedStudents.length} / {currentPlanDetails.maxStudents}
-                  </span>
-              ) : (
-                  <span className="text-xs text-slate-400 font-normal">Sem limite definido</span>
-              )}
-            </div>
-            <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-96 overflow-y-auto">
-              {linkedStudents.length === 0 ? <p className="p-4 text-slate-500 text-sm">Nenhum aluno.</p> : linkedStudents.map(u => (
-                <div key={u.id} className="p-4 flex justify-between items-center">
-                  <div>
-                    <p className="font-medium text-sm text-slate-800 dark:text-white">{u.name}</p>
-                    <p className="text-xs text-slate-500">{u.email}</p>
-                  </div>
-                  <span className={`text-xs px-2 py-1 rounded-full font-bold ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-                    {u.isActive ? 'Com Acesso' : 'Sem Acesso'}
-                  </span>
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-500 uppercase">Total Alunos</h3>
+                    <div className="flex items-end gap-2 mt-2">
+                        <span className="text-3xl font-bold text-slate-900 dark:text-white">{stats.students.total}</span>
+                        <span className="text-sm text-green-600 font-medium mb-1">({stats.students.active} ativos)</span>
+                    </div>
                 </div>
-              ))}
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-500 uppercase">Conteúdo Gerado</h3>
+                    <div className="flex items-end gap-2 mt-2">
+                        <span className="text-3xl font-bold text-slate-900 dark:text-white">{stats.content.posts}</span>
+                        <span className="text-sm text-slate-400 mb-1">posts IA</span>
+                    </div>
+                </div>
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-500 uppercase">Engajamento</h3>
+                    <div className="flex items-end gap-2 mt-2">
+                        <span className="text-3xl font-bold text-slate-900 dark:text-white">{stats.engagement.evaluations}</span>
+                        <span className="text-sm text-slate-400 mb-1">avaliações</span>
+                    </div>
+                </div>
             </div>
-          </div>
+
+            {/* Charts Row 1 */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm h-80">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                        <PieChartIcon className="w-5 h-5 text-brand-600"/> Distribuição de Usuários Ativos
+                    </h3>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie data={activeData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} fill="#8884d8" paddingAngle={5} dataKey="value">
+                                {activeData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip />
+                            <Legend />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm h-80">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                        <BarChart3 className="w-5 h-5 text-brand-600"/> Volume de Produção
+                    </h3>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={volumeData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <Tooltip />
+                            <Bar dataKey="value" fill="#8884d8" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* Averages & Insights */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-blue-50 dark:bg-blue-900/10 p-6 rounded-xl border border-blue-100 dark:border-blue-800">
+                    <h4 className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase">Média Instrutores</h4>
+                    <p className="text-2xl font-bold text-blue-900 dark:text-blue-200 mt-1">{(stats.instructors.active / activeStudios).toFixed(1)}</p>
+                    <p className="text-xs text-blue-700/70">por studio ativo</p>
+                </div>
+                <div className="bg-green-50 dark:bg-green-900/10 p-6 rounded-xl border border-green-100 dark:border-green-800">
+                    <h4 className="text-xs font-bold text-green-600 dark:text-green-400 uppercase">Média Alunos</h4>
+                    <p className="text-2xl font-bold text-green-900 dark:text-green-200 mt-1">{(stats.students.active / activeStudios).toFixed(1)}</p>
+                    <p className="text-xs text-green-700/70">por studio ativo</p>
+                </div>
+                <div className="bg-purple-50 dark:bg-purple-900/10 p-6 rounded-xl border border-purple-100 dark:border-purple-800">
+                    <h4 className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase">Média Posts</h4>
+                    <p className="text-2xl font-bold text-purple-900 dark:text-purple-200 mt-1">{(stats.content.posts / activeStudios).toFixed(1)}</p>
+                    <p className="text-xs text-purple-700/70">por studio ativo</p>
+                </div>
+                <div className="bg-orange-50 dark:bg-orange-900/10 p-6 rounded-xl border border-orange-100 dark:border-orange-800">
+                    <h4 className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase">Engajamento</h4>
+                    <p className="text-2xl font-bold text-orange-900 dark:text-orange-200 mt-1">{(stats.engagement.evaluations / activeStudents).toFixed(1)}</p>
+                    <p className="text-xs text-orange-700/70">avaliações por aluno</p>
+                </div>
+            </div>
         </div>
-      </div>
     );
-  }
+  };
 
-  // --- MAIN LIST VIEW ---
+  // --- MAIN VIEW ---
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in pb-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -574,10 +529,10 @@ select 'Plano Básico', 50, 5 where not exists (select 1 from subscription_plans
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <ShieldAlert className="h-8 w-8 text-purple-600" /> Painel Admin Global
           </h1>
-          <p className="text-slate-500">Gestão completa de usuários e planos.</p>
+          <p className="text-slate-500">Gestão completa de usuários e métricas.</p>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
            <Button size="sm" variant="outline" onClick={copySql}>
              <Database className="h-3 w-3 mr-2" /> SQL Check
            </Button>
@@ -588,56 +543,52 @@ select 'Plano Básico', 50, 5 where not exists (select 1 from subscription_plans
              <Crown className="h-3 w-3 mr-2" /> Planos
            </Button>
            <Button onClick={loadData} disabled={loading}>
-             {loading ? <Loader2 className="animate-spin h-4 w-4"/> : "Atualizar Lista"}
+             {loading ? <Loader2 className="animate-spin h-4 w-4"/> : "Atualizar"}
            </Button>
         </div>
       </div>
 
-      {dbError && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg shadow-sm">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="h-6 w-6 text-red-600 mt-1" />
-            <div>
-              <h3 className="font-bold text-red-800 text-lg">Erro de Banco de Dados</h3>
-              <p className="text-red-700 text-sm">{dbError.message || JSON.stringify(dbError)}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Tabs */}
       <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit overflow-x-auto">
         <button 
-          onClick={() => setActiveTab('all')} 
-          className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'all' ? 'bg-white shadow text-purple-600' : 'text-slate-500'}`}
+          onClick={() => setActiveTab('dashboard')} 
+          className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'dashboard' ? 'bg-white shadow text-purple-600' : 'text-slate-500'}`}
         >
-          <LayoutDashboard className="h-4 w-4"/> Todos ({allUsers.length})
+          <BarChart3 className="h-4 w-4"/> Dashboard
+        </button>
+        <button 
+          onClick={() => setActiveTab('all')} 
+          className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'all' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}
+        >
+          <LayoutDashboard className="h-4 w-4"/> Lista Completa
         </button>
         <button 
           onClick={() => setActiveTab('owner')} 
           className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'owner' ? 'bg-white shadow text-brand-600' : 'text-slate-500'}`}
         >
-          <Building2 className="h-4 w-4"/> Donos ({allUsers.filter(u => u.role === 'owner').length})
+          <Building2 className="h-4 w-4"/> Donos
         </button>
         <button 
           onClick={() => setActiveTab('instructor')} 
           className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'instructor' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}
         >
-          <BookUser className="h-4 w-4"/> Instrutores ({allUsers.filter(u => u.role === 'instructor').length})
+          <BookUser className="h-4 w-4"/> Instrutores
         </button>
         <button 
           onClick={() => setActiveTab('student')} 
           className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'student' ? 'bg-white shadow text-green-600' : 'text-slate-500'}`}
         >
-          <GraduationCap className="h-4 w-4"/> Alunos ({allUsers.filter(u => u.role === 'student').length})
+          <GraduationCap className="h-4 w-4"/> Alunos
         </button>
         <button 
           onClick={() => setActiveTab('suggestions')} 
           className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'suggestions' ? 'bg-white shadow text-yellow-600' : 'text-slate-500'}`}
         >
-          <MessageSquare className="h-4 w-4"/> Sugestões Globais ({allSuggestions.length})
+          <MessageSquare className="h-4 w-4"/> Sugestões
         </button>
       </div>
+
+      {activeTab === 'dashboard' && <DashboardView />}
 
       {activeTab === 'suggestions' && (
         <div className="space-y-6 animate-in fade-in">
@@ -694,8 +645,8 @@ select 'Plano Básico', 50, 5 where not exists (select 1 from subscription_plans
         </div>
       )}
 
-      {/* Filters & Table (Original Users List) */}
-      {activeTab !== 'suggestions' && (
+      {/* Users Table */}
+      {activeTab !== 'dashboard' && activeTab !== 'suggestions' && (
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
           <div className="relative max-w-md">
@@ -764,10 +715,10 @@ select 'Plano Básico', 50, 5 where not exists (select 1 from subscription_plans
                           {/* Owner Actions */}
                           {u.role === 'owner' && (
                             <>
-                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Ver Detalhes (Instrutores/Alunos/Plano)" onClick={() => openViewDetails(u)}>
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Ver Detalhes" onClick={() => openViewDetails(u)}>
                                 <Eye className="w-4 h-4 text-slate-500" />
                               </Button>
-                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Redefinir Senha Provisória" onClick={() => { setResetModalUser(u); setNewPassword(''); }}>
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Redefinir Senha" onClick={() => { setResetModalUser(u); setNewPassword(''); }}>
                                 <Key className="w-4 h-4 text-blue-500" />
                               </Button>
                             </>
@@ -784,7 +735,6 @@ select 'Plano Básico', 50, 5 where not exists (select 1 from subscription_plans
                                 ? 'bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300' 
                                 : 'bg-green-600 hover:bg-green-700 text-white border-transparent'
                             }`}
-                            title={u.role === 'student' && !u.isActive ? 'Alunos inativos devem ter o acesso recriado no painel do estúdio.' : ''}
                           >
                             {u.isActive 
                               ? <><UserX className="h-4 w-4"/></> 
@@ -887,10 +837,6 @@ select 'Plano Básico', 50, 5 where not exists (select 1 from subscription_plans
                         </div>
                     ))}
                 </div>
-                
-                <div className="mt-6 text-xs text-slate-400 text-center">
-                    Nota: Para criar novos planos, insira diretamente no banco de dados via SQL.
-                </div>
             </div>
         </div>
       )}
@@ -910,7 +856,6 @@ select 'Plano Básico', 50, 5 where not exists (select 1 from subscription_plans
                     {/* Area Studio Banner */}
                     <div className="space-y-3">
                         <h4 className="font-bold text-slate-800 dark:text-white border-b pb-2">Área do Studio (Donos)</h4>
-                        
                         <div className="flex flex-col md:flex-row gap-4">
                             <div className="relative w-40 h-24">
                                 <div className="w-full h-full bg-slate-100 rounded-lg border border-dashed border-slate-300 flex items-center justify-center relative overflow-hidden">
@@ -941,7 +886,6 @@ select 'Plano Básico', 50, 5 where not exists (select 1 from subscription_plans
                     {/* Area Instructor Banner */}
                     <div className="space-y-3">
                         <h4 className="font-bold text-slate-800 dark:text-white border-b pb-2">Área do Instrutor</h4>
-                        
                         <div className="flex flex-col md:flex-row gap-4">
                             <div className="relative w-40 h-24">
                                 <div className="w-full h-full bg-slate-100 rounded-lg border border-dashed border-slate-300 flex items-center justify-center relative overflow-hidden">
@@ -966,6 +910,89 @@ select 'Plano Básico', 50, 5 where not exists (select 1 from subscription_plans
                                     <Button size="sm" onClick={() => handleBannerLinkUpdate('instructor')} disabled={isUploadingBanner}>Salvar Link</Button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* Drill Down View */}
+      {viewingOwner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-4xl h-[90vh] rounded-2xl shadow-xl p-6 border border-slate-200 dark:border-slate-800 overflow-y-auto">
+                <div className="flex items-center gap-4 border-b pb-4 mb-4">
+                    <Button variant="outline" onClick={() => setViewingOwner(null)}>
+                        <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
+                    </Button>
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{viewingOwner.contextInfo || viewingOwner.name}</h1>
+                        <p className="text-slate-500 text-sm">Gerenciando Studio de {viewingOwner.name} ({viewingOwner.email})</p>
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm mb-6">
+                    <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-white flex items-center gap-2">
+                        <Crown className="w-5 h-5 text-yellow-500"/> Assinatura e Limites
+                    </h3>
+                    <div className="flex items-end gap-4 max-w-lg">
+                        <div className="flex-1">
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Plano Selecionado</label>
+                            <select 
+                                className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 focus:ring-2 focus:ring-brand-500 outline-none"
+                                value={ownerPlanId || ''}
+                                onChange={e => setOwnerPlanId(e.target.value || undefined)}
+                            >
+                                <option value="">-- Sem Plano Definido --</option>
+                                {plans.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name} (Max: {p.maxStudents} alunos | {p.maxDailyPosts} posts/dia)</option>
+                                ))}
+                            </select>
+                        </div>
+                        <Button onClick={handleSavePlanAssignment} isLoading={savingPlan}>
+                            <Save className="w-4 h-4 mr-2"/> Salvar Plano
+                        </Button>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Instructors List */}
+                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                        <div className="p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 font-bold flex justify-between">
+                            <span>Instrutores ({linkedInstructors.length})</span>
+                        </div>
+                        <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-96 overflow-y-auto">
+                            {linkedInstructors.length === 0 ? <p className="p-4 text-slate-500 text-sm">Nenhum instrutor.</p> : linkedInstructors.map(u => (
+                                <div key={u.id} className="p-4 flex justify-between items-center">
+                                    <div>
+                                        <p className="font-medium text-sm text-slate-800 dark:text-white">{u.name}</p>
+                                        <p className="text-xs text-slate-500">{u.email}</p>
+                                    </div>
+                                    <span className={`text-xs px-2 py-1 rounded-full font-bold ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                        {u.isActive ? 'Ativo' : 'Inativo'}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Students List */}
+                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                        <div className="p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 font-bold flex justify-between">
+                            <span>Alunos ({linkedStudents.length})</span>
+                        </div>
+                        <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-96 overflow-y-auto">
+                            {linkedStudents.length === 0 ? <p className="p-4 text-slate-500 text-sm">Nenhum aluno.</p> : linkedStudents.map(u => (
+                                <div key={u.id} className="p-4 flex justify-between items-center">
+                                    <div>
+                                        <p className="font-medium text-sm text-slate-800 dark:text-white">{u.name}</p>
+                                        <p className="text-xs text-slate-500">{u.email}</p>
+                                    </div>
+                                    <span className={`text-xs px-2 py-1 rounded-full font-bold ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                                        {u.isActive ? 'Com Acesso' : 'Sem Acesso'}
+                                    </span>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
