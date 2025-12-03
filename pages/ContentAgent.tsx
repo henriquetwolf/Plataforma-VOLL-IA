@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -15,7 +16,8 @@ import {
     deleteSavedPost,
     saveContentPlan,
     fetchContentPlans,
-    deleteContentPlan
+    deleteContentPlan,
+    getTodayPostCount
 } from '../services/contentService';
 import { fetchProfile } from '../services/storage';
 import { compositeImageWithLogo } from '../services/imageService';
@@ -29,7 +31,7 @@ import {
 } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Wand2, Calendar, Layout, Loader2, Sparkles, Copy, Trash2, Video, Image as ImageIcon, CheckCircle, Save, UserCircle, Eye, ArrowRight, X, Settings2, RefreshCw, MessageSquarePlus } from 'lucide-react';
+import { Wand2, Calendar, Layout, Loader2, Sparkles, Copy, Trash2, Video, Image as ImageIcon, CheckCircle, Save, UserCircle, Eye, ArrowRight, X, Settings2, RefreshCw, MessageSquarePlus, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 /*
@@ -85,6 +87,11 @@ export const ContentAgent: React.FC = () => {
     const [plans, setPlans] = useState<StrategicContentPlan[]>([]);
     const [studioLogoUrl, setStudioLogoUrl] = useState<string | null>(null);
     
+    // Limits State
+    const [dailyLimit, setDailyLimit] = useState<number>(5);
+    const [todayCount, setTodayCount] = useState<number>(0);
+    const [isLimitReached, setIsLimitReached] = useState(false);
+
     // Generator States
     const [request, setRequest] = useState<ContentRequest>(INITIAL_REQUEST);
     const [generatedText, setGeneratedText] = useState('');
@@ -121,15 +128,21 @@ export const ContentAgent: React.FC = () => {
         setPersona(p);
         if (!p) setActiveTab('persona'); 
 
-        // Load Logo from Profile
+        // Load Profile (Logo & Limits)
         const profile = await fetchProfile(user.id);
-        if (profile?.logoUrl) {
-            setStudioLogoUrl(profile.logoUrl);
+        if (profile) {
+            if (profile.logoUrl) setStudioLogoUrl(profile.logoUrl);
+            if (profile.planMaxDailyPosts) setDailyLimit(profile.planMaxDailyPosts);
         }
 
         // Load Posts & Plans
         const posts = await fetchSavedPosts(user.id);
         setSavedPosts(posts);
+
+        // Check Limit Usage
+        const count = await getTodayPostCount(user.id);
+        setTodayCount(count);
+        setIsLimitReached(count >= (profile?.planMaxDailyPosts || 5));
 
         const fetchedPlans = await fetchContentPlans(user.id);
         setPlans(fetchedPlans);
@@ -149,6 +162,11 @@ export const ContentAgent: React.FC = () => {
 
     // --- GENERATOR LOGIC ---
     const handleGenerate = async (overrideRequest?: ContentRequest) => {
+        if (isLimitReached) {
+            alert(`Você atingiu o limite diário de ${dailyLimit} criações do seu plano.`);
+            return;
+        }
+
         const activeRequest = { ...request, ...(overrideRequest || {}) };
 
         if (!activeRequest.theme) {
@@ -235,6 +253,13 @@ export const ContentAgent: React.FC = () => {
 
     const handleSavePostLocal = async () => {
         if (!user?.id || !generatedText) return;
+        
+        // Re-check limit just in case
+        if (isLimitReached) {
+             alert(`Limite diário de ${dailyLimit} posts atingido. Não é possível salvar novos posts hoje.`);
+             return;
+        }
+
         const newPost: SavedPost = {
             id: crypto.randomUUID(),
             request,
@@ -243,28 +268,38 @@ export const ContentAgent: React.FC = () => {
             videoUrl: generatedVideo,
             createdAt: new Date().toISOString()
         };
-        await savePost(user.id, newPost);
-        setSavedPosts([newPost, ...savedPosts]);
+        
+        const result = await savePost(user.id, newPost);
+        
+        if (result.success) {
+            setSavedPosts([newPost, ...savedPosts]);
+            // Increment local counter
+            const newCount = todayCount + 1;
+            setTodayCount(newCount);
+            if (newCount >= dailyLimit) setIsLimitReached(true);
 
-        // If generated from plan, update the plan
-        if (generatingFromPlan) {
-            const planToUpdate = plans.find(p => p.id === generatingFromPlan.planId);
-            if (planToUpdate && planToUpdate.weeks) {
-                const updatedWeeks = [...planToUpdate.weeks];
-                if (updatedWeeks[generatingFromPlan.weekIdx]?.ideas[generatingFromPlan.ideaIdx]) {
-                    updatedWeeks[generatingFromPlan.weekIdx].ideas[generatingFromPlan.ideaIdx].generatedPostId = newPost.id;
-                    
-                    const updatedPlan = { ...planToUpdate, weeks: updatedWeeks };
-                    await saveContentPlan(user.id, updatedPlan);
-                    
-                    // Update local state
-                    setPlans(plans.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+            // If generated from plan, update the plan
+            if (generatingFromPlan) {
+                const planToUpdate = plans.find(p => p.id === generatingFromPlan.planId);
+                if (planToUpdate && planToUpdate.weeks) {
+                    const updatedWeeks = [...planToUpdate.weeks];
+                    if (updatedWeeks[generatingFromPlan.weekIdx]?.ideas[generatingFromPlan.ideaIdx]) {
+                        updatedWeeks[generatingFromPlan.weekIdx].ideas[generatingFromPlan.ideaIdx].generatedPostId = newPost.id;
+                        
+                        const updatedPlan = { ...planToUpdate, weeks: updatedWeeks };
+                        await saveContentPlan(user.id, updatedPlan);
+                        
+                        // Update local state
+                        setPlans(plans.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+                    }
                 }
+                setGeneratingFromPlan(null); // Clear context
             }
-            setGeneratingFromPlan(null); // Clear context
-        }
 
-        alert('Post salvo com sucesso!');
+            alert('Post salvo com sucesso!');
+        } else {
+            alert('Erro ao salvar post: ' + result.error);
+        }
     };
 
     const handleOpenSavedPost = (post: SavedPost) => {
@@ -355,25 +390,9 @@ export const ContentAgent: React.FC = () => {
             // Fallback: Just return generic week range
             return `Semana ${weekIndex + 1}`;
         }
-
-        // Calculate date
-        // Logic: Start Date is the anchor. 
-        // We move to the specific week (weekIndex * 7).
-        // Then we assume the days in the week structure are sequential relative to that week's start.
-        // However, a smarter way for "Weekly Plan" is:
-        // Week 1 starts on StartDate.
-        // If StartDate is Wed (3) and target is Mon (1), that Mon is next week? Or did user pick start date as Monday?
-        // Let's assume StartDate aligns with the beginning of the plan cycle.
-        // We calculate the date of the "Target Day" that falls within that specific week.
         
         const currentWeekStart = new Date(start);
         currentWeekStart.setDate(start.getDate() + (weekIndex * 7));
-        
-        // Adjust to find the specific day of week relative to currentWeekStart
-        // Simple approach: Iterate forward from currentWeekStart until we hit targetDay
-        // BUT: if StartDate is Friday, and first post is Monday, is it the Monday before or after?
-        // Usually plans start "From this day forward".
-        // So we look for the next occurrence of targetDay from currentWeekStart (inclusive).
         
         const date = new Date(currentWeekStart);
         while (date.getDay() !== targetDay) {
@@ -385,7 +404,7 @@ export const ContentAgent: React.FC = () => {
 
     return (
         <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in pb-12">
-            <header className="flex justify-between items-center">
+            <header className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <Wand2 className="h-8 w-8 text-brand-600" /> Assistente de Conteúdo
@@ -449,7 +468,24 @@ export const ContentAgent: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Left: Controls */}
                     <div className="space-y-6">
-                        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                        {/* Usage Limit Display */}
+                        <div className={`p-4 rounded-xl border flex justify-between items-center ${isLimitReached ? 'bg-red-50 border-red-200 text-red-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
+                            <div className="flex items-center gap-2">
+                                <Sparkles className="w-5 h-5"/>
+                                <span className="font-bold text-sm">Criações Hoje:</span>
+                            </div>
+                            <span className="font-bold text-sm">{todayCount} / {dailyLimit}</span>
+                        </div>
+
+                        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm relative">
+                            {isLimitReached && (
+                                <div className="absolute inset-0 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm z-10 flex flex-col items-center justify-center text-center p-6 rounded-xl">
+                                    <Lock className="w-12 h-12 text-slate-400 mb-2"/>
+                                    <h3 className="font-bold text-lg text-slate-800 dark:text-white">Limite Diário Atingido</h3>
+                                    <p className="text-slate-600 dark:text-slate-300 mt-1">Você já criou {dailyLimit} posts hoje. Volte amanhã ou faça um upgrade no seu plano.</p>
+                                </div>
+                            )}
+
                             <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-white">O que vamos criar hoje?</h3>
                             
                             {generatingFromPlan && (
@@ -465,6 +501,7 @@ export const ContentAgent: React.FC = () => {
                                     placeholder="Ex: Benefícios do Pilates para dor nas costas..."
                                     value={request.theme}
                                     onChange={e => setRequest({...request, theme: e.target.value})}
+                                    disabled={isLimitReached}
                                 />
                                 
                                 <div className="grid grid-cols-2 gap-4">
@@ -474,6 +511,7 @@ export const ContentAgent: React.FC = () => {
                                             className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
                                             value={request.format}
                                             onChange={e => setRequest({...request, format: e.target.value})}
+                                            disabled={isLimitReached}
                                         >
                                             <option>Post Estático</option>
                                             <option>Carrossel</option>
@@ -488,6 +526,7 @@ export const ContentAgent: React.FC = () => {
                                             className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
                                             value={request.objective}
                                             onChange={e => setRequest({...request, objective: e.target.value})}
+                                            disabled={isLimitReached}
                                         >
                                             <option>Educação</option>
                                             <option>Inspiração</option>
@@ -504,6 +543,7 @@ export const ContentAgent: React.FC = () => {
                                             className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
                                             value={request.audience}
                                             onChange={e => setRequest({...request, audience: e.target.value})}
+                                            disabled={isLimitReached}
                                         >
                                             <option>Alunos Iniciantes</option>
                                             <option>Intermediários</option>
@@ -518,6 +558,7 @@ export const ContentAgent: React.FC = () => {
                                             className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
                                             value={request.imageStyle}
                                             onChange={e => setRequest({...request, imageStyle: e.target.value})}
+                                            disabled={isLimitReached}
                                         >
                                             <option>Fotorealista</option>
                                             <option>Minimalista</option>
@@ -539,7 +580,7 @@ export const ContentAgent: React.FC = () => {
                                                 type="checkbox" 
                                                 checked={request.logoConfig?.enabled} 
                                                 onChange={e => updateLogoConfig('enabled', e.target.checked)}
-                                                disabled={!studioLogoUrl}
+                                                disabled={!studioLogoUrl || isLimitReached}
                                                 className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
                                             />
                                         </div>
@@ -559,6 +600,7 @@ export const ContentAgent: React.FC = () => {
                                                     value={request.logoConfig.type} 
                                                     onChange={e => updateLogoConfig('type', e.target.value)}
                                                     className="w-full p-1 border rounded bg-white dark:bg-slate-800"
+                                                    disabled={isLimitReached}
                                                 >
                                                     <option value="normal">Normal</option>
                                                     <option value="watermark">Marca D'água</option>
@@ -570,6 +612,7 @@ export const ContentAgent: React.FC = () => {
                                                     value={request.logoConfig.size} 
                                                     onChange={e => updateLogoConfig('size', e.target.value)}
                                                     className="w-full p-1 border rounded bg-white dark:bg-slate-800"
+                                                    disabled={isLimitReached}
                                                 >
                                                     <option value="small">Pequeno (5%)</option>
                                                     <option value="medium">Médio (10%)</option>
@@ -582,6 +625,7 @@ export const ContentAgent: React.FC = () => {
                                                     value={request.logoConfig.position} 
                                                     onChange={e => updateLogoConfig('position', e.target.value)}
                                                     className="w-full p-1 border rounded bg-white dark:bg-slate-800"
+                                                    disabled={isLimitReached}
                                                 >
                                                     <option value="top-left">Sup. Esq.</option>
                                                     <option value="top-right">Sup. Dir.</option>
@@ -593,7 +637,7 @@ export const ContentAgent: React.FC = () => {
                                     )}
                                 </div>
 
-                                <Button onClick={() => handleGenerate()} isLoading={isGenerating} className="w-full mt-4">
+                                <Button onClick={() => handleGenerate()} isLoading={isGenerating} disabled={isLimitReached} className="w-full mt-4">
                                     {isGenerating ? loadingMessage : <><Sparkles className="w-4 h-4 mr-2"/> Gerar Conteúdo</>}
                                 </Button>
                             </div>
@@ -672,7 +716,7 @@ export const ContentAgent: React.FC = () => {
                                             placeholder="Ex: Caso queira solicitar alguma mudança no texto ou imagem..."
                                             className="flex-1 p-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none h-16"
                                         />
-                                        <Button onClick={handleRefine} isLoading={isGenerating} className="h-16 px-4">
+                                        <Button onClick={handleRefine} isLoading={isGenerating} disabled={isLimitReached} className="h-16 px-4">
                                             <RefreshCw className="w-4 h-4"/>
                                         </Button>
                                     </div>

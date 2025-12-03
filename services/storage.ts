@@ -26,6 +26,7 @@ interface DBProfile {
   subscription_plans?: {
     name: string;
     max_students: number;
+    max_daily_posts: number;
   }
 }
 
@@ -92,6 +93,7 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
     planId: dbProfile.plan_id,
     planName: dbProfile.subscription_plans?.name,
     planLimit: dbProfile.subscription_plans?.max_students,
+    planMaxDailyPosts: dbProfile.subscription_plans?.max_daily_posts,
     settings: settings
   };
 };
@@ -100,7 +102,7 @@ export const fetchProfile = async (userId: string): Promise<StudioProfile | null
   try {
     const { data, error } = await supabase
       .from('studio_profiles')
-      .select('*, subscription_plans(name, max_students)')
+      .select('*, subscription_plans(name, max_students, max_daily_posts)')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -188,18 +190,23 @@ export const fetchSubscriptionPlans = async (): Promise<SubscriptionPlan[]> => {
     return data.map((p: any) => ({
       id: p.id,
       name: p.name,
-      maxStudents: p.max_students
+      maxStudents: p.max_students,
+      maxDailyPosts: p.max_daily_posts || 5 // Default fallback
     }));
   } catch (err) {
     return [];
   }
 };
 
-export const updateSubscriptionPlan = async (id: string, maxStudents: number): Promise<{ success: boolean; error?: string }> => {
+export const updateSubscriptionPlan = async (id: string, updates: { maxStudents?: number, maxDailyPosts?: number }): Promise<{ success: boolean; error?: string }> => {
   try {
+    const payload: any = {};
+    if (updates.maxStudents !== undefined) payload.max_students = updates.maxStudents;
+    if (updates.maxDailyPosts !== undefined) payload.max_daily_posts = updates.maxDailyPosts;
+
     const { error } = await supabase
       .from('subscription_plans')
-      .update({ max_students: maxStudents })
+      .update(payload)
       .eq('id', id);
 
     if (error) return { success: false, error: error.message };
@@ -215,7 +222,7 @@ export const fetchAllProfiles = async (): Promise<{ data: StudioProfile[], error
   try {
     const { data, error } = await supabase
       .from('studio_profiles')
-      .select('*, subscription_plans(name, max_students)')
+      .select('*, subscription_plans(name, max_students, max_daily_posts)')
       .order('created_at', { ascending: false });
 
     if (error) {

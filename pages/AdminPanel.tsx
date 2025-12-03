@@ -52,6 +52,7 @@ export const AdminPanel: React.FC = () => {
   const [showPlansModal, setShowPlansModal] = useState(false);
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [editPlanLimit, setEditPlanLimit] = useState<number>(0);
+  const [editPlanDailyPosts, setEditPlanDailyPosts] = useState<number>(5);
 
   // Banner Management
   const [showBannerModal, setShowBannerModal] = useState(false);
@@ -239,12 +240,16 @@ export const AdminPanel: React.FC = () => {
     setSavingPlan(false);
   };
 
-  const handleUpdatePlanLimit = async (planId: string) => {
+  const handleUpdatePlan = async (planId: string) => {
     if (editPlanLimit <= 0) return;
     
-    const result = await updateSubscriptionPlan(planId, editPlanLimit);
+    const result = await updateSubscriptionPlan(planId, {
+        maxStudents: editPlanLimit,
+        maxDailyPosts: editPlanDailyPosts
+    });
+
     if (result.success) {
-        setPlans(prev => prev.map(p => p.id === planId ? { ...p, maxStudents: editPlanLimit } : p));
+        setPlans(prev => prev.map(p => p.id === planId ? { ...p, maxStudents: editPlanLimit, maxDailyPosts: editPlanDailyPosts } : p));
         setEditingPlanId(null);
     } else {
         alert("Erro ao atualizar plano: " + result.error);
@@ -314,6 +319,7 @@ create table if not exists subscription_plans (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   max_students int not null,
+  max_daily_posts int default 5,
   created_at timestamptz default now()
 );
 
@@ -321,29 +327,9 @@ alter table studio_profiles
 add column if not exists is_active BOOLEAN DEFAULT TRUE,
 add column if not exists plan_id uuid references subscription_plans(id);
 
--- TABELA DE BANNERS
-create table if not exists system_banners (
-  id uuid primary key default gen_random_uuid(),
-  type text not null unique, -- 'studio' or 'instructor'
-  image_url text not null,
-  link_url text,
-  active boolean default true,
-  created_at timestamptz default now()
-);
-
--- RLS POLICIES
-alter table subscription_plans enable row level security;
-alter table system_banners enable row level security;
-
-create policy "Anyone can read plans" on subscription_plans for select to authenticated using (true);
-create policy "Admins can update plans" on subscription_plans for update to authenticated using (true) with check (true);
-
-create policy "Public read banners" on system_banners for select using (true);
-create policy "Admins write banners" on system_banners for all using (true);
-
 -- Insert Default Plans if empty
-insert into subscription_plans (name, max_students) 
-select 'Plano 1', 50 where not exists (select 1 from subscription_plans where name = 'Plano 1');
+insert into subscription_plans (name, max_students, max_daily_posts) 
+select 'Plano 1', 50, 5 where not exists (select 1 from subscription_plans where name = 'Plano 1');
     `;
     navigator.clipboard.writeText(sql.trim());
     alert('SQL copiado!');
@@ -404,11 +390,11 @@ select 'Plano 1', 50 where not exists (select 1 from subscription_plans where na
               >
                 <option value="">-- Sem Plano Definido --</option>
                 {plans.map(p => (
-                    <option key={p.id} value={p.id}>{p.name} (Max: {p.maxStudents} alunos)</option>
+                    <option key={p.id} value={p.id}>{p.name} (Max: {p.maxStudents} alunos | {p.maxDailyPosts} posts/dia)</option>
                 ))}
               </select>
               {currentPlanDetails && (
-                  <p className="text-xs text-green-600 mt-1 font-medium">Limite atual: {currentPlanDetails.maxStudents} alunos</p>
+                  <p className="text-xs text-green-600 mt-1 font-medium">Limites: {currentPlanDetails.maxStudents} alunos, {currentPlanDetails.maxDailyPosts} posts/dia</p>
               )}
             </div>
             <Button onClick={handleSavePlanAssignment} isLoading={savingPlan}>
@@ -687,29 +673,41 @@ select 'Plano 1', 50 where not exists (select 1 from subscription_plans where na
                         <div key={plan.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-100 dark:border-slate-800">
                             <div>
                                 <h4 className="font-bold text-slate-800 dark:text-white">{plan.name}</h4>
-                                <p className="text-sm text-slate-500">ID: {plan.id}</p>
+                                <div className="text-sm text-slate-500 mt-1">
+                                    <span className="block">Max Alunos: <strong>{plan.maxStudents}</strong></span>
+                                    <span className="block">Max Posts/Dia: <strong>{plan.maxDailyPosts}</strong></span>
+                                </div>
                             </div>
                             <div className="flex items-center gap-4">
                                 {editingPlanId === plan.id ? (
-                                    <div className="flex items-center gap-2">
-                                        <input 
-                                            type="number" 
-                                            value={editPlanLimit} 
-                                            onChange={e => setEditPlanLimit(parseInt(e.target.value))}
-                                            className="w-24 p-2 rounded border border-brand-300 focus:ring-2 focus:ring-brand-500 outline-none text-center"
-                                        />
-                                        <Button size="sm" onClick={() => handleUpdatePlanLimit(plan.id)}>Salvar</Button>
-                                        <Button size="sm" variant="ghost" onClick={() => setEditingPlanId(null)}>Cancelar</Button>
+                                    <div className="flex flex-col gap-2 bg-white dark:bg-slate-900 p-3 rounded border shadow-sm">
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500">Max Alunos</label>
+                                            <input 
+                                                type="number" 
+                                                value={editPlanLimit} 
+                                                onChange={e => setEditPlanLimit(parseInt(e.target.value))}
+                                                className="w-24 p-1 text-sm rounded border border-brand-300 focus:ring-1 focus:ring-brand-500 outline-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500">Posts/Dia</label>
+                                            <input 
+                                                type="number" 
+                                                value={editPlanDailyPosts} 
+                                                onChange={e => setEditPlanDailyPosts(parseInt(e.target.value))}
+                                                className="w-24 p-1 text-sm rounded border border-brand-300 focus:ring-1 focus:ring-brand-500 outline-none"
+                                            />
+                                        </div>
+                                        <div className="flex gap-2 mt-2">
+                                            <Button size="sm" onClick={() => handleUpdatePlan(plan.id)}>Salvar</Button>
+                                            <Button size="sm" variant="ghost" onClick={() => setEditingPlanId(null)}>Cancelar</Button>
+                                        </div>
                                     </div>
                                 ) : (
-                                    <div className="flex items-center gap-4">
-                                        <span className="font-mono bg-white dark:bg-slate-800 px-3 py-1 rounded border border-slate-200 dark:border-slate-700">
-                                            Max: <strong>{plan.maxStudents}</strong> alunos
-                                        </span>
-                                        <button onClick={() => { setEditingPlanId(plan.id); setEditPlanLimit(plan.maxStudents); }} className="text-brand-600 hover:text-brand-800 font-medium flex items-center gap-1 text-sm">
-                                            <Edit2 className="w-4 h-4"/> Editar
-                                        </button>
-                                    </div>
+                                    <button onClick={() => { setEditingPlanId(plan.id); setEditPlanLimit(plan.maxStudents); setEditPlanDailyPosts(plan.maxDailyPosts); }} className="text-brand-600 hover:text-brand-800 font-medium flex items-center gap-1 text-sm border border-brand-100 px-3 py-1.5 rounded hover:bg-brand-50">
+                                        <Edit2 className="w-4 h-4"/> Editar
+                                    </button>
                                 )}
                             </div>
                         </div>

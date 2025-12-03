@@ -25,6 +25,7 @@ export interface SubscriptionPlan {
   id: string;
   name: string;
   maxStudents: number;
+  maxDailyPosts: number; // Novo limitador
 }
 
 export interface StudioProfile {
@@ -46,6 +47,7 @@ export interface StudioProfile {
   planId?: string; // ID do Plano vinculado
   planName?: string; // Nome do plano (join)
   planLimit?: number; // Limite do plano (join)
+  planMaxDailyPosts?: number; // Limite de posts diários do plano
   settings?: {
     sender_email?: string; // Email configurado para envios (Gmail)
     instructor_permissions?: {

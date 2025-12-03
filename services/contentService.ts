@@ -1,4 +1,5 @@
 
+
 import { supabase } from './supabase';
 import { StudioPersona, SavedPost, StrategicContentPlan } from '../types';
 
@@ -91,6 +92,29 @@ export const deleteSavedPost = async (postId: string) => {
         return { success: true };
     } catch (err: any) {
         return { success: false, error: err.message };
+    }
+};
+
+export const getTodayPostCount = async (studioId: string): Promise<number> => {
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const { count, error } = await supabase
+            .from('content_posts')
+            .select('*', { count: 'exact', head: true })
+            .eq('studio_id', studioId)
+            .gte('created_at', today.toISOString());
+
+        if (error) {
+            console.error("Error counting posts:", error);
+            return 0;
+        }
+        
+        return count || 0;
+    } catch (e) {
+        console.error("Exception counting posts:", e);
+        return 0;
     }
 };
 
