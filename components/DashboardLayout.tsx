@@ -1,9 +1,10 @@
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper, Settings, Home, Wand2, Star, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper, Settings, Home, Wand2, Star, TrendingUp, ClipboardList } from 'lucide-react';
 import { AppRoute, SystemBanner } from '../types';
 import { fetchProfile } from '../services/storage';
 import { fetchBannerByType } from '../services/bannerService';
@@ -82,6 +83,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         { type: 'header', label: 'Comunidade' },
         { type: 'link', label: 'Receitas', icon: Utensils, path: AppRoute.STUDENT_RECIPES },
         { type: 'link', label: t('suggestions'), icon: MessageSquare, path: AppRoute.STUDENT_SUGGESTIONS },
+        { type: 'link', label: 'Pesquisas', icon: ClipboardList, path: AppRoute.STUDENT_SURVEYS }, // Added
         { type: 'link', label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.STUDENT_NEWSLETTERS },
       ];
     } else if (isInstructor) {
@@ -91,6 +93,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         { type: 'link', label: t('pilates_rehab'), icon: Activity, path: AppRoute.REHAB },
         { type: 'link', label: t('student_evolution'), icon: TrendingUp, path: AppRoute.EVOLUTION },
         { type: 'link', label: t('students'), icon: Users, path: AppRoute.STUDENTS },
+        { type: 'link', label: 'Pesquisas', icon: ClipboardList, path: AppRoute.INSTRUCTOR_SURVEYS }, // Added
         { type: 'link', label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.INSTRUCTOR_NEWSLETTERS },
       ];
     } else if (isOwner) {
@@ -114,6 +117,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         { type: 'header', label: `3. ${t('tracking')}` },
         { type: 'link', label: t('student_evolution'), icon: TrendingUp, path: AppRoute.EVOLUTION },
         { type: 'link', label: t('class_ratings'), icon: Star, path: AppRoute.STUDIO_EVALUATIONS },
+        { type: 'link', label: 'Pesquisas', icon: ClipboardList, path: AppRoute.SURVEY_MANAGER }, // Added
         { type: 'link', label: t('suggestions'), icon: MessageSquare, path: AppRoute.STUDIO_SUGGESTIONS },
       ];
     }

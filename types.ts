@@ -1,5 +1,7 @@
 
 
+
+
 export interface User {
   id: string;
   dbId?: string; // ID interno do banco de dados (PK da tabela students/instructors)
@@ -112,6 +114,7 @@ export enum AppRoute {
   // Rotas de Newsletter
   NEWSLETTER_AGENT = '/newsletter-agent',
   INSTRUCTOR_NEWSLETTERS = '/instructor/newsletters',
+  INSTRUCTOR_SURVEYS = '/instructor/surveys', // Nova rota
   
   // Rotas de Evolução
   EVOLUTION = '/evolution',
@@ -123,10 +126,12 @@ export enum AppRoute {
   STUDENT_SUGGESTIONS = '/student/suggestions',
   STUDENT_NEWSLETTERS = '/student/newsletters',
   STUDENT_EVALUATION = '/student/evaluation',
+  STUDENT_SURVEYS = '/student/surveys', // Nova rota
   
   // Rotas do Studio
   STUDIO_SUGGESTIONS = '/suggestions',
   STUDIO_EVALUATIONS = '/evaluations',
+  SURVEY_MANAGER = '/surveys', // Nova rota
   
   // Novo Agente de Conteúdo
   CONTENT_AGENT = '/content-agent',
@@ -144,6 +149,43 @@ export interface Newsletter {
   targetAudience: NewsletterAudience;
   createdAt: string;
 }
+
+// --- SURVEY TYPES ---
+
+export type SurveyTarget = 'students' | 'instructors' | 'both';
+export type QuestionType = 'text' | 'long_text' | 'radio' | 'checkbox' | 'select';
+
+export interface SurveyQuestion {
+  id: string;
+  text: string;
+  type: QuestionType;
+  options?: string[]; // Para radio, checkbox, select
+  required: boolean;
+}
+
+export interface Survey {
+  id: string;
+  studioId: string;
+  title: string;
+  description?: string;
+  targetAudience: SurveyTarget;
+  questions: SurveyQuestion[];
+  isActive: boolean;
+  createdAt: string;
+  responseCount?: number; // Calculado
+}
+
+export interface SurveyResponse {
+  id: string;
+  surveyId: string;
+  userId: string;
+  userName: string;
+  userType: 'student' | 'instructor';
+  answers: { questionId: string; value: string | string[] }[];
+  createdAt: string;
+}
+
+// --- END SURVEY TYPES ---
 
 export interface Suggestion {
   id: string;
