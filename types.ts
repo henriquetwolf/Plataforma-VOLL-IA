@@ -13,6 +13,14 @@ export interface User {
   studioId?: string; 
 }
 
+export interface SystemBanner {
+  id: string;
+  type: 'studio' | 'instructor';
+  imageUrl: string;
+  linkUrl?: string;
+  active: boolean;
+}
+
 export interface SubscriptionPlan {
   id: string;
   name: string;

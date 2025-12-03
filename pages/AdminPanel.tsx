@@ -5,10 +5,11 @@ import { useAuth } from '../context/AuthContext';
 import { fetchAllProfiles, toggleUserStatus, adminResetPassword, upsertProfile, fetchSubscriptionPlans, updateSubscriptionPlan } from '../services/storage';
 import { fetchInstructors, toggleInstructorStatus } from '../services/instructorService';
 import { fetchStudents, revokeStudentAccess } from '../services/studentService';
+import { uploadBannerImage, upsertBanner, fetchBannerByType } from '../services/bannerService';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X } from 'lucide-react';
-import { SubscriptionPlan } from '../types';
+import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload } from 'lucide-react';
+import { SubscriptionPlan, SystemBanner } from '../types';
 
 const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
 
@@ -51,6 +52,14 @@ export const AdminPanel: React.FC = () => {
   const [showPlansModal, setShowPlansModal] = useState(false);
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [editPlanLimit, setEditPlanLimit] = useState<number>(0);
+
+  // Banner Management
+  const [showBannerModal, setShowBannerModal] = useState(false);
+  const [studioBanner, setStudioBanner] = useState<SystemBanner | null>(null);
+  const [instructorBanner, setInstructorBanner] = useState<SystemBanner | null>(null);
+  const [studioBannerLink, setStudioBannerLink] = useState('');
+  const [instructorBannerLink, setInstructorBannerLink] = useState('');
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -122,6 +131,21 @@ export const AdminPanel: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  const loadBanners = async () => {
+    const sBanner = await fetchBannerByType('studio');
+    const iBanner = await fetchBannerByType('instructor');
+    setStudioBanner(sBanner);
+    setInstructorBanner(iBanner);
+    if(sBanner) setStudioBannerLink(sBanner.linkUrl || '');
+    if(iBanner) setInstructorBannerLink(iBanner.linkUrl || '');
+  };
+
+  useEffect(() => {
+    if (showBannerModal) {
+        loadBanners();
+    }
+  }, [showBannerModal]);
 
   const handleToggleStatus = async (targetUser: AdminUserView) => {
     const action = targetUser.isActive ? 'DESATIVAR' : 'ATIVAR';
@@ -227,6 +251,44 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
+  const handleBannerUpload = async (file: File, type: 'studio' | 'instructor') => {
+    setIsUploadingBanner(true);
+    const imageUrl = await uploadBannerImage(file);
+    if (imageUrl) {
+        // Save to DB immediately with current link input
+        const link = type === 'studio' ? studioBannerLink : instructorBannerLink;
+        const result = await upsertBanner(type, imageUrl, link);
+        if (result.success) {
+            await loadBanners();
+        } else {
+            alert("Erro ao salvar banner no banco: " + result.error);
+        }
+    } else {
+        alert("Erro no upload da imagem. Verifique se o bucket 'system-assets' existe e é público.");
+    }
+    setIsUploadingBanner(false);
+  };
+
+  const handleBannerLinkUpdate = async (type: 'studio' | 'instructor') => {
+    const banner = type === 'studio' ? studioBanner : instructorBanner;
+    const link = type === 'studio' ? studioBannerLink : instructorBannerLink;
+    
+    if (!banner) {
+        alert("Faça upload de uma imagem primeiro.");
+        return;
+    }
+    
+    setIsUploadingBanner(true);
+    const result = await upsertBanner(type, banner.imageUrl, link);
+    if (result.success) {
+        alert("Link atualizado!");
+        await loadBanners();
+    } else {
+        alert("Erro ao atualizar link: " + result.error);
+    }
+    setIsUploadingBanner(false);
+  };
+
   const copySql = () => {
     const sql = `
 -- GARANTIR TABELAS E COLUNAS
@@ -241,17 +303,29 @@ alter table studio_profiles
 add column if not exists is_active BOOLEAN DEFAULT TRUE,
 add column if not exists plan_id uuid references subscription_plans(id);
 
+-- TABELA DE BANNERS
+create table if not exists system_banners (
+  id uuid primary key default gen_random_uuid(),
+  type text not null unique, -- 'studio' or 'instructor'
+  image_url text not null,
+  link_url text,
+  active boolean default true,
+  created_at timestamptz default now()
+);
+
+-- RLS POLICIES
 alter table subscription_plans enable row level security;
+alter table system_banners enable row level security;
+
 create policy "Anyone can read plans" on subscription_plans for select to authenticated using (true);
 create policy "Admins can update plans" on subscription_plans for update to authenticated using (true) with check (true);
+
+create policy "Public read banners" on system_banners for select using (true);
+create policy "Admins write banners" on system_banners for all using (true);
 
 -- Insert Default Plans if empty
 insert into subscription_plans (name, max_students) 
 select 'Plano 1', 50 where not exists (select 1 from subscription_plans where name = 'Plano 1');
-insert into subscription_plans (name, max_students) 
-select 'Plano 2', 100 where not exists (select 1 from subscription_plans where name = 'Plano 2');
-insert into subscription_plans (name, max_students) 
-select 'Plano 3', 200 where not exists (select 1 from subscription_plans where name = 'Plano 3');
     `;
     navigator.clipboard.writeText(sql.trim());
     alert('SQL copiado!');
@@ -392,8 +466,11 @@ select 'Plano 3', 200 where not exists (select 1 from subscription_plans where n
            <Button size="sm" variant="outline" onClick={copySql}>
              <Database className="h-3 w-3 mr-2" /> SQL Check
            </Button>
+           <Button size="sm" variant="secondary" onClick={() => setShowBannerModal(true)}>
+             <Image className="h-3 w-3 mr-2" /> Banners
+           </Button>
            <Button size="sm" variant="secondary" onClick={() => setShowPlansModal(true)}>
-             <Crown className="h-3 w-3 mr-2" /> Gerenciar Planos
+             <Crown className="h-3 w-3 mr-2" /> Planos
            </Button>
            <Button onClick={loadData} disabled={loading}>
              {loading ? <Loader2 className="animate-spin h-4 w-4"/> : "Atualizar Lista"}
@@ -623,6 +700,62 @@ select 'Plano 3', 200 where not exists (select 1 from subscription_plans where n
                 
                 <div className="mt-6 text-xs text-slate-400 text-center">
                     Nota: Para criar novos planos, insira diretamente no banco de dados via SQL.
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* Banner Management Modal */}
+      {showBannerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-xl p-6 border border-slate-200 dark:border-slate-800 overflow-y-auto max-h-[90vh]">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <Image className="w-6 h-6 text-brand-600"/> Banners Promocionais
+                    </h3>
+                    <button onClick={() => setShowBannerModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-6 h-6"/></button>
+                </div>
+
+                <div className="space-y-8">
+                    {/* Area Studio Banner */}
+                    <div className="space-y-3">
+                        <h4 className="font-bold text-slate-800 dark:text-white border-b pb-2">Área do Studio (Donos)</h4>
+                        
+                        <div className="flex flex-col md:flex-row gap-4">
+                            <div className="w-40 h-24 bg-slate-100 rounded-lg border border-dashed border-slate-300 flex items-center justify-center relative overflow-hidden">
+                                {studioBanner?.imageUrl ? (
+                                    <img src={studioBanner.imageUrl} className="w-full h-full object-cover" alt="Banner Studio" />
+                                ) : <span className="text-xs text-slate-400">Sem imagem</span>}
+                            </div>
+                            <div className="flex-1 space-y-3">
+                                <input type="file" accept="image/*" onChange={(e) => e.target.files && handleBannerUpload(e.target.files[0], 'studio')} disabled={isUploadingBanner} className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"/>
+                                <div className="flex gap-2">
+                                    <Input placeholder="Link de destino (https://...)" value={studioBannerLink} onChange={(e) => setStudioBannerLink(e.target.value)} className="mb-0 flex-1" />
+                                    <Button size="sm" onClick={() => handleBannerLinkUpdate('studio')} disabled={isUploadingBanner}>Salvar Link</Button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Area Instructor Banner */}
+                    <div className="space-y-3">
+                        <h4 className="font-bold text-slate-800 dark:text-white border-b pb-2">Área do Instrutor</h4>
+                        
+                        <div className="flex flex-col md:flex-row gap-4">
+                            <div className="w-40 h-24 bg-slate-100 rounded-lg border border-dashed border-slate-300 flex items-center justify-center relative overflow-hidden">
+                                {instructorBanner?.imageUrl ? (
+                                    <img src={instructorBanner.imageUrl} className="w-full h-full object-cover" alt="Banner Instrutor" />
+                                ) : <span className="text-xs text-slate-400">Sem imagem</span>}
+                            </div>
+                            <div className="flex-1 space-y-3">
+                                <input type="file" accept="image/*" onChange={(e) => e.target.files && handleBannerUpload(e.target.files[0], 'instructor')} disabled={isUploadingBanner} className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                                <div className="flex gap-2">
+                                    <Input placeholder="Link de destino (https://...)" value={instructorBannerLink} onChange={(e) => setInstructorBannerLink(e.target.value)} className="mb-0 flex-1" />
+                                    <Button size="sm" onClick={() => handleBannerLinkUpdate('instructor')} disabled={isUploadingBanner}>Salvar Link</Button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

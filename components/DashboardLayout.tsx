@@ -1,11 +1,13 @@
 
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper, Settings, Home, Wand2, Star, TrendingUp } from 'lucide-react';
-import { AppRoute } from '../types';
+import { AppRoute, SystemBanner } from '../types';
 import { fetchProfile } from '../services/storage';
+import { fetchBannerByType } from '../services/bannerService';
 
 const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
 
@@ -15,6 +17,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
   const location = useLocation();
   
   const [menuItems, setMenuItems] = useState<any[]>([]);
+  const [promoBanner, setPromoBanner] = useState<SystemBanner | null>(null);
 
   useEffect(() => {
     const loadBrandAndPermissions = async () => {
@@ -29,6 +32,24 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
     };
     loadBrandAndPermissions();
   }, [user, setBrandColor]);
+
+  // Carregar Banner Promocional
+  useEffect(() => {
+    const loadBanner = async () => {
+      if (!user) return;
+      
+      let bannerType: 'studio' | 'instructor' | null = null;
+      
+      if (user.isOwner) bannerType = 'studio';
+      else if (user.isInstructor) bannerType = 'instructor';
+      
+      if (bannerType) {
+        const banner = await fetchBannerByType(bannerType);
+        setPromoBanner(banner);
+      }
+    };
+    loadBanner();
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -109,6 +130,24 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          {/* BANNER PROMOCIONAL */}
+          {promoBanner && (
+            <div className="mb-6 px-1">
+              <a 
+                href={promoBanner.linkUrl || '#'} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className={`block rounded-lg overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm transition-transform hover:scale-[1.02] ${!promoBanner.linkUrl ? 'cursor-default pointer-events-none' : ''}`}
+              >
+                <img 
+                  src={promoBanner.imageUrl} 
+                  alt="Novidade VOLL" 
+                  className="w-full h-auto object-cover"
+                />
+              </a>
+            </div>
+          )}
+
           {/* Links do Menu */}
           {menuItems.map((item, index) => {
             if (item.type === 'header') {
