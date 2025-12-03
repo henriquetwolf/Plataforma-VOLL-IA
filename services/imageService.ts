@@ -31,7 +31,6 @@ export const compositeImageWithLogo = async (
 
       logoImg.onload = () => {
         // Calculate Size based on the largest dimension to fit within the target percentage relative to the smallest canvas side
-        // This ensures the logo fits regardless if it's wide or tall, or if the canvas is portrait/landscape.
         const baseMinDim = Math.min(canvas.width, canvas.height);
         let targetSize = 0;
 
@@ -51,9 +50,11 @@ export const compositeImageWithLogo = async (
         const logoHeight = logoImg.height * scale;
 
         // Calculate Position with padding
+        // Increased padding slightly to ensure it's not too close to edge
+        const padding = baseMinDim * 0.05; 
+
         let x = 0;
         let y = 0;
-        const padding = baseMinDim * 0.05; // 5% padding relative to image size
 
         if (config.position.includes('left')) {
           x = padding;
@@ -67,9 +68,12 @@ export const compositeImageWithLogo = async (
           y = canvas.height - logoHeight - padding;
         }
 
-        // Safety: Ensure logo is fully within canvas bounds (never cropped)
-        x = Math.max(0, Math.min(x, canvas.width - logoWidth));
-        y = Math.max(0, Math.min(y, canvas.height - logoHeight));
+        // Safety: Ensure logo is fully within canvas bounds (never cropped by canvas edge)
+        // We add/subtract padding from bounds check to keep the safety margin
+        if (x < 0) x = padding;
+        if (y < 0) y = padding;
+        if (x + logoWidth > canvas.width) x = canvas.width - logoWidth - padding;
+        if (y + logoHeight > canvas.height) y = canvas.height - logoHeight - padding;
 
         // Apply Opacity/Watermark
         ctx.globalAlpha = config.type === 'watermark' ? 0.5 : 1.0; 
