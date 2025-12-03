@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 import { fetchProfile, upsertProfile, uploadLogo } from '../services/storage';
 import { generateStudioDescription } from '../services/geminiService';
 import { Input } from '../components/ui/Input';
@@ -11,13 +13,14 @@ import { StudioProfile } from '../types';
 export const Profile: React.FC = () => {
   const { user } = useAuth();
   const { setBrandColor } = useTheme();
+  const { t } = useLanguage();
   const [isLoading, setIsLoading] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
   const [dataLoaded, setDataLoaded] = useState(false);
 
-  const isReadOnly = user?.isInstructor; // Variável chave para bloquear edição
+  const isReadOnly = user?.isInstructor;
 
   const [formData, setFormData] = useState<StudioProfile>({
     id: '',
@@ -39,7 +42,6 @@ export const Profile: React.FC = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      // Carrega o perfil do dono (studioId) ou o próprio (id)
       const targetId = user?.isInstructor ? user.studioId : user?.id;
       
       if (!targetId || dataLoaded) return;
@@ -52,7 +54,6 @@ export const Profile: React.FC = () => {
           setBrandColor(existingProfile.brandColor);
         }
       } else {
-        // Novo perfil (apenas para donos)
         setFormData(prev => ({ 
           ...prev, 
           userId: user?.id || '',
@@ -62,7 +63,6 @@ export const Profile: React.FC = () => {
       setDataLoaded(true);
     };
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -163,8 +163,8 @@ export const Profile: React.FC = () => {
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Perfil do Studio</h1>
-          <p className="text-slate-500 dark:text-slate-400">Informações do estúdio.</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{t('studio_profile')}</h1>
+          <p className="text-slate-500 dark:text-slate-400">{t('card_profile_desc')}</p>
         </div>
         {isReadOnly && (
           <div className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2 border border-orange-200">
@@ -184,18 +184,18 @@ export const Profile: React.FC = () => {
         <div className="md:col-span-2 space-y-6">
           <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
             <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-brand-500" /> Informações Básicas
+              <Building2 className="h-5 w-5 text-brand-500" /> {t('profile_basic_info')}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
-                label="Nome do Studio"
+                label={t('studio_name_label')}
                 name="studioName"
                 value={formData.studioName}
                 onChange={handleChange}
                 disabled={isReadOnly}
               />
               <Input
-                label="Nome do Proprietário(a)"
+                label={t('owner_name_label')}
                 name="ownerName"
                 value={formData.ownerName}
                 onChange={handleChange}
@@ -205,7 +205,7 @@ export const Profile: React.FC = () => {
             
             <div className="mt-4">
               <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Biografia do Studio</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('bio_label')}</label>
                 {!isReadOnly && (
                   <button
                     type="button"
@@ -214,7 +214,7 @@ export const Profile: React.FC = () => {
                     className="text-xs flex items-center gap-1 text-brand-600 dark:text-brand-400 hover:text-brand-700 font-medium bg-brand-50 dark:bg-brand-900/20 px-2 py-1 rounded-md transition-colors"
                   >
                     {isAiLoading ? <span className="animate-spin h-3 w-3 border-2 border-brand-600 rounded-full border-t-transparent"></span> : <Wand2 className="h-3 w-3" />}
-                    {isAiLoading ? 'Escrevendo...' : 'IA Escreva para mim'}
+                    {isAiLoading ? '...' : t('ai_write_btn')}
                   </button>
                 )}
               </div>
@@ -231,12 +231,12 @@ export const Profile: React.FC = () => {
           
           <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
             <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
-              <Palette className="h-5 w-5 text-brand-500" /> Identidade Visual
+              <Palette className="h-5 w-5 text-brand-500" /> {t('visual_identity')}
             </h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">Logomarca</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">{t('logo_label')}</label>
                 <div className={`border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg p-4 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-800/50 relative ${!isReadOnly && 'hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer'}`}>
                   {isUploading ? (
                      <div className="flex flex-col items-center py-4"><Loader2 className="h-8 w-8 text-brand-500 animate-spin mb-2" /></div>
@@ -250,7 +250,7 @@ export const Profile: React.FC = () => {
                   ) : (
                     <div className="flex flex-col items-center py-4 text-slate-400">
                        <Upload className="h-8 w-8 mb-2" />
-                       <span className="text-xs">Sem logo</span>
+                       <span className="text-xs">Upload</span>
                     </div>
                   )}
                   {!isReadOnly && (
@@ -260,7 +260,7 @@ export const Profile: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">Cor Principal</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">{t('brand_color_label')}</label>
                 <div className="flex items-center gap-3">
                   <div className="relative overflow-hidden w-12 h-12 rounded-lg shadow-sm ring-1 ring-slate-200 dark:ring-slate-700 shrink-0">
                     <input type="color" value={formData.brandColor || '#14b8a6'} onChange={handleColorChange} disabled={isReadOnly} className="absolute -top-2 -left-2 w-24 h-24 cursor-pointer p-0 border-0 disabled:cursor-not-allowed" />
@@ -273,9 +273,9 @@ export const Profile: React.FC = () => {
 
           <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
             <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-brand-500" /> Serviços
+              <Building2 className="h-5 w-5 text-brand-500" /> {t('services_label')}
             </h2>
-            <Input label="Especialidades" value={specialtiesInput} onChange={handleSpecialtiesChange} disabled={isReadOnly} />
+            <Input label={t('specialties_label')} value={specialtiesInput} onChange={handleSpecialtiesChange} disabled={isReadOnly} />
             <div className="flex flex-wrap gap-2 mt-2">
               {formData.specialties.map((tag, idx) => (
                 <span key={idx} className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-3 py-1 rounded-full text-xs font-medium">{tag}</span>
@@ -287,16 +287,16 @@ export const Profile: React.FC = () => {
         <div className="md:col-span-1 space-y-6">
           <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-brand-500" /> Contato
+              <MapPin className="h-5 w-5 text-brand-500" /> {t('contact_label')}
             </h2>
-            <Input label="Endereço" name="address" value={formData.address} onChange={handleChange} disabled={isReadOnly} />
-            <Input label="Telefone" name="phone" value={formData.phone} onChange={handleChange} disabled={isReadOnly} />
-            <Input label="Site" name="website" value={formData.website} onChange={handleChange} disabled={isReadOnly} />
+            <Input label={t('address_label')} name="address" value={formData.address} onChange={handleChange} disabled={isReadOnly} />
+            <Input label={t('phone_label')} name="phone" value={formData.phone} onChange={handleChange} disabled={isReadOnly} />
+            <Input label={t('website_label')} name="website" value={formData.website} onChange={handleChange} disabled={isReadOnly} />
           </div>
 
           {!isReadOnly && (
             <Button type="submit" className="w-full h-12 text-lg shadow-lg shadow-brand-200/50" isLoading={isLoading}>
-              <Save className="h-5 w-5 mr-2" /> Salvar Perfil
+              <Save className="h-5 w-5 mr-2" /> {t('save_profile_btn')}
             </Button>
           )}
         </div>

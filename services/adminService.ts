@@ -78,7 +78,7 @@ export const fetchAdminTimelineStats = async (startDate: string, endDate: string
   try {
     const start = new Date(startDate);
     const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999); // End of the day
+    end.setHours(23, 59, 59, 999);
 
     // Fetch raw dates from tables
     const [studiosRes, contentRes, evalRes] = await Promise.all([
@@ -105,13 +105,17 @@ export const fetchAdminTimelineStats = async (startDate: string, endDate: string
 
     // Fill missing days
     const result: TimelineDataPoint[] = [];
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const dayStr = d.toISOString().split('T')[0];
+    // Clone start date to avoid modifying the original 'start' variable loop issue
+    const loopDate = new Date(start);
+    
+    while (loopDate <= end) {
+      const dayStr = loopDate.toISOString().split('T')[0];
       if (dataMap.has(dayStr)) {
         result.push(dataMap.get(dayStr)!);
       } else {
         result.push({ date: dayStr, studios: 0, content: 0, engagement: 0 });
       }
+      loopDate.setDate(loopDate.getDate() + 1);
     }
 
     return result;

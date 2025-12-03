@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { 
     generatePilatesContentStream, 
     generatePilatesImage, 
@@ -34,41 +35,6 @@ import { Input } from '../components/ui/Input';
 import { Wand2, Calendar, Layout, Loader2, Sparkles, Copy, Trash2, Video, Image as ImageIcon, CheckCircle, Save, UserCircle, Eye, ArrowRight, X, Settings2, RefreshCw, MessageSquarePlus, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-/*
-  SQL REQUIRED FOR SUPABASE:
-  
-  -- Tabela de Posts Salvos
-  create table if not exists content_posts (
-    id uuid primary key default gen_random_uuid(),
-    studio_id uuid not null references studio_profiles(user_id) on delete cascade,
-    data jsonb not null,
-    created_at timestamptz default now()
-  );
-
-  -- Tabela de Planos
-  create table if not exists content_plans (
-    id uuid primary key default gen_random_uuid(),
-    studio_id uuid not null references studio_profiles(user_id) on delete cascade,
-    data jsonb not null,
-    created_at timestamptz default now()
-  );
-
-  -- NOVO: Tabela de Logs de Geração (Para contagem persistente)
-  create table if not exists content_generations (
-    id uuid primary key default gen_random_uuid(),
-    studio_id uuid not null references studio_profiles(user_id) on delete cascade,
-    created_at timestamptz default now()
-  );
-  
-  alter table content_posts enable row level security;
-  alter table content_plans enable row level security;
-  alter table content_generations enable row level security;
-
-  create policy "Users manage content_posts" on content_posts for all using (auth.uid() = studio_id);
-  create policy "Users manage content_plans" on content_plans for all using (auth.uid() = studio_id);
-  create policy "Users manage content_generations" on content_generations for all using (auth.uid() = studio_id);
-*/
-
 const INITIAL_REQUEST: ContentRequest = {
     format: 'Post Estático',
     objective: 'Educação',
@@ -86,6 +52,7 @@ const INITIAL_REQUEST: ContentRequest = {
 
 export const ContentAgent: React.FC = () => {
     const { user } = useAuth();
+    const { t } = useLanguage();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'persona' | 'generator' | 'planner'>('generator');
     
@@ -161,7 +128,7 @@ export const ContentAgent: React.FC = () => {
         if (!user?.id || !persona) return;
         const res = await saveStudioPersona(user.id, persona);
         if (res.success) {
-            alert('Persona salva com sucesso!');
+            alert(t('save_all'));
             setActiveTab('generator');
         } else {
             alert('Erro ao salvar persona.');
@@ -171,7 +138,7 @@ export const ContentAgent: React.FC = () => {
     // --- GENERATOR LOGIC ---
     const handleGenerate = async (overrideRequest?: ContentRequest) => {
         if (isLimitReached) {
-            alert(`Você atingiu o limite diário de ${dailyLimit} criações do seu plano.`);
+            alert(t('limit_desc'));
             return;
         }
 
@@ -199,7 +166,7 @@ export const ContentAgent: React.FC = () => {
         setGeneratedText('');
         setGeneratedImage(null);
         setGeneratedVideo(null);
-        setLoadingMessage('Escrevendo texto...');
+        setLoadingMessage(t('loading'));
 
         // Variaveis locais para salvar
         let finalContent = '';
@@ -223,7 +190,7 @@ export const ContentAgent: React.FC = () => {
 
             // Image
             if (['Post Estático', 'Carrossel', 'Story'].includes(activeRequest.format)) {
-                setLoadingMessage('Criando imagem...');
+                setLoadingMessage(t('loading') + ' Image...');
                 let img = await generatePilatesImage(activeRequest, null, finalContent);
                 
                 // Apply Logo if enabled and available
@@ -242,7 +209,7 @@ export const ContentAgent: React.FC = () => {
 
             // Video
             if (['Reels', 'Video Curto', 'TikTok'].includes(activeRequest.format)) {
-                setLoadingMessage('Renderizando vídeo (isso pode demorar)...');
+                setLoadingMessage(t('loading') + ' Video...');
                 const vid = await generatePilatesVideo(finalContent, (msg) => setLoadingMessage(msg));
                 finalVideo = vid;
                 setGeneratedVideo(vid);
@@ -413,19 +380,19 @@ export const ContentAgent: React.FC = () => {
             <header className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Wand2 className="h-8 w-8 text-brand-600" /> Assistente de Conteúdo
+                        <Wand2 className="h-8 w-8 text-brand-600" /> {t('content_title')}
                     </h1>
-                    <p className="text-slate-500 dark:text-slate-400">Crie posts, imagens e vídeos alinhados à sua marca.</p>
+                    <p className="text-slate-500 dark:text-slate-400">{t('content_subtitle')}</p>
                 </div>
                 <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
                     <button onClick={() => setActiveTab('persona')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'persona' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}>
-                        <UserCircle className="w-4 h-4"/> Minha Marca
+                        <UserCircle className="w-4 h-4"/> {t('tab_persona')}
                     </button>
                     <button onClick={() => setActiveTab('generator')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'generator' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}>
-                        <Sparkles className="w-4 h-4"/> Criar
+                        <Sparkles className="w-4 h-4"/> {t('tab_generator')}
                     </button>
                     <button onClick={() => setActiveTab('planner')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'planner' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}>
-                        <Calendar className="w-4 h-4"/> Planejador
+                        <Calendar className="w-4 h-4"/> {t('tab_planner')}
                     </button>
                 </div>
             </header>
@@ -433,12 +400,12 @@ export const ContentAgent: React.FC = () => {
             {/* --- PERSONA TAB --- */}
             {activeTab === 'persona' && (
                 <div className="bg-white dark:bg-slate-900 p-8 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm max-w-3xl mx-auto">
-                    <h2 className="text-xl font-bold mb-6 text-slate-900 dark:text-white">Definição da Persona do Studio</h2>
-                    <p className="mb-6 text-slate-500 text-sm">A IA usará estas informações para escrever como você.</p>
+                    <h2 className="text-xl font-bold mb-6 text-slate-900 dark:text-white">{t('persona_title')}</h2>
+                    <p className="mb-6 text-slate-500 text-sm">{t('persona_desc')}</p>
                     
                     <div className="space-y-6">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Filosofia do Studio</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t('philosophy_label')}</label>
                             <textarea 
                                 className="w-full p-3 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 h-24"
                                 placeholder="Ex: Pilates clássico com foco em reabilitação e bem-estar integral..."
@@ -447,7 +414,7 @@ export const ContentAgent: React.FC = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Diferenciais</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t('differentiators_label')}</label>
                             <textarea 
                                 className="w-full p-3 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 h-24"
                                 placeholder="Ex: Atendimento individualizado, equipamentos de ponta, ambiente zen..."
@@ -456,7 +423,7 @@ export const ContentAgent: React.FC = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Linguagem a Evitar</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t('avoid_terms_label')}</label>
                             <input 
                                 className="w-full p-3 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
                                 placeholder="Ex: 'Barriga chapada', 'Projeto verão', gírias excessivas..."
@@ -464,7 +431,7 @@ export const ContentAgent: React.FC = () => {
                                 onChange={e => setPersona(prev => ({ ...prev!, languageToAvoid: e.target.value } as StudioPersona))}
                             />
                         </div>
-                        <Button onClick={handleSavePersona} className="w-full">Salvar Persona</Button>
+                        <Button onClick={handleSavePersona} className="w-full">{t('save_persona_btn')}</Button>
                     </div>
                 </div>
             )}
@@ -478,7 +445,7 @@ export const ContentAgent: React.FC = () => {
                         <div className={`p-4 rounded-xl border flex justify-between items-center ${isLimitReached ? 'bg-red-50 border-red-200 text-red-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
                             <div className="flex items-center gap-2">
                                 <Sparkles className="w-5 h-5"/>
-                                <span className="font-bold text-sm">Criações Hoje:</span>
+                                <span className="font-bold text-sm">{t('creations_today')}:</span>
                             </div>
                             <span className="font-bold text-sm">{todayCount} / {dailyLimit}</span>
                         </div>
@@ -487,12 +454,12 @@ export const ContentAgent: React.FC = () => {
                             {isLimitReached && (
                                 <div className="absolute inset-0 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm z-10 flex flex-col items-center justify-center text-center p-6 rounded-xl">
                                     <Lock className="w-12 h-12 text-slate-400 mb-2"/>
-                                    <h3 className="font-bold text-lg text-slate-800 dark:text-white">Limite Diário Atingido</h3>
-                                    <p className="text-slate-600 dark:text-slate-300 mt-1">Você já criou {dailyLimit} posts hoje. Volte amanhã ou faça um upgrade no seu plano.</p>
+                                    <h3 className="font-bold text-lg text-slate-800 dark:text-white">{t('limit_reached')}</h3>
+                                    <p className="text-slate-600 dark:text-slate-300 mt-1">{t('limit_desc')}</p>
                                 </div>
                             )}
 
-                            <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-white">O que vamos criar hoje?</h3>
+                            <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-white">{t('what_create')}</h3>
                             
                             {generatingFromPlan && (
                                 <div className="mb-4 p-3 bg-brand-50 border border-brand-100 rounded-lg text-sm text-brand-800 flex items-center justify-between">
@@ -503,7 +470,7 @@ export const ContentAgent: React.FC = () => {
 
                             <div className="space-y-4">
                                 <Input 
-                                    label="Tema do Conteúdo" 
+                                    label={t('theme_label')} 
                                     placeholder="Ex: Benefícios do Pilates para dor nas costas..."
                                     value={request.theme}
                                     onChange={e => setRequest({...request, theme: e.target.value})}
@@ -512,7 +479,7 @@ export const ContentAgent: React.FC = () => {
                                 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Formato</label>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('format_label')}</label>
                                         <select 
                                             className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
                                             value={request.format}
@@ -527,7 +494,7 @@ export const ContentAgent: React.FC = () => {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Objetivo</label>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('objective_label')}</label>
                                         <select 
                                             className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
                                             value={request.objective}
@@ -544,7 +511,7 @@ export const ContentAgent: React.FC = () => {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Público</label>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('audience_label')}</label>
                                         <select 
                                             className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
                                             value={request.audience}
@@ -559,7 +526,7 @@ export const ContentAgent: React.FC = () => {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Estilo Visual</label>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('visual_style_label')}</label>
                                         <select 
                                             className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
                                             value={request.imageStyle}
@@ -578,10 +545,10 @@ export const ContentAgent: React.FC = () => {
                                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
                                     <div className="flex items-center justify-between mb-2">
                                         <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                                            <Settings2 className="w-4 h-4" /> Configuração de Logo
+                                            <Settings2 className="w-4 h-4" /> {t('logo_config_label')}
                                         </label>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xs text-slate-500">{request.logoConfig?.enabled ? 'Ativado' : 'Desativado'}</span>
+                                            <span className="text-xs text-slate-500">{request.logoConfig?.enabled ? t('active') : t('inactive')}</span>
                                             <input 
                                                 type="checkbox" 
                                                 checked={request.logoConfig?.enabled} 
@@ -644,14 +611,14 @@ export const ContentAgent: React.FC = () => {
                                 </div>
 
                                 <Button onClick={() => handleGenerate()} isLoading={isGenerating} disabled={isLimitReached} className="w-full mt-4">
-                                    {isGenerating ? loadingMessage : <><Sparkles className="w-4 h-4 mr-2"/> Gerar Conteúdo</>}
+                                    {isGenerating ? loadingMessage : <><Sparkles className="w-4 h-4 mr-2"/> {t('generate_btn')}</>}
                                 </Button>
                             </div>
                         </div>
 
                         {/* Recent History */}
                         <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                            <h3 className="font-bold text-sm text-slate-500 uppercase mb-4">Posts Salvos Recentemente</h3>
+                            <h3 className="font-bold text-sm text-slate-500 uppercase mb-4">{t('recent_posts')}</h3>
                             <div className="space-y-3">
                                 {savedPosts.slice(0, 5).map(post => (
                                     <div key={post.id} className="p-3 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-100 dark:border-slate-800 flex justify-between items-center">
@@ -679,7 +646,7 @@ export const ContentAgent: React.FC = () => {
                         {generatedText ? (
                             <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm animate-in fade-in">
                                 <div className="flex justify-between items-start mb-4">
-                                    <h3 className="font-bold text-lg text-brand-600">Resultado Gerado</h3>
+                                    <h3 className="font-bold text-lg text-brand-600">{t('result_title')}</h3>
                                     <div className="flex gap-2">
                                         <button onClick={() => navigator.clipboard.writeText(generatedText)} className="p-2 text-slate-400 hover:text-brand-600 rounded-lg bg-slate-50 dark:bg-slate-800" title="Copiar Texto">
                                             <Copy className="w-4 h-4"/>
@@ -697,7 +664,7 @@ export const ContentAgent: React.FC = () => {
                                         )}
                                         <div className="p-2 flex justify-center gap-2 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700">
                                             <a href={generatedVideo || generatedImage!} download="conteudo_pilates" target="_blank" rel="noreferrer" className="text-xs text-brand-600 font-bold hover:underline">
-                                                Baixar Mídia
+                                                {t('download_media')}
                                             </a>
                                         </div>
                                     </div>
@@ -710,7 +677,7 @@ export const ContentAgent: React.FC = () => {
                                 {/* Refinement Section */}
                                 <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700">
                                     <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                                        <MessageSquarePlus className="w-4 h-4"/> Observações
+                                        <MessageSquarePlus className="w-4 h-4"/> {t('observations_label')}
                                     </h4>
                                     <div className="flex gap-2">
                                         <textarea
@@ -751,14 +718,14 @@ export const ContentAgent: React.FC = () => {
             {activeTab === 'planner' && (
                 <div className="space-y-8">
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                        <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-white">Gerar Novo Plano Estratégico</h3>
+                        <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-white">{t('new_plan')}</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <Input label="Objetivo Principal" value={planGoals.mainObjective} onChange={e => setPlanGoals({...planGoals, mainObjective: e.target.value})} placeholder="Ex: captar alunos" />
-                            <Input label="Público Alvo" value={planGoals.targetAudience} onChange={e => setPlanGoals({...planGoals, targetAudience: e.target.value})} placeholder="Ex: mulheres" />
-                            <Input label="Temas Chave" value={planGoals.keyThemes} onChange={e => setPlanGoals({...planGoals, keyThemes: e.target.value})} placeholder="Ex: saude" />
+                            <Input label={t('objective_label')} value={planGoals.mainObjective} onChange={e => setPlanGoals({...planGoals, mainObjective: e.target.value})} placeholder="Ex: captar alunos" />
+                            <Input label={t('audience_label')} value={planGoals.targetAudience} onChange={e => setPlanGoals({...planGoals, targetAudience: e.target.value})} placeholder="Ex: mulheres" />
+                            <Input label={t('theme_label')} value={planGoals.keyThemes} onChange={e => setPlanGoals({...planGoals, keyThemes: e.target.value})} placeholder="Ex: saude" />
                             
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Duração do Plano</label>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('duration_label')}</label>
                                 <select 
                                     className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 h-[42px]"
                                     value={planDuration}
@@ -770,7 +737,7 @@ export const ContentAgent: React.FC = () => {
                             </div>
                             
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Posts por Semana</label>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('frequency_label')}</label>
                                 <select 
                                     className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 h-[42px]"
                                     value={planFrequency}
@@ -786,7 +753,7 @@ export const ContentAgent: React.FC = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Data de Início</label>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('start_date_label')}</label>
                                 <input 
                                     type="date"
                                     className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 h-[42px]"
@@ -796,12 +763,12 @@ export const ContentAgent: React.FC = () => {
                             </div>
                         </div>
                         <Button onClick={handleGeneratePlan} isLoading={isGenerating} className="mt-4 w-full md:w-auto">
-                            <Calendar className="w-4 h-4 mr-2"/> Gerar Calendário ({planDuration} Semanas)
+                            <Calendar className="w-4 h-4 mr-2"/> {t('generate_calendar_btn')}
                         </Button>
                     </div>
 
                     <div className="space-y-4">
-                        <h3 className="font-bold text-lg text-slate-800 dark:text-white">Planos Salvos</h3>
+                        <h3 className="font-bold text-lg text-slate-800 dark:text-white">{t('saved_plans')}</h3>
                         {plans.length === 0 ? <p className="text-slate-500">Nenhum plano salvo.</p> : (
                             <div className="grid gap-6">
                                 {plans.map(plan => (

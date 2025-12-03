@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { fetchStudents } from '../services/studentService';
 import { saveEvolution, fetchEvolutionsByStudent, deleteEvolution, fetchStudioEvolutions, saveEvolutionReport, fetchEvolutionReports, deleteEvolutionReport } from '../services/evolutionService';
 import { generateEvolutionReport } from '../services/geminiService';
@@ -13,6 +14,7 @@ import jsPDF from 'jspdf';
 
 export const StudentEvolutionPage: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   
   // Tabs
   const [activeTab, setActiveTab] = useState<'entry' | 'analytics'>('entry');
@@ -196,7 +198,7 @@ export const StudentEvolutionPage: React.FC = () => {
     
     const result = await saveEvolutionReport(studioId, title, reportResult, filterDesc, filteredAnalyticsEvolutions.length);
     if (result.success) {
-        alert("Relatório salvo!");
+        alert(t('save') + " com sucesso!");
         const updated = await fetchEvolutionReports(studioId);
         setSavedReports(updated);
         setShowReportModal(false);
@@ -252,7 +254,7 @@ export const StudentEvolutionPage: React.FC = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input 
               className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-brand-500 outline-none"
-              placeholder="Buscar aluno..."
+              placeholder={t('search')}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
             />
@@ -260,7 +262,7 @@ export const StudentEvolutionPage: React.FC = () => {
         </div>
 
         {loading ? (
-          <div className="text-center py-12 text-slate-500">Carregando alunos...</div>
+          <div className="text-center py-12 text-slate-500">{t('loading')}</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {filteredStudents.map(student => (
@@ -292,9 +294,9 @@ export const StudentEvolutionPage: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <TrendingUp className="text-brand-600 w-8 h-8" /> Evolução do Aluno
+            <TrendingUp className="text-brand-600 w-8 h-8" /> {t('evolution_title')}
           </h1>
-          <p className="text-slate-500">Acompanhamento de progresso e relatórios.</p>
+          <p className="text-slate-500">{t('evolution_subtitle')}</p>
         </div>
         
         {/* TABS */}
@@ -303,13 +305,13 @@ export const StudentEvolutionPage: React.FC = () => {
                 onClick={() => { setActiveTab('entry'); setSelectedStudent(null); }}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'entry' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}
             >
-                Nova Avaliação
+                {t('new_entry')}
             </button>
             <button 
                 onClick={() => { setActiveTab('analytics'); setSelectedStudent(null); }}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'analytics' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}
             >
-                Relatórios & Análise
+                {t('reports_analysis')}
             </button>
         </div>
       </div>
@@ -321,10 +323,10 @@ export const StudentEvolutionPage: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Header for selected student */}
                     <div className="lg:col-span-3 flex items-center gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
-                        <Button variant="outline" onClick={() => setSelectedStudent(null)}>Voltar</Button>
+                        <Button variant="outline" onClick={() => setSelectedStudent(null)}>{t('back')}</Button>
                         <div>
                             <h2 className="text-xl font-bold text-slate-900 dark:text-white">{selectedStudent.name}</h2>
-                            <p className="text-slate-500 text-sm">Registro Individual</p>
+                            <p className="text-slate-500 text-sm">{t('individual_record')}</p>
                         </div>
                     </div>
 
@@ -332,38 +334,38 @@ export const StudentEvolutionPage: React.FC = () => {
                     <div className="lg:col-span-2 space-y-6">
                         <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-8">
                             <div className="flex justify-between items-center">
-                                <h2 className="text-lg font-bold text-slate-800 dark:text-white">Avaliação da Aula</h2>
+                                <h2 className="text-lg font-bold text-slate-800 dark:text-white">{t('new_entry')}</h2>
                                 <div className="w-40"><Input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="mb-0" /></div>
                             </div>
 
                             {/* Metrics */}
                             <div className="space-y-4">
-                                <h3 className="font-bold text-brand-700 dark:text-brand-400 border-b pb-2 text-sm uppercase tracking-wide">1. Execução</h3>
+                                <h3 className="font-bold text-brand-700 dark:text-brand-400 border-b pb-2 text-sm uppercase tracking-wide">1. {t('execution')}</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Stability */}
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Estabilidade</label>
+                                        <label className="block text-sm font-medium mb-1">{t('stability')}</label>
                                         <select className="w-full p-2 border rounded bg-slate-50 dark:bg-slate-950 dark:border-slate-700" value={formData.stability} onChange={e => setFormData({...formData, stability: e.target.value})}>
                                             {STABILITY_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
                                         </select>
                                     </div>
                                     {/* Mobility */}
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Mobilidade</label>
+                                        <label className="block text-sm font-medium mb-1">{t('mobility')}</label>
                                         <select className="w-full p-2 border rounded bg-slate-50 dark:bg-slate-950 dark:border-slate-700" value={formData.mobility} onChange={e => setFormData({...formData, mobility: e.target.value})}>
                                             {MOBILITY_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
                                         </select>
                                     </div>
                                     {/* Strength */}
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Força</label>
+                                        <label className="block text-sm font-medium mb-1">{t('strength')}</label>
                                         <select className="w-full p-2 border rounded bg-slate-50 dark:bg-slate-950 dark:border-slate-700" value={formData.strength} onChange={e => setFormData({...formData, strength: e.target.value})}>
                                             {STRENGTH_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
                                         </select>
                                     </div>
                                     {/* Coordination */}
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Coordenação</label>
+                                        <label className="block text-sm font-medium mb-1">{t('coordination')}</label>
                                         <select className="w-full p-2 border rounded bg-slate-50 dark:bg-slate-950 dark:border-slate-700" value={formData.coordination} onChange={e => setFormData({...formData, coordination: e.target.value})}>
                                             {COORDINATION_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
                                         </select>
@@ -373,22 +375,22 @@ export const StudentEvolutionPage: React.FC = () => {
 
                             {/* Complaints */}
                             <div className="space-y-4">
-                                <h3 className="font-bold text-brand-700 dark:text-brand-400 border-b pb-2 text-sm uppercase tracking-wide">2. Queixas e Cuidados</h3>
+                                <h3 className="font-bold text-brand-700 dark:text-brand-400 border-b pb-2 text-sm uppercase tracking-wide">2. {t('complaints_care')}</h3>
                                 <div className="space-y-4">
                                     <div className="flex items-center gap-4">
-                                        <label className="w-32 text-sm font-medium">Dor?</label>
+                                        <label className="w-32 text-sm font-medium">{t('pain')}?</label>
                                         <label className="flex items-center gap-2 text-sm"><input type="radio" checked={!formData.pain} onChange={() => setFormData({...formData, pain: false, painLocation: ''})} /> Não</label>
                                         <label className="flex items-center gap-2 text-sm"><input type="radio" checked={formData.pain} onChange={() => setFormData({...formData, pain: true})} /> Sim</label>
                                         {formData.pain && <input placeholder="Onde?" className="flex-1 p-1 text-sm border rounded" value={formData.painLocation} onChange={e => setFormData({...formData, painLocation: e.target.value})} />}
                                     </div>
                                     <div className="flex items-center gap-4">
-                                        <label className="w-32 text-sm font-medium">Limitação?</label>
+                                        <label className="w-32 text-sm font-medium">{t('limitation')}?</label>
                                         <label className="flex items-center gap-2 text-sm"><input type="radio" checked={!formData.limitation} onChange={() => setFormData({...formData, limitation: false, limitationDetails: ''})} /> Não</label>
                                         <label className="flex items-center gap-2 text-sm"><input type="radio" checked={formData.limitation} onChange={() => setFormData({...formData, limitation: true})} /> Sim</label>
                                         {formData.limitation && <input placeholder="Qual?" className="flex-1 p-1 text-sm border rounded" value={formData.limitationDetails} onChange={e => setFormData({...formData, limitationDetails: e.target.value})} />}
                                     </div>
                                     <div className="flex items-center gap-4">
-                                        <label className="w-32 text-sm font-medium">Contraindicação?</label>
+                                        <label className="w-32 text-sm font-medium">{t('contraindication')}?</label>
                                         <label className="flex items-center gap-2 text-sm"><input type="radio" checked={!formData.contraindication} onChange={() => setFormData({...formData, contraindication: false, contraindicationDetails: ''})} /> Não</label>
                                         <label className="flex items-center gap-2 text-sm"><input type="radio" checked={formData.contraindication} onChange={() => setFormData({...formData, contraindication: true})} /> Sim</label>
                                         {formData.contraindication && <input placeholder="Detalhes..." className="flex-1 p-1 text-sm border rounded" value={formData.contraindicationDetails} onChange={e => setFormData({...formData, contraindicationDetails: e.target.value})} />}
@@ -398,7 +400,7 @@ export const StudentEvolutionPage: React.FC = () => {
 
                             {/* Observations */}
                             <div>
-                                <h3 className="font-bold text-brand-700 dark:text-brand-400 border-b pb-2 text-sm uppercase tracking-wide mb-2">3. Observações</h3>
+                                <h3 className="font-bold text-brand-700 dark:text-brand-400 border-b pb-2 text-sm uppercase tracking-wide mb-2">3. {t('observations_label')}</h3>
                                 <textarea 
                                     className="w-full p-3 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 h-24"
                                     value={formData.observations}
@@ -406,7 +408,7 @@ export const StudentEvolutionPage: React.FC = () => {
                                 />
                             </div>
 
-                            <Button type="submit" isLoading={isSubmitting} className="w-full">Salvar Avaliação</Button>
+                            <Button type="submit" isLoading={isSubmitting} className="w-full">{t('save_evaluation')}</Button>
                         </form>
                     </div>
 
@@ -414,7 +416,7 @@ export const StudentEvolutionPage: React.FC = () => {
                     <div className="lg:col-span-1">
                         <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm h-fit">
                             <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                                <History className="w-5 h-5 text-slate-500" /> Histórico Recente
+                                <History className="w-5 h-5 text-slate-500" /> {t('recent_history')}
                             </h3>
                             <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
                                 {evolutions.map(evo => (
@@ -428,8 +430,8 @@ export const StudentEvolutionPage: React.FC = () => {
                                         </div>
                                         <p className="text-xs text-slate-500 mb-1">{evo.instructorName}</p>
                                         <div className="flex flex-wrap gap-1">
-                                            {evo.pain && <span className="text-[10px] bg-red-100 text-red-800 px-1 rounded">Dor</span>}
-                                            {evo.limitation && <span className="text-[10px] bg-orange-100 text-orange-800 px-1 rounded">Limit.</span>}
+                                            {evo.pain && <span className="text-[10px] bg-red-100 text-red-800 px-1 rounded">{t('pain')}</span>}
+                                            {evo.limitation && <span className="text-[10px] bg-orange-100 text-orange-800 px-1 rounded">{t('limitation')}</span>}
                                         </div>
                                     </div>
                                 ))}
@@ -449,15 +451,15 @@ export const StudentEvolutionPage: React.FC = () => {
             {/* Filters Bar */}
             <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                 <h3 className="text-sm font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
-                    <Filter className="w-4 h-4" /> Filtros de Análise
+                    <Filter className="w-4 h-4" /> {t('evolution_filters')}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <select className="p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-sm" value={filterStudentName} onChange={e => setFilterStudentName(e.target.value)}>
-                        <option value="">Todos Alunos</option>
+                        <option value="">{t('all_students')}</option>
                         {getUniqueStudents().map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                     <select className="p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-sm" value={filterInstructorName} onChange={e => setFilterInstructorName(e.target.value)}>
-                        <option value="">Todos Instrutores</option>
+                        <option value="">{t('all_instructors')}</option>
                         {getUniqueInstructors().map(i => <option key={i} value={i}>{i}</option>)}
                     </select>
                     <input type="date" className="p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-sm" value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} placeholder="Data Início" />
@@ -466,7 +468,7 @@ export const StudentEvolutionPage: React.FC = () => {
                 <div className="mt-4 flex justify-between items-center">
                     <p className="text-sm text-slate-500">Exibindo {filteredAnalyticsEvolutions.length} avaliações.</p>
                     <Button onClick={handleGenerateReport} isLoading={isGeneratingReport} className="bg-purple-600 hover:bg-purple-700">
-                        <Sparkles className="w-4 h-4 mr-2" /> Gerar Relatório de Evolução IA
+                        <Sparkles className="w-4 h-4 mr-2" /> {t('generate_evolution_report')}
                     </Button>
                 </div>
             </div>
@@ -518,7 +520,7 @@ export const StudentEvolutionPage: React.FC = () => {
 
             {/* Saved Reports List */}
             <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-white">Relatórios Salvos</h3>
+                <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-white">{t('saved_reports')}</h3>
                 {savedReports.length === 0 ? (
                     <p className="text-slate-500 text-sm">Nenhum relatório salvo.</p>
                 ) : (
@@ -602,11 +604,11 @@ export const StudentEvolutionPage: React.FC = () => {
                     <h3 className="font-bold text-lg flex items-center gap-2"><BarChart2 className="w-5 h-5 text-brand-600"/> Relatório de Evolução</h3>
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={() => downloadPDF('report-content', 'Relatorio_Evolucao')}>
-                            <Download className="w-4 h-4 mr-2"/> PDF
+                            <Download className="w-4 h-4 mr-2"/> {t('download_pdf')}
                         </Button>
                         {!savedReports.find(r => r.content === reportResult) && (
                             <Button size="sm" onClick={handleSaveReport} isLoading={isSavingReport}>
-                                <Save className="w-4 h-4 mr-2"/> Salvar
+                                <Save className="w-4 h-4 mr-2"/> {t('save')}
                             </Button>
                         )}
                         <button onClick={() => setShowReportModal(false)} className="p-2 hover:bg-slate-200 rounded text-slate-500"><X className="w-5 h-5"/></button>

@@ -1,5 +1,6 @@
 
 
+
 import { supabase } from './supabase';
 import { StudioProfile, SubscriptionPlan } from '../types';
 
@@ -56,6 +57,7 @@ const toDBProfile = (profile: Partial<StudioProfile>): Partial<DBProfile> => {
 const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
   const defaultSettings = { 
     sender_email: '', 
+    language: 'pt',
     instructor_permissions: { rehab: true, newsletters: true, students: true } 
   };
 
@@ -65,6 +67,7 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
     ...defaultSettings,
     ...dbSettings,
     sender_email: dbSettings.sender_email || defaultSettings.sender_email,
+    language: dbSettings.language || defaultSettings.language,
     instructor_permissions: {
       ...defaultSettings.instructor_permissions,
       ...(dbSettings.instructor_permissions || {})

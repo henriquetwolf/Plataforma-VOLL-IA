@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { fetchAllProfiles, toggleUserStatus, adminResetPassword, upsertProfile, fetchSubscriptionPlans, updateSubscriptionPlan } from '../services/storage';
 import { fetchInstructors, toggleInstructorStatus } from '../services/instructorService';
 import { fetchStudents, revokeStudentAccess } from '../services/studentService';
@@ -33,6 +34,7 @@ interface AdminUserView {
 
 export const AdminPanel: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [allUsers, setAllUsers] = useState<AdminUserView[]>([]);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState<any>(null);
@@ -429,15 +431,15 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
 
     const COLORS = ['#8884d8', '#00C49F', '#FFBB28', '#FF8042'];
     const activeData = [
-        { name: 'Donos', value: stats.studios.active },
-        { name: 'Instrutores', value: stats.instructors.active },
-        { name: 'Alunos', value: stats.students.active }
+        { name: t('admin_tab_owners'), value: stats.studios.active },
+        { name: t('admin_tab_instructors'), value: stats.instructors.active },
+        { name: t('admin_tab_students'), value: stats.students.active }
     ];
 
     const volumeData = [
         { name: 'Posts IA', value: stats.content.posts },
-        { name: 'Avaliações', value: stats.engagement.evaluations },
-        { name: 'Sugestões', value: stats.engagement.suggestions },
+        { name: t('class_ratings'), value: stats.engagement.evaluations },
+        { name: t('suggestions'), value: stats.engagement.suggestions },
         { name: 'Aulas Criadas', value: stats.rehab.lessons }
     ];
 
@@ -449,28 +451,28 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-500 uppercase">Total Studios</h3>
+                    <h3 className="text-sm font-bold text-slate-500 uppercase">{t('admin_kpi_studios')}</h3>
                     <div className="flex items-end gap-2 mt-2">
                         <span className="text-3xl font-bold text-slate-900 dark:text-white">{stats.studios.total}</span>
                         <span className="text-sm text-green-600 font-medium mb-1">({stats.studios.active} ativos)</span>
                     </div>
                 </div>
                 <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-500 uppercase">Total Alunos</h3>
+                    <h3 className="text-sm font-bold text-slate-500 uppercase">{t('admin_kpi_students')}</h3>
                     <div className="flex items-end gap-2 mt-2">
                         <span className="text-3xl font-bold text-slate-900 dark:text-white">{stats.students.total}</span>
                         <span className="text-sm text-green-600 font-medium mb-1">({stats.students.active} ativos)</span>
                     </div>
                 </div>
                 <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-500 uppercase">Conteúdo Gerado</h3>
+                    <h3 className="text-sm font-bold text-slate-500 uppercase">{t('admin_kpi_content')}</h3>
                     <div className="flex items-end gap-2 mt-2">
                         <span className="text-3xl font-bold text-slate-900 dark:text-white">{stats.content.posts}</span>
                         <span className="text-sm text-slate-400 mb-1">posts IA</span>
                     </div>
                 </div>
                 <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-500 uppercase">Engajamento</h3>
+                    <h3 className="text-sm font-bold text-slate-500 uppercase">{t('admin_kpi_engagement')}</h3>
                     <div className="flex items-end gap-2 mt-2">
                         <span className="text-3xl font-bold text-slate-900 dark:text-white">{stats.engagement.evaluations}</span>
                         <span className="text-sm text-slate-400 mb-1">avaliações</span>
@@ -482,7 +484,7 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
             <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                        <TrendingUp className="w-5 h-5 text-brand-600"/> Evolução no Tempo
+                        <TrendingUp className="w-5 h-5 text-brand-600"/> {t('admin_timeline_title')}
                     </h3>
                     <div className="flex items-center gap-2">
                         <input 
@@ -528,9 +530,9 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <Tooltip />
                                 <Legend />
-                                <Area type="monotone" dataKey="content" name="Posts Criados" stroke="#14b8a6" fillOpacity={1} fill="url(#colorContent)" />
-                                <Area type="monotone" dataKey="engagement" name="Avaliações" stroke="#8884d8" fillOpacity={1} fill="url(#colorEval)" />
-                                <Area type="monotone" dataKey="studios" name="Novos Studios" stroke="#3b82f6" fillOpacity={1} fill="url(#colorStudios)" />
+                                <Area type="monotone" dataKey="content" name={t('admin_kpi_content')} stroke="#14b8a6" fillOpacity={1} fill="url(#colorContent)" />
+                                <Area type="monotone" dataKey="engagement" name={t('admin_kpi_engagement')} stroke="#8884d8" fillOpacity={1} fill="url(#colorEval)" />
+                                <Area type="monotone" dataKey="studios" name={t('admin_kpi_studios')} stroke="#3b82f6" fillOpacity={1} fill="url(#colorStudios)" />
                             </AreaChart>
                         </ResponsiveContainer>
                     )}
@@ -541,7 +543,7 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm h-80">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                        <PieChartIcon className="w-5 h-5 text-brand-600"/> Distribuição de Usuários Ativos
+                        <PieChartIcon className="w-5 h-5 text-brand-600"/> {t('admin_dist_users')}
                     </h3>
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -558,7 +560,7 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
 
                 <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm h-80">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                        <BarChart3 className="w-5 h-5 text-brand-600"/> Volume de Produção
+                        <BarChart3 className="w-5 h-5 text-brand-600"/> {t('admin_vol_prod')}
                     </h3>
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={volumeData}>
@@ -575,22 +577,22 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
             {/* Averages & Insights */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-blue-50 dark:bg-blue-900/10 p-6 rounded-xl border border-blue-100 dark:border-blue-800">
-                    <h4 className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase">Média Instrutores</h4>
+                    <h4 className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase">{t('admin_avg_instructors')}</h4>
                     <p className="text-2xl font-bold text-blue-900 dark:text-blue-200 mt-1">{(stats.instructors.active / activeStudios).toFixed(1)}</p>
                     <p className="text-xs text-blue-700/70">por studio ativo</p>
                 </div>
                 <div className="bg-green-50 dark:bg-green-900/10 p-6 rounded-xl border border-green-100 dark:border-green-800">
-                    <h4 className="text-xs font-bold text-green-600 dark:text-green-400 uppercase">Média Alunos</h4>
+                    <h4 className="text-xs font-bold text-green-600 dark:text-green-400 uppercase">{t('admin_avg_students')}</h4>
                     <p className="text-2xl font-bold text-green-900 dark:text-green-200 mt-1">{(stats.students.active / activeStudios).toFixed(1)}</p>
                     <p className="text-xs text-green-700/70">por studio ativo</p>
                 </div>
                 <div className="bg-purple-50 dark:bg-purple-900/10 p-6 rounded-xl border border-purple-100 dark:border-purple-800">
-                    <h4 className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase">Média Posts</h4>
+                    <h4 className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase">{t('admin_avg_posts')}</h4>
                     <p className="text-2xl font-bold text-purple-900 dark:text-purple-200 mt-1">{(stats.content.posts / activeStudios).toFixed(1)}</p>
                     <p className="text-xs text-purple-700/70">por studio ativo</p>
                 </div>
                 <div className="bg-orange-50 dark:bg-orange-900/10 p-6 rounded-xl border border-orange-100 dark:border-orange-800">
-                    <h4 className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase">Engajamento</h4>
+                    <h4 className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase">{t('admin_avg_engagement')}</h4>
                     <p className="text-2xl font-bold text-orange-900 dark:text-orange-200 mt-1">{(stats.engagement.evaluations / activeStudents).toFixed(1)}</p>
                     <p className="text-xs text-orange-700/70">avaliações por aluno</p>
                 </div>
@@ -605,9 +607,9 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <ShieldAlert className="h-8 w-8 text-purple-600" /> Painel Admin Global
+            <ShieldAlert className="h-8 w-8 text-purple-600" /> {t('admin_title')}
           </h1>
-          <p className="text-slate-500">Gestão completa de usuários e métricas.</p>
+          <p className="text-slate-500">{t('admin_subtitle')}</p>
         </div>
         
         <div className="flex gap-2 flex-wrap">
@@ -632,37 +634,37 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
           onClick={() => setActiveTab('dashboard')} 
           className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'dashboard' ? 'bg-white shadow text-purple-600' : 'text-slate-500'}`}
         >
-          <BarChart3 className="h-4 w-4"/> Dashboard
+          <BarChart3 className="h-4 w-4"/> {t('admin_tab_dashboard')}
         </button>
         <button 
           onClick={() => setActiveTab('all')} 
           className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'all' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}
         >
-          <LayoutDashboard className="h-4 w-4"/> Lista Completa
+          <LayoutDashboard className="h-4 w-4"/> {t('admin_tab_list')}
         </button>
         <button 
           onClick={() => setActiveTab('owner')} 
           className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'owner' ? 'bg-white shadow text-brand-600' : 'text-slate-500'}`}
         >
-          <Building2 className="h-4 w-4"/> Donos
+          <Building2 className="h-4 w-4"/> {t('admin_tab_owners')}
         </button>
         <button 
           onClick={() => setActiveTab('instructor')} 
           className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'instructor' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}
         >
-          <BookUser className="h-4 w-4"/> Instrutores
+          <BookUser className="h-4 w-4"/> {t('admin_tab_instructors')}
         </button>
         <button 
           onClick={() => setActiveTab('student')} 
           className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'student' ? 'bg-white shadow text-green-600' : 'text-slate-500'}`}
         >
-          <GraduationCap className="h-4 w-4"/> Alunos
+          <GraduationCap className="h-4 w-4"/> {t('admin_tab_students')}
         </button>
         <button 
           onClick={() => setActiveTab('suggestions')} 
           className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'suggestions' ? 'bg-white shadow text-yellow-600' : 'text-slate-500'}`}
         >
-          <MessageSquare className="h-4 w-4"/> Sugestões
+          <MessageSquare className="h-4 w-4"/> {t('admin_tab_suggestions')}
         </button>
       </div>
 

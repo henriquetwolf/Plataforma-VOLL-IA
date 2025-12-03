@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { fetchSuggestionsByStudio, saveSuggestionActionPlan, fetchSuggestionActionPlans, deleteSuggestionActionPlan } from '../services/suggestionService';
 import { generateActionPlanFromSuggestions, generateSuggestionTrends } from '../services/geminiService';
 import { Suggestion, SuggestionActionPlan } from '../types';
@@ -11,6 +12,7 @@ import jsPDF from 'jspdf';
 
 export const StudioSuggestions: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'inbox' | 'plans'>('inbox');
   
   // Inbox State
@@ -120,7 +122,7 @@ export const StudioSuggestions: React.FC = () => {
     const result = await saveSuggestionActionPlan(user.id, title, selectedItems, ownerObservations, currentPlan);
     
     if (result.success) {
-      alert("Plano salvo com sucesso!");
+      alert(t('save') + " com sucesso!");
       setCurrentPlan(null);
       setSelectedIds(new Set());
       setOwnerObservations('');
@@ -175,9 +177,9 @@ export const StudioSuggestions: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <MessageSquare className="text-brand-600"/> Gestão de Sugestões
+            <MessageSquare className="text-brand-600"/> {t('suggestions_title')}
           </h1>
-          <p className="text-slate-500">Transforme feedback dos alunos em planos de ação práticos.</p>
+          <p className="text-slate-500">{t('suggestions_subtitle')}</p>
         </div>
       </div>
 
@@ -186,13 +188,13 @@ export const StudioSuggestions: React.FC = () => {
           onClick={() => setActiveTab('inbox')} 
           className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'inbox' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}
         >
-          Caixa de Entrada
+          {t('inbox')}
         </button>
         <button 
           onClick={() => setActiveTab('plans')} 
           className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'plans' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}
         >
-          Planos Salvos
+          {t('saved_plans')}
         </button>
       </div>
 
@@ -203,7 +205,7 @@ export const StudioSuggestions: React.FC = () => {
             {/* Filters */}
             <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-3 items-center">
                 <div className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
-                    <Filter className="w-4 h-4"/> Filtros:
+                    <Filter className="w-4 h-4"/> {t('filters')}:
                 </div>
                 <div className="flex items-center gap-2 flex-1 w-full">
                     <input 
@@ -224,17 +226,17 @@ export const StudioSuggestions: React.FC = () => {
                 </div>
                 <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={() => { setFilterStartDate(''); setFilterEndDate(''); }}>
-                        Limpar
+                        {t('clear')}
                     </Button>
                     <Button size="sm" variant="secondary" onClick={handleGenerateAnalysis} isLoading={isAnalyzing} disabled={filteredSuggestions.length === 0}>
-                        <FileText className="w-4 h-4 mr-2" /> Analisar Lista ({filteredSuggestions.length})
+                        <FileText className="w-4 h-4 mr-2" /> {t('analyze_list')} ({filteredSuggestions.length})
                     </Button>
                 </div>
             </div>
 
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
               <div className="p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 font-bold text-sm text-slate-700 dark:text-slate-300">
-                Sugestões Recentes
+                {t('recent_suggestions')}
               </div>
               {filteredSuggestions.length === 0 ? (
                 <div className="p-12 text-center text-slate-500">
@@ -264,7 +266,7 @@ export const StudioSuggestions: React.FC = () => {
           <div className="lg:col-span-1 space-y-4">
             <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm sticky top-4">
               <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-brand-600" /> Gerar Plano de Ação
+                <Sparkles className="h-4 w-4 text-brand-600" /> {t('generate_action_plan')}
               </h3>
               
               <div className="mb-4">
@@ -280,7 +282,7 @@ export const StudioSuggestions: React.FC = () => {
               </div>
 
               <Button onClick={handleGeneratePlan} isLoading={isGenerating} disabled={selectedIds.size === 0} className="w-full">
-                <Sparkles className="w-4 h-4 mr-2" /> Gerar Plano
+                <Sparkles className="w-4 h-4 mr-2" /> {t('generate_action_plan')}
               </Button>
             </div>
           </div>
@@ -292,13 +294,13 @@ export const StudioSuggestions: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
              <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
-               <h3 className="font-bold text-lg">Plano de Ação Gerado</h3>
+               <h3 className="font-bold text-lg">{t('action_plan_generated')}</h3>
                <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => downloadPDF('generated-plan-content', 'Plano_Acao')}>
-                    <Download className="w-4 h-4 mr-2"/> PDF
+                    <Download className="w-4 h-4 mr-2"/> {t('download_pdf')}
                   </Button>
                   <Button size="sm" onClick={handleSavePlan}>
-                    <Save className="w-4 h-4 mr-2"/> Salvar
+                    <Save className="w-4 h-4 mr-2"/> {t('save')}
                   </Button>
                   <button onClick={() => setCurrentPlan(null)} className="p-2 hover:bg-slate-200 rounded-lg"><X className="w-4 h-4"/></button>
                </div>
@@ -306,7 +308,7 @@ export const StudioSuggestions: React.FC = () => {
              <div className="overflow-y-auto p-8 bg-slate-100 dark:bg-slate-900">
                 <div id="generated-plan-content" className="bg-white p-12 shadow-lg max-w-3xl mx-auto min-h-[600px] text-slate-800">
                    <div className="border-b-2 border-brand-500 pb-4 mb-6">
-                      <h1 className="text-3xl font-bold text-slate-900">Plano de Ação: Feedback</h1>
+                      <h1 className="text-3xl font-bold text-slate-900">{t('action_plan_generated')}</h1>
                       <p className="text-slate-500 mt-2">Baseado em {selectedIds.size} sugestões dos alunos.</p>
                    </div>
                    <div dangerouslySetInnerHTML={{ __html: currentPlan }} className="prose prose-slate max-w-none" />
@@ -322,11 +324,11 @@ export const StudioSuggestions: React.FC = () => {
           <div className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
              <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
                <h3 className="font-bold text-lg flex items-center gap-2">
-                   <FileText className="w-5 h-5 text-purple-600" /> Relatório de Tendências
+                   <FileText className="w-5 h-5 text-purple-600" /> {t('trends_report')}
                </h3>
                <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => downloadPDF('analysis-report-content', 'Relatorio_Sugestoes')}>
-                    <Download className="w-4 h-4 mr-2"/> PDF
+                    <Download className="w-4 h-4 mr-2"/> {t('download_pdf')}
                   </Button>
                   <button onClick={() => setAnalysisReport(null)} className="p-2 hover:bg-slate-200 rounded-lg"><X className="w-4 h-4"/></button>
                </div>
@@ -334,7 +336,7 @@ export const StudioSuggestions: React.FC = () => {
              <div className="overflow-y-auto p-8 bg-slate-100 dark:bg-slate-900">
                 <div id="analysis-report-content" className="bg-white p-12 shadow-lg max-w-3xl mx-auto min-h-[600px] text-slate-800">
                    <div className="border-b-2 border-purple-500 pb-4 mb-6">
-                      <h1 className="text-3xl font-bold text-slate-900">Análise de Feedback</h1>
+                      <h1 className="text-3xl font-bold text-slate-900">{t('trends_report')}</h1>
                       <p className="text-slate-500 mt-2">Baseado em {filteredSuggestions.length} sugestões filtradas.</p>
                       <p className="text-xs text-slate-400 mt-1">Período: {filterStartDate || 'Início'} até {filterEndDate || 'Hoje'}</p>
                    </div>
@@ -366,7 +368,7 @@ export const StudioSuggestions: React.FC = () => {
                   setSelectedIds(new Set(plan.selectedSuggestions.map(s => s.id))); // Visual reference only
                   setActiveTab('inbox'); // Hack to reuse modal, ideally should be a separate modal
                 }}>
-                  Ver Detalhes
+                  {t('view_details')}
                 </Button>
               </div>
             ))

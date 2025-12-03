@@ -1,8 +1,10 @@
 
+
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { LanguageProvider } from './context/LanguageContext';
 import { DashboardLayout } from './components/DashboardLayout';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
@@ -159,11 +161,13 @@ const AppRoutes = () => {
 function App() {
   return (
     <AuthProvider>
-      <ThemeProvider>
-        <HashRouter>
-          <AppRoutes />
-        </HashRouter>
-      </ThemeProvider>
+      <LanguageProvider>
+        <ThemeProvider>
+          <HashRouter>
+            <AppRoutes />
+          </HashRouter>
+        </ThemeProvider>
+      </LanguageProvider>
     </AuthProvider>
   );
 }

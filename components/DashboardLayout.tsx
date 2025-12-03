@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper, Settings, Home, Wand2, Star, TrendingUp } from 'lucide-react';
 import { AppRoute, SystemBanner } from '../types';
@@ -12,24 +13,32 @@ const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
 export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { logout, user } = useAuth();
   const { theme, toggleTheme, setBrandColor } = useTheme();
+  const { t, setLanguage } = useLanguage();
   const location = useLocation();
   
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [promoBanner, setPromoBanner] = useState<SystemBanner | null>(null);
 
+  // Carregar Configurações do Studio (Cor e Idioma)
   useEffect(() => {
-    const loadBrandAndPermissions = async () => {
+    const loadBrandAndSettings = async () => {
       const targetId = user?.isInstructor || user?.isStudent ? user.studioId : user?.id;
       
       if (targetId) {
         const profile = await fetchProfile(targetId);
         if (profile) {
+            // Aplicar Cor da Marca
             if (profile.brandColor) setBrandColor(profile.brandColor);
+            
+            // Aplicar Idioma Salvo (Persistência)
+            if (profile.settings?.language) {
+                setLanguage(profile.settings.language);
+            }
         }
       }
     };
-    loadBrandAndPermissions();
-  }, [user, setBrandColor]);
+    loadBrandAndSettings();
+  }, [user, setBrandColor, setLanguage]);
 
   // Carregar Banner Promocional
   useEffect(() => {
@@ -63,54 +72,54 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
     let items = [];
 
     if (isSuperAdmin) {
-      items = [{ type: 'link', label: 'Painel Admin', icon: ShieldAlert, path: AppRoute.ADMIN }];
+      items = [{ type: 'link', label: t('admin_panel'), icon: ShieldAlert, path: AppRoute.ADMIN }];
     } else if (isStudent) {
       items = [
-        { type: 'link', label: 'Meu Painel', icon: LayoutDashboard, path: AppRoute.STUDENT_DASHBOARD },
+        { type: 'link', label: t('general_panel'), icon: LayoutDashboard, path: AppRoute.STUDENT_DASHBOARD },
         { type: 'header', label: 'Minhas Aulas' },
-        { type: 'link', label: 'Avaliar Aula', icon: Star, path: AppRoute.STUDENT_EVALUATION },
+        { type: 'link', label: t('class_ratings'), icon: Star, path: AppRoute.STUDENT_EVALUATION },
         { type: 'link', label: 'Treino em Casa', icon: Activity, path: AppRoute.STUDENT_WORKOUT },
         { type: 'header', label: 'Comunidade' },
         { type: 'link', label: 'Receitas', icon: Utensils, path: AppRoute.STUDENT_RECIPES },
-        { type: 'link', label: 'Caixa de Sugestões', icon: MessageSquare, path: AppRoute.STUDENT_SUGGESTIONS },
+        { type: 'link', label: t('suggestions'), icon: MessageSquare, path: AppRoute.STUDENT_SUGGESTIONS },
         { type: 'link', label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.STUDENT_NEWSLETTERS },
       ];
     } else if (isInstructor) {
       items = [
         { type: 'link', label: 'Home', icon: Home, path: AppRoute.INSTRUCTOR_DASHBOARD },
         { type: 'header', label: 'Operacional' },
-        { type: 'link', label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
-        { type: 'link', label: 'Evolução do Aluno', icon: TrendingUp, path: AppRoute.EVOLUTION },
-        { type: 'link', label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
+        { type: 'link', label: t('pilates_rehab'), icon: Activity, path: AppRoute.REHAB },
+        { type: 'link', label: t('student_evolution'), icon: TrendingUp, path: AppRoute.EVOLUTION },
+        { type: 'link', label: t('students'), icon: Users, path: AppRoute.STUDENTS },
         { type: 'link', label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.INSTRUCTOR_NEWSLETTERS },
       ];
     } else if (isOwner) {
       items = [
-        { type: 'link', label: 'Painel Geral', icon: LayoutDashboard, path: AppRoute.DASHBOARD },
+        { type: 'link', label: t('general_panel'), icon: LayoutDashboard, path: AppRoute.DASHBOARD },
         
-        { type: 'header', label: '1. Cadastros' },
-        { type: 'link', label: 'Perfil do Studio', icon: UserCircle, path: AppRoute.PROFILE },
-        { type: 'link', label: 'Equipe', icon: BookUser, path: AppRoute.INSTRUCTORS },
-        { type: 'link', label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
-        { type: 'link', label: 'Configurações', icon: Settings, path: AppRoute.SETTINGS },
+        { type: 'header', label: `1. ${t('registrations')}` },
+        { type: 'link', label: t('studio_profile'), icon: UserCircle, path: AppRoute.PROFILE },
+        { type: 'link', label: t('team'), icon: BookUser, path: AppRoute.INSTRUCTORS },
+        { type: 'link', label: t('students'), icon: Users, path: AppRoute.STUDENTS },
+        { type: 'link', label: t('settings'), icon: Settings, path: AppRoute.SETTINGS },
 
-        { type: 'header', label: '2. Estratégia' },
-        { type: 'link', label: 'Planejamento IA', icon: Compass, path: AppRoute.STRATEGY },
-        { type: 'link', label: 'Pilates Rehab', icon: Activity, path: AppRoute.REHAB },
-        { type: 'link', label: 'Assistente Conteúdo', icon: Wand2, path: AppRoute.CONTENT_AGENT },
-        { type: 'link', label: 'Calculadora Financeira', icon: Calculator, path: AppRoute.FINANCE },
-        { type: 'link', label: 'Preço Inteligente', icon: Banknote, path: AppRoute.PRICING },
-        { type: 'link', label: 'Criador Newsletter', icon: Newspaper, path: AppRoute.NEWSLETTER_AGENT },
+        { type: 'header', label: `2. ${t('strategy')}` },
+        { type: 'link', label: t('planning_ai'), icon: Compass, path: AppRoute.STRATEGY },
+        { type: 'link', label: t('pilates_rehab'), icon: Activity, path: AppRoute.REHAB },
+        { type: 'link', label: t('content_agent'), icon: Wand2, path: AppRoute.CONTENT_AGENT },
+        { type: 'link', label: t('finance_calc'), icon: Calculator, path: AppRoute.FINANCE },
+        { type: 'link', label: t('smart_pricing'), icon: Banknote, path: AppRoute.PRICING },
+        { type: 'link', label: t('newsletter'), icon: Newspaper, path: AppRoute.NEWSLETTER_AGENT },
 
-        { type: 'header', label: '3. Acompanhamento' },
-        { type: 'link', label: 'Evolução do Aluno', icon: TrendingUp, path: AppRoute.EVOLUTION },
-        { type: 'link', label: 'Avaliações Aulas', icon: Star, path: AppRoute.STUDIO_EVALUATIONS },
-        { type: 'link', label: 'Sugestões Alunos', icon: MessageSquare, path: AppRoute.STUDIO_SUGGESTIONS },
+        { type: 'header', label: `3. ${t('tracking')}` },
+        { type: 'link', label: t('student_evolution'), icon: TrendingUp, path: AppRoute.EVOLUTION },
+        { type: 'link', label: t('class_ratings'), icon: Star, path: AppRoute.STUDIO_EVALUATIONS },
+        { type: 'link', label: t('suggestions'), icon: MessageSquare, path: AppRoute.STUDIO_SUGGESTIONS },
       ];
     }
 
     setMenuItems(items);
-  }, [user]);
+  }, [user, t]); // Re-run when language changes
 
   const isSuperAdmin = user?.email === ADMIN_EMAIL;
   const isInstructor = user?.isInstructor;
@@ -205,18 +214,18 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
             <div className="overflow-hidden">
               <p className="text-sm font-medium text-slate-900 dark:text-slate-200 truncate">{user?.name}</p>
               {isSuperAdmin && <p className="text-[10px] text-purple-600 font-bold uppercase tracking-wider">Super Admin</p>}
-              {isInstructor && <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Instrutor</p>}
-              {isStudent && <p className="text-[10px] text-green-600 font-bold uppercase tracking-wider">Aluno</p>}
-              {isOwner && <p className="text-[10px] text-brand-600 font-bold uppercase tracking-wider">Dono</p>}
+              {isInstructor && <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">{t('instructor')}</p>}
+              {isStudent && <p className="text-[10px] text-green-600 font-bold uppercase tracking-wider">{t('student')}</p>}
+              {isOwner && <p className="text-[10px] text-brand-600 font-bold uppercase tracking-wider">{t('owner')}</p>}
             </div>
           </div>
           
           <div className="flex items-center gap-2 mt-2">
              <button onClick={toggleTheme} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              {theme === 'dark' ? 'Claro' : 'Escuro'}
+              {theme === 'dark' ? t('light_mode') : t('dark_mode')}
             </button>
-            <button onClick={logout} className="flex items-center justify-center p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg border border-transparent hover:border-red-100">
+            <button onClick={logout} className="flex items-center justify-center p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg border border-transparent hover:border-red-100" title={t('logout')}>
               <LogOut className="h-5 w-5" />
             </button>
           </div>

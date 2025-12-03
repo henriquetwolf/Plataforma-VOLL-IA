@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { CalculatorInputs, FinancialModel, CompensationResult, SavedFinancialSimulation } from '../types';
 import { calculateStudioRevenue, calculateProfessionalRevenue, calculateCompensation } from '../services/calculatorService';
 import { generateFinancialAnalysis } from '../services/geminiService';
@@ -41,6 +42,7 @@ const initialFinancialModel: FinancialModel = {
 
 export const FinancialAgent: React.FC = () => {
     const { user } = useAuth();
+    const { t } = useLanguage();
     
     // Estado Principal
     const [inputs, setInputs] = useState<CalculatorInputs>(initialInputs);
@@ -138,7 +140,7 @@ export const FinancialAgent: React.FC = () => {
         const result = await saveSimulation(user.id, title, simulationData);
 
         if (result.success) {
-            alert("Simulação salva com sucesso!");
+            alert(t('save') + " com sucesso!");
             loadHistory(); // Recarrega a lista
         } else {
             alert(`Erro ao salvar: ${result.error}`);
@@ -225,16 +227,16 @@ export const FinancialAgent: React.FC = () => {
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Calculator className="h-8 w-8 text-brand-600" /> Calculadora Financeira
+                        <Calculator className="h-8 w-8 text-brand-600" /> {t('finance_title')}
                     </h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">Simule custos de contratação e viabilidade econômica.</p>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">{t('finance_subtitle')}</p>
                 </div>
                 <div className="flex gap-2">
                      <Button variant="outline" onClick={() => setShowHistory(true)}>
-                        <History className="h-4 w-4 mr-2" /> Histórico
+                        <History className="h-4 w-4 mr-2" /> {t('history')}
                      </Button>
                     <div className="bg-brand-50 dark:bg-brand-900/20 px-4 py-2 rounded-lg border border-brand-100 dark:border-brand-800">
-                        <p className="text-xs text-brand-600 dark:text-brand-400 font-bold uppercase">Faturamento Projetado</p>
+                        <p className="text-xs text-brand-600 dark:text-brand-400 font-bold uppercase">{t('projected_revenue')}</p>
                         <p className="text-xl font-bold text-brand-700 dark:text-brand-300">R$ {metrics.targetRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                     </div>
                 </div>
@@ -257,24 +259,24 @@ export const FinancialAgent: React.FC = () => {
                     {/* Gráfico */}
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                         <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-6 flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-brand-500" /> Comparativo de Modelos
+                            <TrendingUp className="h-5 w-5 text-brand-500" /> {t('compare_models')}
                         </h3>
                         {results.length > 0 ? (
                             <ResultsChart results={results} />
                         ) : (
                             <div className="h-[300px] flex items-center justify-center text-slate-400">
-                                Preencha os dados para ver o gráfico.
+                                {t('loading')}...
                             </div>
                         )}
                     </div>
 
                     {/* Tabela */}
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                         <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-4">Detalhamento dos Custos</h3>
+                         <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-4">{t('cost_details')}</h3>
                          {results.length > 0 ? (
                             <ResultsTable results={results} />
                          ) : (
-                            <p className="text-slate-500 text-center py-8">Aguardando cálculo...</p>
+                            <p className="text-slate-500 text-center py-8">{t('loading')}...</p>
                          )}
                     </div>
 
@@ -282,11 +284,11 @@ export const FinancialAgent: React.FC = () => {
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm border-l-4 border-l-purple-500">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
                             <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
-                                <Sparkles className="h-5 w-5 text-purple-500" /> Análise Inteligente
+                                <Sparkles className="h-5 w-5 text-purple-500" /> {t('ai_analysis')}
                             </h3>
                             <Button onClick={handleGenerateAnalysis} disabled={isAiLoading || results.length === 0} className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto">
                                 {isAiLoading ? <Loader2 className="animate-spin h-4 w-4 mr-2"/> : <Sparkles className="h-4 w-4 mr-2"/>}
-                                {isAiLoading ? 'Analisando...' : 'Gerar Parecer'}
+                                {isAiLoading ? t('loading') : t('generate_analysis_btn')}
                             </Button>
                         </div>
                         
@@ -298,16 +300,16 @@ export const FinancialAgent: React.FC = () => {
                                 />
                                 <div className="flex gap-2 pt-2 justify-end print:hidden">
                                      <Button variant="outline" onClick={handleSaveSimulation} isLoading={isSaving}>
-                                        <Save className="h-4 w-4 mr-2" /> Salvar Análise
+                                        <Save className="h-4 w-4 mr-2" /> {t('save_simulation_btn')}
                                      </Button>
                                      <Button variant="secondary" onClick={handleDownloadPDF}>
-                                        <Download className="h-4 w-4 mr-2" /> Baixar PDF
+                                        <Download className="h-4 w-4 mr-2" /> {t('download_pdf')}
                                      </Button>
                                 </div>
                             </div>
                         ) : (
                             <div className="text-center py-8 text-slate-400 bg-slate-50 dark:bg-slate-800/30 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">
-                                <p>Clique em "Gerar Parecer" para receber uma consultoria financeira da IA sobre os cenários acima.</p>
+                                <p>Clique em "{t('generate_analysis_btn')}" para receber uma consultoria financeira da IA sobre os cenários acima.</p>
                             </div>
                         )}
                     </div>

@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { AppRoute, StudioProfile } from '../types';
 import { 
@@ -12,6 +13,7 @@ import { fetchProfile } from '../services/storage';
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<StudioProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,7 +90,7 @@ export const Dashboard: React.FC = () => {
       </p>
       
       <div className="flex items-center text-xs font-bold text-slate-400 group-hover:text-brand-600 transition-colors mt-auto">
-        Acessar <ArrowRight className="w-3 h-3 ml-1 group-hover:translate-x-1 transition-transform" />
+        {t('access_link')} <ArrowRight className="w-3 h-3 ml-1 group-hover:translate-x-1 transition-transform" />
       </div>
     </Link>
   );
@@ -110,11 +112,10 @@ export const Dashboard: React.FC = () => {
         
         <div className="flex-1 text-center md:text-left z-10">
           <h1 className="text-3xl font-bold mb-2">
-            Olá, {user?.name.split(' ')[0]}!
+            {t('hello')}, {user?.name.split(' ')[0]}!
           </h1>
           <p className="text-slate-300 text-lg max-w-2xl">
-            Bem-vindo ao painel de gestão do <span className="font-semibold text-white">{profile?.studioName || 'seu Studio'}</span>. 
-            Siga as etapas abaixo para organizar e crescer seu negócio.
+            {t('dashboard_welcome')} <span className="font-semibold text-white">{profile?.studioName || 'seu Studio'}</span>. 
           </p>
         </div>
       </div>
@@ -123,30 +124,30 @@ export const Dashboard: React.FC = () => {
       <section>
         <StepHeader 
           step="1" 
-          title="Cadastros & Organização" 
-          description="A base do seu estúdio. Mantenha os dados sempre atualizados."
+          title={t('step_1_title')} 
+          description={t('step_1_desc')}
           colorClass="border-blue-500"
           icon={Layers}
         />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pl-2 md:pl-4 border-l-2 border-slate-100 dark:border-slate-800 ml-6 md:ml-8 lg:ml-8">
           <ActionCard 
             to={AppRoute.PROFILE}
-            title="Perfil do Studio"
-            desc="Configure sua marca, contatos e preferências do sistema."
+            title={t('studio_profile')}
+            desc={t('card_profile_desc')}
             icon={Building2}
             color="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
           />
           <ActionCard 
             to={AppRoute.INSTRUCTORS}
-            title="Equipe de Instrutores"
-            desc="Gerencie cadastros e controle de acesso da sua equipe."
+            title={t('team')}
+            desc={t('card_team_desc')}
             icon={BookUser}
             color="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
           />
           <ActionCard 
             to={AppRoute.STUDENTS}
-            title="Meus Alunos"
-            desc="Fichas de cadastro, contatos e gestão de acesso ao app."
+            title={t('students')}
+            desc={t('card_students_desc')}
             icon={Users}
             color="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
           />
@@ -157,56 +158,56 @@ export const Dashboard: React.FC = () => {
       <section>
         <StepHeader 
           step="2" 
-          title="Planejamento e Execução" 
-          description="Ferramentas inteligentes para gerir o dia a dia e definir o futuro."
+          title={t('step_2_title')} 
+          description={t('step_2_desc')}
           colorClass="border-brand-500"
           icon={Sparkles}
         />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pl-2 md:pl-4 border-l-2 border-slate-100 dark:border-slate-800 ml-6 md:ml-8 lg:ml-8">
           <ActionCard 
             to={AppRoute.STRATEGY}
-            title="Planejamento Estratégico"
-            desc="Defina visão, missão e plano de ação anual com consultoria IA."
+            title={t('strategy')}
+            desc={t('card_strategy_desc')}
             icon={Compass}
             color="bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-400"
             isAi
           />
           <ActionCard 
             to={AppRoute.REHAB}
-            title="Pilates Rehab"
-            desc="Guia de patologias e gerador de aulas com triagem clínica."
+            title={t('pilates_rehab')}
+            desc={t('card_rehab_desc')}
             icon={Activity}
             color="bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-400"
             isAi
           />
           <ActionCard 
             to={AppRoute.CONTENT_AGENT}
-            title="Assistente de Conteúdo"
-            desc="Crie posts, legendas e calendários para redes sociais."
+            title={t('content_agent')}
+            desc={t('card_content_desc')}
             icon={Wand2}
             color="bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-400"
             isAi
           />
           <ActionCard 
             to={AppRoute.FINANCE}
-            title="Calculadora Financeira"
-            desc="Simule cenários de contratação e custos operacionais."
+            title={t('finance_calc')}
+            desc={t('card_finance_desc')}
             icon={Calculator}
             color="bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400"
             isAi
           />
           <ActionCard 
             to={AppRoute.PRICING}
-            title="Preço Inteligente"
-            desc="Calcule o preço ideal da sua hora-aula e mensalidades."
+            title={t('smart_pricing')}
+            desc={t('card_pricing_desc')}
             icon={Banknote}
             color="bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400"
             isAi
           />
           <ActionCard 
             to={AppRoute.NEWSLETTER_AGENT}
-            title="Criador de Newsletter"
-            desc="Escreva comunicados e avisos profissionais em segundos."
+            title={t('newsletter')}
+            desc={t('card_newsletter_desc')}
             icon={Newspaper}
             color="bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-400"
             isAi
@@ -218,32 +219,32 @@ export const Dashboard: React.FC = () => {
       <section>
         <StepHeader 
           step="3" 
-          title="Acompanhamento & Qualidade" 
-          description="Monitore resultados, satisfação e evolução dos alunos."
+          title={t('step_3_title')} 
+          description={t('step_3_desc')}
           colorClass="border-emerald-500"
           icon={LineChart}
         />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pl-2 md:pl-4 border-l-2 border-slate-100 dark:border-slate-800 ml-6 md:ml-8 lg:ml-8">
           <ActionCard 
             to={AppRoute.EVOLUTION}
-            title="Evolução do Aluno"
-            desc="Registre progresso, dores e gere relatórios de desempenho."
+            title={t('student_evolution')}
+            desc={t('card_evolution_desc')}
             icon={TrendingUp}
             color="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400"
             isAi
           />
           <ActionCard 
             to={AppRoute.STUDIO_EVALUATIONS}
-            title="Avaliações das Aulas"
-            desc="Monitore o feedback diário dos alunos sobre as aulas."
+            title={t('class_ratings')}
+            desc={t('card_ratings_desc')}
             icon={Star}
             color="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400"
             isAi
           />
           <ActionCard 
             to={AppRoute.STUDIO_SUGGESTIONS}
-            title="Caixa de Sugestões"
-            desc="Analise feedbacks e crie planos de melhoria com IA."
+            title={t('suggestions')}
+            desc={t('card_suggestions_desc')}
             icon={MessageSquare}
             color="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400"
             isAi

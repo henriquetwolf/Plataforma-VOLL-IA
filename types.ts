@@ -50,6 +50,7 @@ export interface StudioProfile {
   planMaxDailyPosts?: number; // Limite de posts diários do plano
   settings?: {
     sender_email?: string; // Email configurado para envios (Gmail)
+    language?: 'pt' | 'en' | 'es' | 'fr' | 'de' | 'it' | 'zh' | 'ja' | 'ru' | 'ko'; // Language preference
     instructor_permissions?: {
       rehab?: boolean;
       newsletters?: boolean;

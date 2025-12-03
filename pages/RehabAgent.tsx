@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 import { fetchPathologyData, fetchLessonPlan, regenerateSingleExercise, handleGeminiError } from '../services/geminiService';
 import { saveRehabLesson, fetchRehabLessons, deleteRehabLesson } from '../services/rehabService';
@@ -84,6 +85,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ ex, onEdit, onDelete }) => 
 
 export const RehabAgent: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -313,7 +315,7 @@ export const RehabAgent: React.FC = () => {
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-bold">Histórico Clínico</h2>
+            <h2 className="text-2xl font-bold">{t('view_history')}</h2>
             {selectedStudentFilter !== null && (
               <>
                 <ChevronRight className="w-5 h-5 text-slate-400" />
@@ -325,7 +327,7 @@ export const RehabAgent: React.FC = () => {
             if (selectedStudentFilter !== null) setSelectedStudentFilter(null);
             else setShowHistory(false);
           }}>
-            <ArrowLeft className="w-4 h-4 mr-2"/> {selectedStudentFilter !== null ? "Voltar para Alunos" : "Voltar"}
+            <ArrowLeft className="w-4 h-4 mr-2"/> {selectedStudentFilter !== null ? t('back') : t('back')}
           </Button>
         </div>
 
@@ -407,11 +409,11 @@ export const RehabAgent: React.FC = () => {
                 </Button>
             )}
             <div className="p-2 bg-brand-100 rounded-lg"><Activity className="h-6 w-6 text-brand-600"/></div>
-            <div><h1 className="text-2xl font-bold text-slate-900 dark:text-white">Pilates Rehab</h1></div>
+            <div><h1 className="text-2xl font-bold text-slate-900 dark:text-white">{t('rehab_agent_title')}</h1></div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => { setRefData(null); setLessonData(null); setQuery(''); setActiveTab('reference'); }}>Nova Busca</Button>
-            <Button variant="outline" onClick={() => setShowHistory(true)}>Histórico</Button>
+            <Button variant="outline" onClick={() => { setRefData(null); setLessonData(null); setQuery(''); setActiveTab('reference'); }}>{t('new')}</Button>
+            <Button variant="outline" onClick={() => setShowHistory(true)}>{t('view_history')}</Button>
           </div>
         </header>
       )}
@@ -420,15 +422,15 @@ export const RehabAgent: React.FC = () => {
       {(!refData && !lessonData && activeTab !== 'bank') && (
         <div className="max-w-3xl mx-auto space-y-6 pt-8">
           <div className="text-center mb-8">
-             <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Guia Clínico Inteligente</h2>
-             <p className="text-slate-500">Selecione um aluno e descreva a patologia para gerar um plano de aula seguro.</p>
+             <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">{t('clinical_guide')}</h2>
+             <p className="text-slate-500">{t('clinical_guide_desc')}</p>
           </div>
 
           {errorHtml && <div dangerouslySetInnerHTML={{ __html: errorHtml }} />}
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
              <div className="md:col-span-2 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">1. Selecione o Aluno (Obrigatório)</label>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">{t('select_student_required')}</label>
                 <select 
                   className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-brand-500"
                   onChange={handleStudentSelect}
@@ -452,12 +454,12 @@ export const RehabAgent: React.FC = () => {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400"/>
             <input 
               className="w-full pl-12 pr-28 py-4 text-lg border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 bg-white dark:bg-slate-900" 
-              placeholder="2. Queixa Principal (Ex: Hérnia, Dor no Ombro...)" 
+              placeholder={t('main_complaint')}
               value={query} 
               onChange={(e) => setQuery(e.target.value)} 
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()} 
             />
-            <Button className="absolute right-2 top-2 bottom-2" onClick={() => handleSearch()}>Consultar</Button>
+            <Button className="absolute right-2 top-2 bottom-2" onClick={() => handleSearch()}>{t('consult')}</Button>
           </div>
           
           {/* Quick Access Cards */}
@@ -476,7 +478,7 @@ export const RehabAgent: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-start gap-4">
                   <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-purple-600"><Dumbbell className="h-6 w-6"/></div>
-                  <div><h3 className="font-bold text-lg mb-1 group-hover:text-purple-600 transition-colors">Banco de Exercícios</h3><p className="text-sm text-slate-500">Biblioteca do studio.</p></div>
+                  <div><h3 className="font-bold text-lg mb-1 group-hover:text-purple-600 transition-colors">{t('exercise_bank')}</h3><p className="text-sm text-slate-500">Biblioteca do studio.</p></div>
                 </div>
                 <ChevronRight className="text-slate-300 group-hover:text-purple-500 transition-colors" />
               </div>
@@ -492,9 +494,9 @@ export const RehabAgent: React.FC = () => {
         <div className="space-y-6">
           {/* Tabs */}
           <div className="flex flex-wrap justify-center p-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit mx-auto gap-1">
-            <button onClick={() => handleTabChange('reference')} className={`px-6 py-2 rounded-md text-sm font-medium ${activeTab === 'reference' ? 'bg-white dark:bg-slate-700 shadow text-slate-900 dark:text-white' : 'text-slate-500'}`}>Referência</button>
-            <button onClick={() => handleTabChange('lesson')} className={`px-6 py-2 rounded-md text-sm font-medium ${activeTab === 'lesson' ? 'bg-white dark:bg-slate-700 shadow text-slate-900 dark:text-white' : 'text-slate-500'}`}>Plano de Aula</button>
-            <button onClick={() => handleTabChange('bank')} className={`px-6 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'bank' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}><Dumbbell className="w-4 h-4"/> Banco de Exercícios</button>
+            <button onClick={() => handleTabChange('reference')} className={`px-6 py-2 rounded-md text-sm font-medium ${activeTab === 'reference' ? 'bg-white dark:bg-slate-700 shadow text-slate-900 dark:text-white' : 'text-slate-500'}`}>{t('reference')}</button>
+            <button onClick={() => handleTabChange('lesson')} className={`px-6 py-2 rounded-md text-sm font-medium ${activeTab === 'lesson' ? 'bg-white dark:bg-slate-700 shadow text-slate-900 dark:text-white' : 'text-slate-500'}`}>{t('lesson_plan')}</button>
+            <button onClick={() => handleTabChange('bank')} className={`px-6 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'bank' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}><Dumbbell className="w-4 h-4"/> {t('exercise_bank')}</button>
           </div>
           
           {/* Reference View */}
@@ -503,7 +505,7 @@ export const RehabAgent: React.FC = () => {
               {refData ? (
                 <>
                   <div className="bg-brand-50 dark:bg-brand-900/20 p-6 rounded-xl border border-brand-100 dark:border-brand-800 mb-6"><h2 className="text-3xl font-bold mb-3 text-brand-800 dark:text-brand-300">{refData.pathologyName}</h2><p className="text-lg text-brand-700 dark:text-brand-400">{refData.summary}</p></div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><ResultCard title="Indicados" type="indicated" items={refData.indicated} /><ResultCard title="Contra-Indicados" type="contraindicated" items={refData.contraindicated} /></div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><ResultCard title={t('indicated')} type="indicated" items={refData.indicated} /><ResultCard title={t('contraindicated')} type="contraindicated" items={refData.contraindicated} /></div>
                 </>
               ) : (
                 <div className="text-center py-12 text-slate-500 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
@@ -545,7 +547,7 @@ export const RehabAgent: React.FC = () => {
             <div className="animate-in fade-in space-y-6">
               <div className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm gap-4">
                 <div className="mb-4 md:mb-0">
-                  <h3 className="font-bold text-lg text-slate-900 dark:text-white">Biblioteca do Studio</h3>
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-white">{t('exercise_bank')}</h3>
                   <p className="text-sm text-slate-500">{filteredBankExercises.length} exercícios salvos</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -561,7 +563,7 @@ export const RehabAgent: React.FC = () => {
                     </select>
                   </div>
                   <Button onClick={() => openExerciseModal()} size="sm" className="ml-2">
-                    <Plus className="w-4 h-4 mr-2" /> Novo Exercício
+                    <Plus className="w-4 h-4 mr-2" /> {t('create_exercise')}
                   </Button>
                 </div>
               </div>
@@ -570,7 +572,7 @@ export const RehabAgent: React.FC = () => {
                 <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
                   <Dumbbell className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                   <p className="text-slate-500">Nenhum exercício encontrado.</p>
-                  <Button variant="outline" onClick={() => openExerciseModal()} className="mt-4">Cadastrar Exercício</Button>
+                  <Button variant="outline" onClick={() => openExerciseModal()} className="mt-4">{t('create_exercise')}</Button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -604,7 +606,7 @@ export const RehabAgent: React.FC = () => {
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                {editingExercise ? 'Editar Exercício' : 'Novo Exercício'}
+                {editingExercise ? 'Editar Exercício' : t('create_exercise')}
               </h3>
               <button onClick={() => setIsExerciseModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />

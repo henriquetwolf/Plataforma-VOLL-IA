@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 import { Student, AppRoute } from '../types';
 import { fetchStudents, createStudentWithAutoAuth, updateStudent, deleteStudent, createStudentWithAuth, revokeStudentAccess } from '../services/studentService';
@@ -11,6 +12,7 @@ import { Users, Plus, Trash2, Search, Pencil, Activity, X, Key, CheckCircle, Hom
 
 export const Students: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   
   const [students, setStudents] = useState<Student[]>([]);
@@ -37,7 +39,7 @@ export const Students: React.FC = () => {
     address: '',
     phone: '',
     observations: '',
-    password: '' // Obrigatório no cadastro, opcional na edição
+    password: '' 
   });
 
   const isInstructor = user?.isInstructor;
@@ -95,7 +97,7 @@ export const Students: React.FC = () => {
       address: student.address || '',
       phone: student.phone || '',
       observations: student.observations || '',
-      password: '' // Reset password field for edit
+      password: '' 
     });
     setEditingId(student.id);
     setShowForm(true);
@@ -122,19 +124,17 @@ export const Students: React.FC = () => {
     
     if (!ownerId || !formData.name) return;
 
-    // Se for novo cadastro, senha e email são obrigatórios para o acesso automático
     if (!editingId) {
         if (!formData.email) {
-            alert("O email é obrigatório para novos cadastros (será o login do aluno).");
+            alert("O email é obrigatório para novos cadastros.");
             return;
         }
         if (!formData.password || formData.password.length < 6) {
-            alert("Uma senha de acesso (mínimo 6 caracteres) é obrigatória para cadastrar e liberar o acesso do aluno.");
+            alert("Senha mínima de 6 caracteres é obrigatória.");
             return;
         }
     }
 
-    // Se for edição e tiver senha, valida
     if (editingId && formData.password && formData.password.length < 6) {
         alert("A nova senha deve ter no mínimo 6 caracteres.");
         return;
@@ -146,7 +146,6 @@ export const Students: React.FC = () => {
     if (editingId) {
       result = await updateStudent(editingId, formData, formData.password);
     } else {
-      // Usar a nova função que cria banco + auth simultaneamente
       result = await createStudentWithAutoAuth(ownerId, formData, formData.password);
     }
     
@@ -154,9 +153,9 @@ export const Students: React.FC = () => {
       handleCancel();
       await loadStudents();
       if (!editingId) {
-          alert(`Aluno cadastrado e acesso liberado com sucesso!\n\nLogin: ${formData.email}\nSenha: ${formData.password}`);
+          alert(`Aluno cadastrado!\nLogin: ${formData.email}\nSenha: ${formData.password}`);
       } else {
-          alert("Dados do aluno atualizados com sucesso!");
+          alert("Dados atualizados!");
       }
     } else {
       alert(`Erro ao salvar: ${result.error}`);
@@ -166,10 +165,10 @@ export const Students: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     if (isInstructor) {
-        alert("Apenas o proprietário pode excluir alunos permanentemente.");
+        alert("Apenas o proprietário pode excluir alunos.");
         return;
     }
-    if (window.confirm('Tem certeza que deseja remover este aluno? Todos os dados serão perdidos.')) {
+    if (window.confirm('Tem certeza que deseja remover este aluno?')) {
       const result = await deleteStudent(id);
       if (result.success) {
         await loadStudents();
@@ -181,19 +180,17 @@ export const Students: React.FC = () => {
 
   const handleToggleAccess = async (student: Student) => {
     if (student.authUserId) {
-        // Fluxo de Desativar
-        if (window.confirm(`Tem certeza que deseja REVOGAR o acesso de ${student.name}? O aluno não conseguirá mais logar.`)) {
+        if (window.confirm(`REVOGAR o acesso de ${student.name}?`)) {
             const result = await revokeStudentAccess(student.id);
             if (result.success) {
                 await loadStudents();
             } else {
-                alert("Erro ao desativar acesso: " + result.error);
+                alert("Erro ao desativar: " + result.error);
             }
         }
     } else {
-        // Fluxo de Ativar (Abre modal)
         if (!student.email) {
-            alert("Edite o aluno e adicione um email antes de ativar o acesso.");
+            alert("Adicione um email antes de ativar.");
             return;
         }
         setAccessStudent(student);
@@ -207,25 +204,20 @@ export const Students: React.FC = () => {
     if (!accessStudent || !accessStudent.email) return;
 
     if (accessPassword.length < 6) {
-      alert("A senha deve ter no mínimo 6 caracteres.");
+      alert("Senha mínima 6 caracteres.");
       return;
     }
 
     setIsCreatingAccess(true);
-    // Chama a função de criação manual (que lida com reativação se o email já existir)
     const result = await createStudentWithAuth(accessStudent.id, accessStudent.email, accessPassword);
     setIsCreatingAccess(false);
 
     if (result.success) {
-      if (result.message) {
-          alert(result.message); // Mensagem customizada de reativação
-      } else {
-          alert(`Acesso criado com sucesso!\nLogin: ${accessStudent.email}\nSenha: ${accessPassword}`);
-      }
+      alert(`Acesso criado!\nLogin: ${accessStudent.email}\nSenha: ${accessPassword}`);
       setAccessModalOpen(false);
       loadStudents();
     } else {
-      alert(`Erro ao ativar acesso: ${result.error}`);
+      alert(`Erro: ${result.error}`);
     }
   };
 
@@ -251,23 +243,23 @@ export const Students: React.FC = () => {
           )}
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              {isInstructor ? 'Alunos do Studio' : 'Meus Alunos'} 
+              {isInstructor ? t('students_title') : t('my_students_title')} 
             </h1>
-            <p className="text-slate-500 dark:text-slate-400">Gerencie o cadastro e acesso ao portal.</p>
+            <p className="text-slate-500 dark:text-slate-400">{t('students_subtitle')}</p>
           </div>
         </div>
         
         {!showForm && (
           <Button onClick={() => setShowForm(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Novo Aluno
+            {t('new_student_btn')}
           </Button>
         )}
       </div>
 
       {permissionError && (
         <div className="bg-red-50 p-4 rounded-lg text-red-700">
-          Erro de permissão. Seu usuário instrutor não está vinculado corretamente ao studio.
+          Erro de permissão.
         </div>
       )}
 
@@ -275,7 +267,7 @@ export const Students: React.FC = () => {
         <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-top-4 relative">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-slate-800 dark:text-white">
-              {editingId ? 'Editar Aluno' : 'Cadastrar Aluno'}
+              {editingId ? t('edit') : t('new_student_btn')}
             </h3>
             <button onClick={handleCancel} className="text-slate-400 hover:text-slate-600">
               <X className="h-5 w-5" />
@@ -285,7 +277,7 @@ export const Students: React.FC = () => {
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <Input
-                label="Nome Completo *"
+                label={t('student_name_label')}
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
@@ -293,42 +285,41 @@ export const Students: React.FC = () => {
               />
             </div>
             <Input
-              label="Email (Login) *"
+              label={t('student_email_label')}
               name="email"
               type="email"
               value={formData.email}
               onChange={handleInputChange}
               required
-              disabled={!!editingId} // Email é chave de login, melhor não editar diretamente
+              disabled={!!editingId}
             />
             
             <Input
-                label={editingId ? "Alterar Senha (Opcional)" : "Senha de Acesso *"}
+                label={editingId ? "Alterar Senha" : "Senha *"}
                 name="password"
                 type="password"
                 value={formData.password}
                 onChange={handleInputChange}
-                placeholder={editingId ? "Deixe em branco para manter a atual" : "Mínimo 6 caracteres"}
+                placeholder={editingId ? "" : "Min 6 chars"}
                 required={!editingId}
             />
 
             <Input
-              label="CPF"
+              label={t('student_cpf_label')}
               name="cpf"
               value={formData.cpf}
               onChange={handleInputChange}
-              placeholder="000.000.000-00"
               maxLength={14}
             />
             <Input
-              label="Telefone / WhatsApp"
+              label={t('phone_label')}
               name="phone"
               value={formData.phone}
               onChange={handleInputChange}
             />
             <div className="md:col-span-2">
               <Input
-                label="Endereço Completo"
+                label={t('address_label')}
                 name="address"
                 value={formData.address}
                 onChange={handleInputChange}
@@ -337,7 +328,7 @@ export const Students: React.FC = () => {
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Observações Clínicas
+                {t('student_obs_label')}
               </label>
               <textarea
                 name="observations"
@@ -349,8 +340,8 @@ export const Students: React.FC = () => {
             </div>
 
             <div className="md:col-span-2 flex justify-end gap-2 mt-2">
-              <Button type="button" variant="ghost" onClick={handleCancel}>Cancelar</Button>
-              <Button type="submit" isLoading={isSubmitting}>{editingId ? 'Salvar Alterações' : 'Cadastrar e Liberar Acesso'}</Button>
+              <Button type="button" variant="ghost" onClick={handleCancel}>{t('cancel')}</Button>
+              <Button type="submit" isLoading={isSubmitting}>{editingId ? t('update_student_btn') : t('save_student_btn')}</Button>
             </div>
           </form>
         </div>
@@ -362,7 +353,7 @@ export const Students: React.FC = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar aluno..."
+              placeholder={t('search')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
@@ -375,17 +366,17 @@ export const Students: React.FC = () => {
         ) : filteredStudents.length === 0 ? (
           <div className="p-12 text-center text-slate-500">
             <Users className="h-12 w-12 mx-auto text-slate-300 mb-3" />
-            <p>Nenhum aluno encontrado.</p>
+            <p>{t('no_students_found')}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 font-medium">
                 <tr>
-                  <th className="px-6 py-3">Nome</th>
-                  <th className="px-6 py-3">Contato</th>
-                  <th className="px-6 py-3 text-center">Acesso</th>
-                  <th className="px-6 py-3 text-right">Ações</th>
+                  <th className="px-6 py-3">{t('name_col')}</th>
+                  <th className="px-6 py-3">{t('contact_col')}</th>
+                  <th className="px-6 py-3 text-center">{t('access_col')}</th>
+                  <th className="px-6 py-3 text-right">{t('actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -396,7 +387,6 @@ export const Students: React.FC = () => {
                     <td className="px-6 py-4 text-center">
                        <button 
                           onClick={() => handleToggleAccess(student)}
-                          title={student.authUserId ? "Clique para BLOQUEAR" : "Clique para LIBERAR acesso"}
                           className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border transition-all min-w-[90px] justify-center ${
                             student.authUserId
                               ? 'bg-green-100 text-green-700 border-green-200 hover:bg-red-100 hover:text-red-700 hover:border-red-200'
@@ -404,24 +394,24 @@ export const Students: React.FC = () => {
                           }`}
                        >
                          {student.authUserId ? (
-                            <><CheckCircle className="w-3 h-3"/> ATIVO</>
+                            <><CheckCircle className="w-3 h-3"/> {t('active')}</>
                          ) : (
-                            <><Ban className="w-3 h-3"/> INATIVO</>
+                            <><Ban className="w-3 h-3"/> {t('inactive')}</>
                          )}
                        </button>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button onClick={() => handleViewDetails(student)} className="text-brand-600 hover:text-brand-800 font-medium text-xs border border-brand-200 px-3 py-1 rounded hover:bg-brand-50 transition-colors">
-                          Ver Detalhes
+                          {t('view_details')}
                         </button>
                         
-                        <button onClick={() => handleEdit(student)} className="text-slate-400 hover:text-brand-600 p-1" title="Editar">
+                        <button onClick={() => handleEdit(student)} className="text-slate-400 hover:text-brand-600 p-1" title={t('edit')}>
                             <Pencil className="h-4 w-4" />
                         </button>
                         
                         {!isInstructor && (
-                            <button onClick={() => handleDelete(student.id)} className="text-slate-400 hover:text-red-600 p-1" title="Excluir">
+                            <button onClick={() => handleDelete(student.id)} className="text-slate-400 hover:text-red-600 p-1" title={t('delete')}>
                                 <Trash2 className="h-4 w-4" />
                             </button>
                         )}
@@ -439,24 +429,24 @@ export const Students: React.FC = () => {
       {accessModalOpen && accessStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-xl p-6 shadow-xl border border-slate-200 dark:border-slate-800">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Ativar Acesso do Aluno</h3>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Ativar Acesso</h3>
             <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-              Defina uma senha para <strong>{accessStudent.name}</strong> ({accessStudent.email}).
+              Defina uma senha para <strong>{accessStudent.name}</strong>.
             </p>
             
             <form onSubmit={handleCreateAccess} className="space-y-4">
               <Input 
-                label="Senha de Acesso" 
+                label={t('password_label')} 
                 type="password" 
                 value={accessPassword} 
                 onChange={(e) => setAccessPassword(e.target.value)} 
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Min 6 chars"
                 autoFocus
               />
               
               <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="ghost" onClick={() => setAccessModalOpen(false)}>Cancelar</Button>
-                <Button type="submit" isLoading={isCreatingAccess}>Ativar Login</Button>
+                <Button type="button" variant="ghost" onClick={() => setAccessModalOpen(false)}>{t('cancel')}</Button>
+                <Button type="submit" isLoading={isCreatingAccess}>{t('save')}</Button>
               </div>
             </form>
           </div>
@@ -476,16 +466,16 @@ export const Students: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800">
-                  <h3 className="font-bold mb-4">Dados Pessoais</h3>
+                  <h3 className="font-bold mb-4">{t('contact_label')}</h3>
                   <p><strong>Email:</strong> {selectedStudent.email}</p>
-                  <p><strong>Telefone:</strong> {selectedStudent.phone}</p>
-                  <p><strong>Endereço:</strong> {selectedStudent.address}</p>
+                  <p><strong>Phone:</strong> {selectedStudent.phone}</p>
+                  <p><strong>Address:</strong> {selectedStudent.address}</p>
                   <p><strong>Obs:</strong> {selectedStudent.observations}</p>
                 </div>
                 
                 <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800">
                    <h3 className="font-bold mb-4 flex items-center gap-2"><Activity className="w-5 h-5"/> Histórico Clínico</h3>
-                   {loadingHistory ? <p>Carregando...</p> : (
+                   {loadingHistory ? <p>{t('loading')}</p> : (
                       studentLessons.length > 0 ? (
                         <ul className="space-y-2">
                            {studentLessons.map(l => (

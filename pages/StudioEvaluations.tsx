@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { fetchEvaluationsByStudio, deleteEvaluation, saveEvaluationAnalysis, fetchEvaluationAnalyses, deleteEvaluationAnalysis } from '../services/evaluationService';
 import { generateEvaluationAnalysis } from '../services/geminiService';
 import { ClassEvaluation, SavedEvaluationAnalysis } from '../types';
@@ -11,6 +12,7 @@ import jsPDF from 'jspdf';
 
 export const StudioEvaluations: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   
   // Tabs
   const [activeTab, setActiveTab] = useState<'list' | 'analyses'>('list');
@@ -127,7 +129,7 @@ export const StudioEvaluations: React.FC = () => {
     );
 
     if (result.success) {
-        alert("Salvo com sucesso!");
+        alert(t('save') + " com sucesso!");
         // Refresh Saved list
         const updated = await fetchEvaluationAnalyses(user.id);
         setSavedAnalyses(updated);
@@ -186,9 +188,9 @@ export const StudioEvaluations: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Star className="text-yellow-500 fill-yellow-500" /> Avaliações das Aulas
+            <Star className="text-yellow-500 fill-yellow-500" /> {t('evaluations_title')}
           </h1>
-          <p className="text-slate-500">Feedback recebido dos alunos após as aulas.</p>
+          <p className="text-slate-500">{t('evaluations_subtitle')}</p>
         </div>
       </div>
 
@@ -198,13 +200,13 @@ export const StudioEvaluations: React.FC = () => {
           onClick={() => setActiveTab('list')} 
           className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'list' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}
         >
-          Lista de Avaliações
+          {t('evaluations_list')}
         </button>
         <button 
           onClick={() => setActiveTab('analyses')} 
           className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'analyses' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}
         >
-          Relatórios Salvos
+          {t('saved_reports')}
         </button>
       </div>
 
@@ -215,14 +217,14 @@ export const StudioEvaluations: React.FC = () => {
              {/* Summary Card */}
              <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm lg:col-span-1">
                 <div className="text-center">
-                    <p className="text-xs text-slate-500 uppercase font-bold mb-1">Média ({filteredEvaluations.length})</p>
+                    <p className="text-xs text-slate-500 uppercase font-bold mb-1">{t('average')} ({filteredEvaluations.length})</p>
                     <div className="text-4xl font-bold text-slate-900 dark:text-white flex justify-center items-center gap-2">
                         {averageRating} <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
                     </div>
                 </div>
                 <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
                     <Button onClick={handleGenerateAnalysis} isLoading={isAnalyzing} className="w-full bg-purple-600 hover:bg-purple-700">
-                        <Sparkles className="w-4 h-4 mr-2" /> Analisar com IA
+                        <Sparkles className="w-4 h-4 mr-2" /> {t('analyze_ai')}
                     </Button>
                 </div>
              </div>
@@ -231,28 +233,28 @@ export const StudioEvaluations: React.FC = () => {
              <div className="lg:col-span-3 space-y-6">
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row gap-3 items-center">
                     <div className="flex items-center gap-2 text-slate-500 font-medium text-sm w-full sm:w-auto">
-                        <Filter className="w-4 h-4" /> Filtros:
+                        <Filter className="w-4 h-4" /> {t('filters')}:
                     </div>
                     <select className="flex-1 w-full p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 dark:border-slate-700 text-sm" value={filterInstructor} onChange={e => setFilterInstructor(e.target.value)}>
-                        <option value="">Todos Instrutores</option>
+                        <option value="">{t('all_instructors')}</option>
                         {uniqueInstructors.map(name => <option key={name} value={name}>{name}</option>)}
                     </select>
                     <select className="flex-1 w-full p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 dark:border-slate-700 text-sm" value={filterStudent} onChange={e => setFilterStudent(e.target.value)}>
-                        <option value="">Todos Alunos</option>
+                        <option value="">{t('all_students')}</option>
                         {uniqueStudents.map(name => <option key={name} value={name}>{name}</option>)}
                     </select>
                     <select className="flex-1 w-full p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 dark:border-slate-700 text-sm" value={filterDate} onChange={e => setFilterDate(e.target.value as any)}>
-                        <option value="all">Todo o Período</option>
-                        <option value="week">Última Semana</option>
-                        <option value="month">Último Mês</option>
+                        <option value="all">{t('all_period')}</option>
+                        <option value="week">{t('last_week')}</option>
+                        <option value="month">{t('last_month')}</option>
                     </select>
                     {(filterInstructor || filterStudent || filterDate !== 'all') && (
-                        <button onClick={() => { setFilterInstructor(''); setFilterStudent(''); setFilterDate('all'); }} className="text-xs text-red-500 hover:underline">Limpar</button>
+                        <button onClick={() => { setFilterInstructor(''); setFilterStudent(''); setFilterDate('all'); }} className="text-xs text-red-500 hover:underline">{t('clear')}</button>
                     )}
                 </div>
 
                 {loading ? (
-                    <div className="text-center py-12 text-slate-500"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-brand-600"/>Carregando...</div>
+                    <div className="text-center py-12 text-slate-500"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-brand-600"/>{t('loading')}</div>
                 ) : filteredEvaluations.length === 0 ? (
                     <div className="text-center py-12 text-slate-500 border-2 border-dashed border-slate-200 rounded-xl">Nenhuma avaliação encontrada.</div>
                 ) : (
@@ -327,14 +329,14 @@ export const StudioEvaluations: React.FC = () => {
             <div className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
                 <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
                     <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
-                        <Sparkles className="w-5 h-5 text-purple-600"/> Análise de Qualidade
+                        <Sparkles className="w-5 h-5 text-purple-600"/> {t('quality_report')}
                     </h3>
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={() => downloadPDF('analysis-content', 'Relatorio_Qualidade')}>
-                            <Download className="w-4 h-4 mr-2"/> PDF
+                            <Download className="w-4 h-4 mr-2"/> {t('download_pdf')}
                         </Button>
                         <Button size="sm" onClick={handleSaveAnalysis} isLoading={isSavingAnalysis} disabled={isSavingAnalysis}>
-                            <Save className="w-4 h-4 mr-2"/> Salvar
+                            <Save className="w-4 h-4 mr-2"/> {t('save')}
                         </Button>
                         <button onClick={() => setShowAnalysisModal(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg text-slate-500">
                             <X className="w-5 h-5"/>
@@ -345,7 +347,7 @@ export const StudioEvaluations: React.FC = () => {
                 <div className="overflow-y-auto p-8 bg-slate-100 dark:bg-slate-900">
                     <div id="analysis-content" className="bg-white p-12 shadow-lg max-w-3xl mx-auto min-h-[600px] text-slate-800">
                         <div className="border-b-2 border-purple-500 pb-4 mb-6">
-                            <h1 className="text-3xl font-bold text-slate-900">Relatório de Qualidade</h1>
+                            <h1 className="text-3xl font-bold text-slate-900">{t('quality_report')}</h1>
                             <p className="text-slate-500 mt-2">Análise baseada em {activeTab === 'list' ? filteredEvaluations.length : 'várias'} avaliações.</p>
                             <p className="text-xs text-slate-400 mt-1">Gerado em: {new Date().toLocaleDateString()}</p>
                         </div>

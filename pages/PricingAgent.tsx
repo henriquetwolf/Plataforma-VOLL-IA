@@ -1,5 +1,7 @@
+
 import React, { useState, useMemo, ChangeEvent, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { PricingInputs, CalculatedResultsPricing, SimulationResultsPricing, Competitor, SavedPricingAnalysis, PriceCompositionData } from '../types';
 import { Card, InputField, SliderField, TextInputField, DaySelector } from '../components/pricing/PricingUI';
 import { PricingResults } from '../components/pricing/PricingResults';
@@ -61,6 +63,7 @@ const initialInputs: PricingInputs = {
 
 export const PricingAgent: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [inputs, setInputs] = useState<PricingInputs>(initialInputs);
   const [simulatedPackages, setSimulatedPackages] = useState<CalculatedResultsPricing['packages']>({ '1x': 0, '2x': 0, '3x': 0 });
   const [simulatedOccupancyRate, setSimulatedOccupancyRate] = useState<number>(inputs.capacity.occupancyRate);
@@ -107,7 +110,7 @@ export const PricingAgent: React.FC = () => {
     if (!user?.id) return;
     const result = await savePricingAnalysis(user.id, name, inputs);
     if (result.success) {
-      alert('Análise salva com sucesso!');
+      alert(t('save') + ' com sucesso!');
       loadHistory();
     } else {
       alert('Erro ao salvar.');
@@ -287,9 +290,9 @@ export const PricingAgent: React.FC = () => {
 
   const formSections = [
     {
-      id: 'studio', title: 'Studio',
+      id: 'studio', title: t('studio_info_title'),
       component: (
-        <Card title="Informações do Studio">
+        <Card title={t('studio_info_title')}>
           <TextInputField label="Nome do Studio" value={inputs.studioInfo.name} onChange={handleStudioInfoChange('name')} />
           <TextInputField label="Responsável" value={inputs.studioInfo.owner} onChange={handleStudioInfoChange('owner')} />
           <TextInputField label="Data" type="date" value={inputs.studioInfo.date} onChange={handleStudioInfoChange('date')} />
@@ -297,9 +300,9 @@ export const PricingAgent: React.FC = () => {
       )
     },
     {
-      id: 'fixed', title: 'Custos Fixos',
+      id: 'fixed', title: t('fixed_costs_title'),
       component: (
-        <Card title="Custos Fixos Mensais">
+        <Card title={t('fixed_costs_title')}>
           <div className="grid grid-cols-2 gap-4">
             <InputField label="Aluguel" isCurrency value={inputs.fixedCosts.rent} onChange={handleInputChange('fixedCosts', 'rent')} />
             <InputField label="Contas" isCurrency value={inputs.fixedCosts.utilities} onChange={handleInputChange('fixedCosts', 'utilities')} />
@@ -313,9 +316,9 @@ export const PricingAgent: React.FC = () => {
       )
     },
     {
-      id: 'variable', title: 'Variáveis & Lucro',
+      id: 'variable', title: t('variable_costs_title'),
       component: (
-        <Card title="Custos Variáveis e Lucro">
+        <Card title={t('variable_costs_title')}>
           <SliderField label="Taxas Cartão (%)" id="card" value={inputs.variableCosts.creditCardFee} onChange={handleSliderChange('variableCosts', 'creditCardFee')} max={15} />
           <SliderField label="Impostos (%)" id="taxes" value={inputs.variableCosts.taxes} onChange={handleSliderChange('variableCosts', 'taxes')} max={20} />
           <SliderField label="Margem de Lucro (%)" id="profit" value={inputs.profitMargin} onChange={(e) => setInputs(p => ({...p, profitMargin: parseInt(e.target.value)}))} max={50} />
@@ -323,9 +326,9 @@ export const PricingAgent: React.FC = () => {
       )
     },
     {
-      id: 'capacity', title: 'Capacidade',
+      id: 'capacity', title: t('capacity_title'),
       component: (
-        <Card title="Capacidade Operacional">
+        <Card title={t('capacity_title')}>
           <div className="grid grid-cols-2 gap-4">
             <InputField label="Alunos/Hora" value={inputs.capacity.clientsPerHour} onChange={handleInputChange('capacity', 'clientsPerHour')} />
             <InputField label="Horas/Dia" value={inputs.capacity.hoursPerDay} onChange={handleInputChange('capacity', 'hoursPerDay')} />
@@ -336,9 +339,9 @@ export const PricingAgent: React.FC = () => {
       )
     },
     {
-      id: 'market', title: 'Mercado',
+      id: 'market', title: t('market_title'),
       component: (
-        <Card title="Análise de Mercado (Opcional)">
+        <Card title={t('market_title')}>
           {inputs.marketAnalysis.competitors.slice(0, 3).map((comp, i) => (
             <div key={comp.id} className="mb-4 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
               <TextInputField label={`Concorrente ${i+1}`} value={comp.name} onChange={handleCompetitorChange(i, 'name')} placeholder="Nome" />
@@ -356,8 +359,8 @@ export const PricingAgent: React.FC = () => {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold">Histórico de Precificação</h2>
-          <Button variant="outline" onClick={() => setShowHistory(false)}><ArrowLeft className="w-4 h-4 mr-2"/> Voltar</Button>
+          <h2 className="text-2xl font-bold">{t('pricing_history')}</h2>
+          <Button variant="outline" onClick={() => setShowHistory(false)}><ArrowLeft className="w-4 h-4 mr-2"/> {t('back')}</Button>
         </div>
         <div className="grid gap-4">
           {history.map(h => (
@@ -382,22 +385,22 @@ export const PricingAgent: React.FC = () => {
       <header className="flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2 text-slate-900 dark:text-white">
-            <Calculator className="h-8 w-8 text-brand-600" /> Preço Certo Inteligente
+            <Calculator className="h-8 w-8 text-brand-600" /> {t('pricing_title')}
           </h1>
-          <p className="text-slate-500">Defina sua precificação com base em custos reais.</p>
+          <p className="text-slate-500">{t('pricing_subtitle')}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowHistory(true)}><History className="w-4 h-4 mr-2"/> Histórico</Button>
-          <Button variant="secondary" onClick={() => setInputs(initialInputs)}><RotateCcw className="w-4 h-4 mr-2"/> Limpar</Button>
-          <Button onClick={() => setIsSaveModalOpen(true)}><Save className="w-4 h-4 mr-2"/> Salvar</Button>
+          <Button variant="outline" onClick={() => setShowHistory(true)}><History className="w-4 h-4 mr-2"/> {t('history')}</Button>
+          <Button variant="secondary" onClick={() => setInputs(initialInputs)}><RotateCcw className="w-4 h-4 mr-2"/> {t('clear')}</Button>
+          <Button onClick={() => setIsSaveModalOpen(true)}><Save className="w-4 h-4 mr-2"/> {t('save')}</Button>
         </div>
       </header>
 
       {/* Mode Switcher */}
       <div className="flex justify-center">
         <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-lg flex text-sm font-medium">
-          <button onClick={() => setIsWizardMode(true)} className={`px-4 py-2 rounded-md transition-all ${isWizardMode ? 'bg-white dark:bg-slate-700 shadow text-brand-600' : 'text-slate-500'}`}>Passo a Passo</button>
-          <button onClick={() => setIsWizardMode(false)} className={`px-4 py-2 rounded-md transition-all ${!isWizardMode ? 'bg-white dark:bg-slate-700 shadow text-brand-600' : 'text-slate-500'}`}>Visão Completa</button>
+          <button onClick={() => setIsWizardMode(true)} className={`px-4 py-2 rounded-md transition-all ${isWizardMode ? 'bg-white dark:bg-slate-700 shadow text-brand-600' : 'text-slate-500'}`}>{t('step_by_step')}</button>
+          <button onClick={() => setIsWizardMode(false)} className={`px-4 py-2 rounded-md transition-all ${!isWizardMode ? 'bg-white dark:bg-slate-700 shadow text-brand-600' : 'text-slate-500'}`}>{t('full_view')}</button>
         </div>
       </div>
 
@@ -407,7 +410,7 @@ export const PricingAgent: React.FC = () => {
           {isWizardMode ? (
             <div className="space-y-6">
               <div className="flex items-center justify-between text-sm text-slate-500">
-                <span>Passo {currentStep + 1} de {formSections.length}</span>
+                <span>{t('step')} {currentStep + 1} / {formSections.length}</span>
                 <div className="flex gap-2">
                   <Button variant="ghost" disabled={currentStep === 0} onClick={() => setCurrentStep(p => p - 1)}><ChevronLeft className="w-4 h-4"/></Button>
                   <Button variant="ghost" disabled={currentStep === formSections.length - 1} onClick={() => setCurrentStep(p => p + 1)}><ChevronRight className="w-4 h-4"/></Button>

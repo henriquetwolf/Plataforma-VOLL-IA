@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { fetchProfile } from '../services/storage';
 import { generateFullReport } from '../services/geminiService';
 import { StrategicPlan, SavedPlan, StrategyStep } from '../types';
@@ -32,6 +33,7 @@ const initialPlanData: StrategicPlan = {
 
 export const StrategicPlanning: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [currentStep, setCurrentStep] = useState<StrategyStep>(StrategyStep.Welcome);
   const [planData, setPlanData] = useState<StrategicPlan>(initialPlanData);
   const [generatedReport, setGeneratedReport] = useState('');
@@ -163,9 +165,9 @@ export const StrategicPlanning: React.FC = () => {
         <div className="inline-flex items-center justify-center w-20 h-20 bg-brand-50 rounded-full mb-6">
           <Compass className="h-10 w-10 text-brand-600" />
         </div>
-        <h1 className="text-4xl font-bold text-slate-900 mb-4">Planejador Estratégico AI</h1>
+        <h1 className="text-4xl font-bold text-slate-900 mb-4">{t('strategy_agent_title')}</h1>
         <p className="text-lg text-slate-500 max-w-lg mx-auto mb-10">
-          Transforme seus objetivos em um plano de ação claro e prático. Nossa IA atua como sua consultora de negócios sênior.
+          {t('strategy_agent_desc')}
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-xl mx-auto">
@@ -176,7 +178,7 @@ export const StrategicPlanning: React.FC = () => {
             <div className="bg-brand-500 text-white p-3 rounded-full mb-4 group-hover:scale-110 transition-transform">
               <PlayCircle className="h-8 w-8" />
             </div>
-            <h3 className="font-bold text-slate-800 text-lg">Criar Novo Plano</h3>
+            <h3 className="font-bold text-slate-800 text-lg">{t('create_plan')}</h3>
             <p className="text-sm text-slate-400 mt-2">Iniciar o assistente passo-a-passo</p>
           </button>
 
@@ -187,7 +189,7 @@ export const StrategicPlanning: React.FC = () => {
             <div className="bg-slate-100 text-slate-600 p-3 rounded-full mb-4 group-hover:bg-slate-800 group-hover:text-white transition-colors">
               <Clock className="h-8 w-8" />
             </div>
-            <h3 className="font-bold text-slate-800 text-lg">Ver Histórico</h3>
+            <h3 className="font-bold text-slate-800 text-lg">{t('view_history')}</h3>
             <p className="text-sm text-slate-400 mt-2">{savedPlans.length} planos salvos</p>
           </button>
         </div>
@@ -201,11 +203,11 @@ export const StrategicPlanning: React.FC = () => {
         <div className="mb-8">
           <div className="flex justify-between text-xs font-medium text-slate-400 mb-2 uppercase tracking-wide">
             <span>Início</span>
-            <span>Visão</span>
-            <span>SWOT</span>
-            <span>Metas</span>
-            <span>Ações</span>
-            <span>Revisão</span>
+            <span>{t('vision')}</span>
+            <span>{t('swot_analysis')}</span>
+            <span>{t('step_goals')}</span>
+            <span>{t('action_plan')}</span>
+            <span>{t('review')}</span>
           </div>
           <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
             <div 
@@ -235,23 +237,23 @@ export const StrategicPlanning: React.FC = () => {
 
         {currentStep === StrategyStep.Review && (
           <div className="text-center py-12 animate-in fade-in">
-            <h2 className="text-3xl font-bold text-slate-900 mb-4">Tudo pronto!</h2>
+            <h2 className="text-3xl font-bold text-slate-900 mb-4">{t('review')}</h2>
             <p className="text-slate-500 mb-8 max-w-md mx-auto">
               Nossa IA vai analisar sua Visão, SWOT e Objetivos para criar um relatório estratégico detalhado.
             </p>
             
             <div className="flex justify-center gap-4">
               <Button variant="ghost" onClick={handleBack} disabled={isLoading}>
-                Voltar e Editar
+                {t('back')}
               </Button>
               <Button onClick={handleGenerate} disabled={isLoading} className="px-8 h-12 text-lg shadow-lg shadow-brand-200">
                 {isLoading ? (
                   <>
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" /> Gerando Plano...
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" /> {t('loading')}
                   </>
                 ) : (
                   <>
-                    <Compass className="h-5 w-5 mr-2" /> Gerar Plano Estratégico
+                    <Compass className="h-5 w-5 mr-2" /> {t('generate_report')}
                   </>
                 )}
               </Button>
