@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -193,6 +192,11 @@ export const ContentAgent: React.FC = () => {
         setGeneratedVideo(null);
         setLoadingMessage('Escrevendo texto...');
 
+        // Variaveis locais para salvar
+        let finalContent = '';
+        let finalImage: string | null = null;
+        let finalVideo: string | null = null;
+
         const systemInstruction = persona ? `
             Você é o assistente de conteúdo do Studio.
             Filosofia: ${persona.philosophy}
@@ -203,16 +207,15 @@ export const ContentAgent: React.FC = () => {
         try {
             // Text
             const stream = generatePilatesContentStream(activeRequest, systemInstruction);
-            let fullText = '';
             for await (const chunk of stream) {
-                fullText += chunk;
+                finalContent += chunk;
                 setGeneratedText(prev => prev + chunk);
             }
 
             // Image
             if (['Post Estático', 'Carrossel', 'Story'].includes(activeRequest.format)) {
                 setLoadingMessage('Criando imagem...');
-                let img = await generatePilatesImage(activeRequest, null, fullText);
+                let img = await generatePilatesImage(activeRequest, null, finalContent);
                 
                 // Apply Logo if enabled and available
                 if (img && activeRequest.logoConfig?.enabled && studioLogoUrl) {
@@ -224,14 +227,56 @@ export const ContentAgent: React.FC = () => {
                     }
                 }
                 
+                finalImage = img;
                 setGeneratedImage(img);
             }
 
             // Video
             if (['Reels', 'Video Curto', 'TikTok'].includes(activeRequest.format)) {
                 setLoadingMessage('Renderizando vídeo (isso pode demorar)...');
-                const vid = await generatePilatesVideo(fullText, (msg) => setLoadingMessage(msg));
+                const vid = await generatePilatesVideo(finalContent, (msg) => setLoadingMessage(msg));
+                finalVideo = vid;
                 setGeneratedVideo(vid);
+            }
+
+            // --- AUTO SAVE LOGIC (INCREMENT COUNT) ---
+            if (user?.id) {
+                const newPost: SavedPost = {
+                    id: crypto.randomUUID(),
+                    request: activeRequest,
+                    content: finalContent,
+                    imageUrl: finalImage,
+                    videoUrl: finalVideo,
+                    createdAt: new Date().toISOString()
+                };
+                
+                // Save automatically to count as usage
+                const saveResult = await savePost(user.id, newPost);
+                
+                if (saveResult.success) {
+                    setSavedPosts(prev => [newPost, ...prev]);
+                    
+                    // Increment local counter
+                    const newCount = todayCount + 1;
+                    setTodayCount(newCount);
+                    if (newCount >= dailyLimit) setIsLimitReached(true);
+
+                    // Update Plan if applicable
+                    if (generatingFromPlan) {
+                        const planToUpdate = plans.find(p => p.id === generatingFromPlan.planId);
+                        if (planToUpdate && planToUpdate.weeks) {
+                            const updatedWeeks = [...planToUpdate.weeks];
+                            if (updatedWeeks[generatingFromPlan.weekIdx]?.ideas[generatingFromPlan.ideaIdx]) {
+                                updatedWeeks[generatingFromPlan.weekIdx].ideas[generatingFromPlan.ideaIdx].generatedPostId = newPost.id;
+                                
+                                const updatedPlan = { ...planToUpdate, weeks: updatedWeeks };
+                                await saveContentPlan(user.id, updatedPlan);
+                                setPlans(plans.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+                            }
+                        }
+                        setGeneratingFromPlan(null);
+                    }
+                }
             }
 
         } catch (e: any) {
@@ -254,7 +299,6 @@ export const ContentAgent: React.FC = () => {
     const handleSavePostLocal = async () => {
         if (!user?.id || !generatedText) return;
         
-        // Re-check limit just in case
         if (isLimitReached) {
              alert(`Limite diário de ${dailyLimit} posts atingido. Não é possível salvar novos posts hoje.`);
              return;
@@ -273,30 +317,10 @@ export const ContentAgent: React.FC = () => {
         
         if (result.success) {
             setSavedPosts([newPost, ...savedPosts]);
-            // Increment local counter
             const newCount = todayCount + 1;
             setTodayCount(newCount);
             if (newCount >= dailyLimit) setIsLimitReached(true);
-
-            // If generated from plan, update the plan
-            if (generatingFromPlan) {
-                const planToUpdate = plans.find(p => p.id === generatingFromPlan.planId);
-                if (planToUpdate && planToUpdate.weeks) {
-                    const updatedWeeks = [...planToUpdate.weeks];
-                    if (updatedWeeks[generatingFromPlan.weekIdx]?.ideas[generatingFromPlan.ideaIdx]) {
-                        updatedWeeks[generatingFromPlan.weekIdx].ideas[generatingFromPlan.ideaIdx].generatedPostId = newPost.id;
-                        
-                        const updatedPlan = { ...planToUpdate, weeks: updatedWeeks };
-                        await saveContentPlan(user.id, updatedPlan);
-                        
-                        // Update local state
-                        setPlans(plans.map(p => p.id === updatedPlan.id ? updatedPlan : p));
-                    }
-                }
-                setGeneratingFromPlan(null); // Clear context
-            }
-
-            alert('Post salvo com sucesso!');
+            alert('Cópia do post salva com sucesso!');
         } else {
             alert('Erro ao salvar post: ' + result.error);
         }
@@ -678,7 +702,7 @@ export const ContentAgent: React.FC = () => {
                                         <button onClick={() => navigator.clipboard.writeText(generatedText)} className="p-2 text-slate-400 hover:text-brand-600 rounded-lg bg-slate-50 dark:bg-slate-800" title="Copiar Texto">
                                             <Copy className="w-4 h-4"/>
                                         </button>
-                                        <button onClick={handleSavePostLocal} className="p-2 text-white bg-brand-600 hover:bg-brand-700 rounded-lg" title="Salvar">
+                                        <button onClick={handleSavePostLocal} className="p-2 text-white bg-brand-600 hover:bg-brand-700 rounded-lg" title="Salvar Nova Cópia">
                                             <Save className="w-4 h-4"/>
                                         </button>
                                     </div>
@@ -721,7 +745,7 @@ export const ContentAgent: React.FC = () => {
                                         </Button>
                                     </div>
                                     <p className="text-xs text-slate-400 mt-2">
-                                        Dica: Descreva o que você quer mudar e clique no botão para regenerar.
+                                        Dica: Descreva o que você quer mudar e clique no botão para regenerar. Isso consumirá mais um crédito.
                                     </p>
                                 </div>
                             </div>
