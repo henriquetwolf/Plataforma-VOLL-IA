@@ -47,12 +47,44 @@ export const fetchInstructors = async (studioId?: string): Promise<Instructor[]>
       cpf: item.cpf || '',
       phone: item.phone || '',
       address: item.address || '',
+      city: item.city || '',
+      state: item.state || '',
+      cep: item.cep || '',
+      photoUrl: item.photo_url || '',
+      certifications: item.certifications || [],
       active: item.active,
       createdAt: item.created_at
     }));
   } catch (err: any) {
     console.error('Unexpected error fetching instructors:', err.message || err);
     return [];
+  }
+};
+
+export const uploadInstructorPhoto = async (studioId: string, file: File): Promise<string | null> => {
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `instructor-${studioId}-${Date.now()}.${fileExt}`;
+    // Usaremos o bucket 'studio-logos' (ou crie 'instructor-photos' no Supabase)
+    const filePath = `instructors/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('studio-logos') 
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      console.error('Error uploading instructor photo:', JSON.stringify(uploadError));
+      return null;
+    }
+
+    const { data } = supabase.storage
+      .from('studio-logos')
+      .getPublicUrl(filePath);
+
+    return data.publicUrl;
+  } catch (err) {
+    console.error('Unexpected error uploading photo:', err);
+    return null;
   }
 };
 
@@ -122,6 +154,11 @@ export const createInstructorWithAuth = async (
         cpf: instructor.cpf,
         phone: instructor.phone,
         address: instructor.address,
+        city: instructor.city,
+        state: instructor.state,
+        cep: instructor.cep,
+        photo_url: instructor.photoUrl,
+        certifications: instructor.certifications,
         active: true
       });
 
@@ -151,6 +188,11 @@ export const updateInstructor = async (
     if (updates.phone) payload.phone = updates.phone;
     if (updates.address) payload.address = updates.address;
     if (updates.cpf) payload.cpf = updates.cpf;
+    if (updates.city !== undefined) payload.city = updates.city;
+    if (updates.state !== undefined) payload.state = updates.state;
+    if (updates.cep !== undefined) payload.cep = updates.cep;
+    if (updates.photoUrl !== undefined) payload.photo_url = updates.photoUrl;
+    if (updates.certifications !== undefined) payload.certifications = updates.certifications;
     if (updates.active !== undefined) payload.active = updates.active;
 
     const { error } = await supabase

@@ -1,11 +1,4 @@
 
-
-
-
-
-
-
-
 export interface User {
   id: string;
   dbId?: string; // ID interno do banco de dados (PK da tabela students/instructors)
@@ -77,9 +70,14 @@ export interface Instructor {
   authUserId?: string;
   name: string;
   email: string;
-  cpf?: string; // Added CPF
+  cpf?: string; 
   phone: string;
   address: string;
+  city?: string; // Novo: Cidade
+  state?: string; // Novo: Estado
+  cep?: string; // Novo: CEP
+  photoUrl?: string; // Novo: URL da Foto
+  certifications?: string[]; // Novo: Lista de Certificações
   active: boolean;
   createdAt: string;
 }
@@ -643,7 +641,7 @@ export interface SavedEvolutionReport {
   id: string;
   studioId: string;
   title: string;
-  content: string; // HTML
+  content: string; // HTML report
   filterDescription: string; // Ex: "Aluno: João, Instrutor: Maria, Fev/2025"
   recordCount: number;
   createdAt: string;
