@@ -5,7 +5,7 @@ import { Instructor } from '../types';
 import { fetchInstructors, createInstructorWithAuth, updateInstructor, deleteInstructor, toggleInstructorStatus, uploadInstructorPhoto } from '../services/instructorService';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Plus, Trash2, Search, Phone, Mail, Pencil, X, BookUser, MapPin, CheckCircle, Ban, Share2, Award, Camera, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Search, Phone, Mail, Pencil, X, BookUser, MapPin, CheckCircle, Ban, Share2, Award, Camera, Loader2, Filter, MoreVertical } from 'lucide-react';
 
 export const Instructors: React.FC = () => {
   const { user } = useAuth();
@@ -13,13 +13,16 @@ export const Instructors: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  
+  // Filtros
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Estados para Upload de Foto
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   // Estados para Certificações
   const [newCertification, setNewCertification] = useState('');
@@ -41,7 +44,6 @@ export const Instructors: React.FC = () => {
   const loadData = async () => {
     if (!user?.id) return;
     setIsLoading(true);
-    // Explicitly pass the user ID (Owner ID) to fetch only this studio's instructors
     const data = await fetchInstructors(user.id);
     setInstructors(data);
     setIsLoading(false);
@@ -146,7 +148,6 @@ export const Instructors: React.FC = () => {
     try {
         let finalPhotoUrl = formData.photoUrl;
 
-        // Upload Photo if new file selected
         if (photoFile) {
             const url = await uploadInstructorPhoto(user.id, photoFile);
             if (url) {
@@ -177,11 +178,7 @@ export const Instructors: React.FC = () => {
         }
         
         if (result.success) {
-            if (result.error) {
-                alert(result.error);
-            } else {
-                alert(editingId ? "Dados atualizados com sucesso!" : "Instrutor cadastrado com sucesso!");
-            }
+            alert(editingId ? "Dados atualizados com sucesso!" : "Instrutor cadastrado com sucesso!");
             handleCancel();
             await loadData();
         } else {
@@ -229,10 +226,16 @@ export const Instructors: React.FC = () => {
     }
   };
 
-  const filtered = instructors.filter(i => 
-    i.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    i.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = instructors.filter(i => {
+    const matchesSearch = i.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          i.email.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' 
+                          ? true 
+                          : statusFilter === 'active' ? i.active : !i.active;
+
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <div className="space-y-6 animate-in fade-in">
@@ -250,7 +253,7 @@ export const Instructors: React.FC = () => {
         )}
       </div>
 
-      {showForm && (
+      {showForm ? (
         <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 relative">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-slate-800 dark:text-white">
@@ -262,8 +265,6 @@ export const Instructors: React.FC = () => {
           </div>
           
           <form onSubmit={handleSubmit} className="space-y-6">
-            
-            {/* Foto e Dados Principais */}
             <div className="flex flex-col md:flex-row gap-6">
                 <div className="flex-shrink-0 flex flex-col items-center gap-3">
                     <div className="relative w-32 h-32 rounded-full border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 overflow-hidden flex items-center justify-center group hover:border-brand-500 transition-colors">
@@ -286,98 +287,30 @@ export const Instructors: React.FC = () => {
                 </div>
 
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                        label="Nome Completo *"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        required
-                    />
-                    <Input
-                        label="CPF *"
-                        name="cpf"
-                        value={formData.cpf}
-                        onChange={handleInputChange}
-                        required
-                        placeholder="000.000.000-00"
-                        maxLength={14}
-                    />
-                    <Input
-                        label="Email de Login *"
-                        name="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        required
-                        placeholder="email@exemplo.com"
-                    />
-                    <Input
-                        label={editingId ? "Nova Senha (Opcional)" : "Senha de Acesso *"}
-                        name="password"
-                        type="password"
-                        value={formData.password}
-                        onChange={handleInputChange}
-                        required={!editingId}
-                        placeholder={editingId ? "Deixe em branco para manter" : "Mínimo 6 caracteres"}
-                    />
-                    <Input
-                        label="Telefone / WhatsApp"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                    />
+                    <Input label="Nome Completo *" name="name" value={formData.name} onChange={handleInputChange} required />
+                    <Input label="CPF *" name="cpf" value={formData.cpf} onChange={handleInputChange} required placeholder="000.000.000-00" maxLength={14} />
+                    <Input label="Email de Login *" name="email" type="email" value={formData.email} onChange={handleInputChange} required placeholder="email@exemplo.com" />
+                    <Input label={editingId ? "Nova Senha (Opcional)" : "Senha de Acesso *"} name="password" type="password" value={formData.password} onChange={handleInputChange} required={!editingId} placeholder={editingId ? "Deixe em branco para manter" : "Mínimo 6 caracteres"} />
+                    <Input label="Telefone / WhatsApp" name="phone" value={formData.phone} onChange={handleInputChange} />
                 </div>
             </div>
 
             <hr className="border-slate-100 dark:border-slate-800" />
 
-            {/* Endereço */}
             <div>
                 <h4 className="font-medium text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
                     <MapPin className="h-4 w-4" /> Endereço
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="md:col-span-1">
-                        <Input
-                            label="CEP"
-                            name="cep"
-                            value={formData.cep}
-                            onChange={handleInputChange}
-                            placeholder="00000-000"
-                        />
-                    </div>
-                    <div className="md:col-span-3">
-                        <Input
-                            label="Endereço (Rua, Número, Bairro)"
-                            name="address"
-                            value={formData.address}
-                            onChange={handleInputChange}
-                        />
-                    </div>
-                    <div className="md:col-span-3">
-                        <Input
-                            label="Cidade"
-                            name="city"
-                            value={formData.city}
-                            onChange={handleInputChange}
-                        />
-                    </div>
-                    <div className="md:col-span-1">
-                        <Input
-                            label="Estado"
-                            name="state"
-                            value={formData.state}
-                            onChange={handleInputChange}
-                            placeholder="UF"
-                            maxLength={2}
-                        />
-                    </div>
+                    <div className="md:col-span-1"><Input label="CEP" name="cep" value={formData.cep} onChange={handleInputChange} placeholder="00000-000" /></div>
+                    <div className="md:col-span-3"><Input label="Endereço (Rua, Número, Bairro)" name="address" value={formData.address} onChange={handleInputChange} /></div>
+                    <div className="md:col-span-3"><Input label="Cidade" name="city" value={formData.city} onChange={handleInputChange} /></div>
+                    <div className="md:col-span-1"><Input label="Estado" name="state" value={formData.state} onChange={handleInputChange} placeholder="UF" maxLength={2} /></div>
                 </div>
             </div>
 
             <hr className="border-slate-100 dark:border-slate-800" />
 
-            {/* Certificações */}
             <div>
                 <h4 className="font-medium text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
                     <Award className="h-4 w-4" /> Certificações e Especializações
@@ -400,9 +333,7 @@ export const Instructors: React.FC = () => {
                             <button type="button" onClick={() => removeCertification(index)} className="hover:text-red-500"><X className="h-3 w-3" /></button>
                         </span>
                     ))}
-                    {formData.certifications.length === 0 && (
-                        <p className="text-sm text-slate-400 italic">Nenhuma certificação adicionada.</p>
-                    )}
+                    {formData.certifications.length === 0 && <p className="text-sm text-slate-400 italic">Nenhuma certificação adicionada.</p>}
                 </div>
             </div>
 
@@ -412,102 +343,133 @@ export const Instructors: React.FC = () => {
             </div>
           </form>
         </div>
+      ) : (
+        <>
+            {/* Filters Bar */}
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-4 items-center">
+                <div className="flex items-center gap-2 text-slate-500 font-medium text-sm w-full md:w-auto">
+                    <Filter className="w-4 h-4" /> Filtros:
+                </div>
+                
+                <div className="relative flex-1 w-full">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <input
+                        type="text"
+                        placeholder="Buscar por nome ou email..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+                    />
+                </div>
+
+                <div className="flex gap-2 w-full md:w-auto">
+                    <select 
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value as any)}
+                        className="p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 text-sm outline-none focus:ring-2 focus:ring-brand-500 w-full md:w-40"
+                    >
+                        <option value="all">Status: Todos</option>
+                        <option value="active">Ativos</option>
+                        <option value="inactive">Inativos</option>
+                    </select>
+                </div>
+            </div>
+
+            {/* Cards Grid */}
+            {isLoading ? (
+                <div className="p-12 flex justify-center"><Loader2 className="animate-spin h-8 w-8 text-brand-600"/></div>
+            ) : filtered.length === 0 ? (
+                <div className="p-12 text-center text-slate-500 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                    <BookUser className="h-12 w-12 mx-auto text-slate-300 mb-3" />
+                    <p>Nenhum instrutor encontrado com os filtros atuais.</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filtered.map((inst) => (
+                        <div key={inst.id} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden hover:shadow-md transition-all flex flex-col group relative">
+                            {/* Card Header */}
+                            <div className="p-5 flex items-start gap-4 border-b border-slate-100 dark:border-slate-800">
+                                <div className="flex-shrink-0">
+                                    {inst.photoUrl ? (
+                                        <img src={inst.photoUrl} alt={inst.name} className="w-16 h-16 rounded-full object-cover border-2 border-slate-100 dark:border-slate-700 shadow-sm" />
+                                    ) : (
+                                        <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 font-bold text-xl border-2 border-slate-200 dark:border-slate-700">
+                                            {inst.name.charAt(0)}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate" title={inst.name}>{inst.name}</h3>
+                                    <div className="flex flex-col gap-1 mt-1">
+                                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider w-fit px-2 py-0.5 rounded-full ${inst.active ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                            {inst.active ? <><CheckCircle className="w-3 h-3"/> Ativo</> : <><Ban className="w-3 h-3"/> Inativo</>}
+                                        </span>
+                                        {inst.city && (
+                                            <span className="text-xs text-slate-500 flex items-center gap-1 truncate">
+                                                <MapPin className="w-3 h-3"/> {inst.city}, {inst.state}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Card Body */}
+                            <div className="p-5 flex-1 flex flex-col gap-4">
+                                <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
+                                    <div className="flex items-center gap-2">
+                                        <Mail className="w-4 h-4 text-brand-500"/> <span className="truncate">{inst.email}</span>
+                                    </div>
+                                    {inst.phone && (
+                                        <div className="flex items-center gap-2">
+                                            <Phone className="w-4 h-4 text-brand-500"/> <span>{inst.phone}</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {inst.certifications && inst.certifications.length > 0 && (
+                                    <div className="mt-2">
+                                        <p className="text-xs font-bold text-slate-400 uppercase mb-2">Especialidades</p>
+                                        <div className="flex flex-wrap gap-1">
+                                            {inst.certifications.slice(0, 3).map((cert, idx) => (
+                                                <span key={idx} className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-1 rounded border border-slate-200 dark:border-slate-700 truncate max-w-[150px]">
+                                                    {cert}
+                                                </span>
+                                            ))}
+                                            {inst.certifications.length > 3 && (
+                                                <span className="text-[10px] bg-slate-50 text-slate-400 px-2 py-1 rounded">+{inst.certifications.length - 3}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Card Footer Actions */}
+                            <div className="p-3 bg-slate-50 dark:bg-slate-950/50 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center gap-2">
+                                <button 
+                                    onClick={() => handleToggleStatus(inst.id, inst.active, inst.name)}
+                                    className={`flex-1 py-1.5 rounded text-xs font-bold transition-colors ${inst.active ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}
+                                >
+                                    {inst.active ? 'Bloquear' : 'Ativar'}
+                                </button>
+                                <div className="h-4 w-px bg-slate-200 dark:bg-slate-700"></div>
+                                <div className="flex gap-1">
+                                    <button onClick={() => shareInstructions(inst.email)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Compartilhar Acesso">
+                                        <Share2 className="w-4 h-4"/>
+                                    </button>
+                                    <button onClick={() => handleEdit(inst)} className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="Editar">
+                                        <Pencil className="w-4 h-4"/>
+                                    </button>
+                                    <button onClick={() => handleDelete(inst.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir">
+                                        <Trash2 className="w-4 h-4"/>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </>
       )}
-
-      {/* Lista de Instrutores */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Buscar instrutor..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div className="p-12 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div></div>
-        ) : filtered.length === 0 ? (
-          <div className="p-12 text-center text-slate-500">
-            <BookUser className="h-12 w-12 mx-auto text-slate-300 mb-3" />
-            <p>Nenhum instrutor encontrado.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 font-medium">
-                <tr>
-                  <th className="px-6 py-3">Instrutor</th>
-                  <th className="px-6 py-3">Contato</th>
-                  <th className="px-6 py-3">Localização</th>
-                  <th className="px-6 py-3 text-center">Status</th>
-                  <th className="px-6 py-3 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filtered.map((inst) => (
-                  <tr key={inst.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                          {inst.photoUrl ? (
-                              <img src={inst.photoUrl} alt={inst.name} className="w-10 h-10 rounded-full object-cover border border-slate-200" />
-                          ) : (
-                              <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 font-bold">
-                                  {inst.name.charAt(0)}
-                              </div>
-                          )}
-                          <div>
-                              <div className="font-bold text-slate-900 dark:text-white">{inst.name}</div>
-                              <div className="text-xs text-slate-500 font-mono">{inst.cpf}</div>
-                          </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1 text-slate-500 dark:text-slate-400">
-                        <div className="flex items-center gap-2"><Mail className="h-3 w-3" /> {inst.email}</div>
-                        {inst.phone && <div className="flex items-center gap-2"><Phone className="h-3 w-3" /> {inst.phone}</div>}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-slate-500">
-                       {inst.city && inst.state ? (
-                           <span className="flex items-center gap-1"><MapPin className="h-3 w-3"/> {inst.city} - {inst.state}</span>
-                       ) : (
-                           <span className="text-slate-400">-</span>
-                       )}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <button 
-                        onClick={() => handleToggleStatus(inst.id, inst.active, inst.name)}
-                        title={inst.active ? "Clique para DESATIVAR o acesso deste instrutor" : "Clique para ATIVAR o acesso"}
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border transition-all ${
-                          inst.active 
-                            ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200 cursor-pointer' 
-                            : 'bg-red-100 text-red-700 border-red-200 hover:bg-red-200 cursor-pointer'
-                        }`}
-                      >
-                        {inst.active ? <><CheckCircle className="w-3 h-3"/> ATIVO</> : <><Ban className="w-3 h-3"/> INATIVO</>}
-                      </button>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => shareInstructions(inst.email)} className="text-slate-400 hover:text-blue-600 p-2" title="Enviar Instruções de Acesso">
-                          <Share2 className="h-4 w-4" />
-                        </button>
-                        <button onClick={() => handleEdit(inst)} className="text-slate-400 hover:text-brand-600 p-2"><Pencil className="h-4 w-4" /></button>
-                        <button onClick={() => handleDelete(inst.id)} className="text-slate-400 hover:text-red-600 p-2"><Trash2 className="h-4 w-4" /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
     </div>
   );
 };
