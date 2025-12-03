@@ -7,14 +7,14 @@ import { fetchStudents, revokeStudentAccess } from '../services/studentService';
 import { uploadBannerImage, upsertBanner, fetchBannerByType, deleteBanner } from '../services/bannerService';
 import { fetchAllSuggestions } from '../services/suggestionService';
 import { generateSuggestionTrends } from '../services/geminiService';
-import { fetchAdminDashboardStats, AdminStats } from '../services/adminService';
+import { fetchAdminDashboardStats, fetchAdminTimelineStats, AdminStats, TimelineDataPoint } from '../services/adminService';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2, MessageSquare, Sparkles, FileText, Download, BarChart3, PieChart as PieChartIcon } from 'lucide-react';
+import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2, MessageSquare, Sparkles, FileText, Download, BarChart3, PieChart as PieChartIcon, TrendingUp } from 'lucide-react';
 import { SubscriptionPlan, SystemBanner, Suggestion } from '../types';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 
 const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
 
@@ -406,6 +406,25 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
 
   // --- DASHBOARD COMPONENT ---
   const DashboardView = () => {
+    const [timelineData, setTimelineData] = useState<TimelineDataPoint[]>([]);
+    const [timelineLoading, setTimelineLoading] = useState(true);
+    const [timelineStartDate, setTimelineStartDate] = useState(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        return d.toISOString().split('T')[0];
+    });
+    const [timelineEndDate, setTimelineEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+
+    useEffect(() => {
+        const fetchTimeline = async () => {
+            setTimelineLoading(true);
+            const data = await fetchAdminTimelineStats(timelineStartDate, timelineEndDate);
+            setTimelineData(data);
+            setTimelineLoading(false);
+        };
+        fetchTimeline();
+    }, [timelineStartDate, timelineEndDate]);
+
     if (!stats) return <div className="text-center p-8">Carregando estatísticas...</div>;
 
     const COLORS = ['#8884d8', '#00C49F', '#FFBB28', '#FF8042'];
@@ -456,6 +475,65 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
                         <span className="text-3xl font-bold text-slate-900 dark:text-white">{stats.engagement.evaluations}</span>
                         <span className="text-sm text-slate-400 mb-1">avaliações</span>
                     </div>
+                </div>
+            </div>
+
+            {/* Timeline Chart (New) */}
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                        <TrendingUp className="w-5 h-5 text-brand-600"/> Evolução no Tempo
+                    </h3>
+                    <div className="flex items-center gap-2">
+                        <input 
+                            type="date" 
+                            className="p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-sm"
+                            value={timelineStartDate}
+                            onChange={e => setTimelineStartDate(e.target.value)}
+                        />
+                        <span className="text-slate-400">-</span>
+                        <input 
+                            type="date" 
+                            className="p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-sm"
+                            value={timelineEndDate}
+                            onChange={e => setTimelineEndDate(e.target.value)}
+                        />
+                    </div>
+                </div>
+                
+                <div className="h-80 w-full">
+                    {timelineLoading ? (
+                        <div className="h-full flex items-center justify-center text-slate-400">
+                            <Loader2 className="w-8 h-8 animate-spin" />
+                        </div>
+                    ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={timelineData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="colorContent" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.8}/>
+                                        <stop offset="95%" stopColor="#14b8a6" stopOpacity={0}/>
+                                    </linearGradient>
+                                    <linearGradient id="colorEval" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8}/>
+                                        <stop offset="95%" stopColor="#8884d8" stopOpacity={0}/>
+                                    </linearGradient>
+                                    <linearGradient id="colorStudios" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <XAxis dataKey="date" tick={{fontSize: 12}} />
+                                <YAxis />
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <Tooltip />
+                                <Legend />
+                                <Area type="monotone" dataKey="content" name="Posts Criados" stroke="#14b8a6" fillOpacity={1} fill="url(#colorContent)" />
+                                <Area type="monotone" dataKey="engagement" name="Avaliações" stroke="#8884d8" fillOpacity={1} fill="url(#colorEval)" />
+                                <Area type="monotone" dataKey="studios" name="Novos Studios" stroke="#3b82f6" fillOpacity={1} fill="url(#colorStudios)" />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    )}
                 </div>
             </div>
 

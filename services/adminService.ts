@@ -10,6 +10,13 @@ export interface AdminStats {
   rehab: { lessons: number };
 }
 
+export interface TimelineDataPoint {
+  date: string;
+  studios: number;
+  content: number;
+  engagement: number;
+}
+
 export const fetchAdminDashboardStats = async (): Promise<AdminStats> => {
   const stats: AdminStats = {
     studios: { total: 0, active: 0, blocked: 0 },
@@ -64,5 +71,52 @@ export const fetchAdminDashboardStats = async (): Promise<AdminStats> => {
   } catch (error) {
     console.error("Error fetching admin stats:", error);
     return stats;
+  }
+};
+
+export const fetchAdminTimelineStats = async (startDate: string, endDate: string): Promise<TimelineDataPoint[]> => {
+  try {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999); // End of the day
+
+    // Fetch raw dates from tables
+    const [studiosRes, contentRes, evalRes] = await Promise.all([
+      supabase.from('studio_profiles').select('created_at').gte('created_at', start.toISOString()).lte('created_at', end.toISOString()),
+      supabase.from('content_posts').select('created_at').gte('created_at', start.toISOString()).lte('created_at', end.toISOString()),
+      supabase.from('class_evaluations').select('created_at').gte('created_at', start.toISOString()).lte('created_at', end.toISOString())
+    ]);
+
+    const dataMap = new Map<string, TimelineDataPoint>();
+
+    // Helper to initialize or get day
+    const getDay = (dateStr: string) => {
+      const day = dateStr.split('T')[0];
+      if (!dataMap.has(day)) {
+        dataMap.set(day, { date: day, studios: 0, content: 0, engagement: 0 });
+      }
+      return dataMap.get(day)!;
+    };
+
+    // Populate Map
+    studiosRes.data?.forEach(row => getDay(row.created_at).studios++);
+    contentRes.data?.forEach(row => getDay(row.created_at).content++);
+    evalRes.data?.forEach(row => getDay(row.created_at).engagement++);
+
+    // Fill missing days
+    const result: TimelineDataPoint[] = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dayStr = d.toISOString().split('T')[0];
+      if (dataMap.has(dayStr)) {
+        result.push(dataMap.get(dayStr)!);
+      } else {
+        result.push({ date: dayStr, studios: 0, content: 0, engagement: 0 });
+      }
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Error fetching timeline stats:", error);
+    return [];
   }
 };
