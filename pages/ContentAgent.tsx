@@ -16,7 +16,8 @@ import {
     saveContentPlan,
     fetchContentPlans,
     deleteContentPlan,
-    getTodayPostCount
+    getTodayPostCount,
+    recordGenerationUsage
 } from '../services/contentService';
 import { fetchProfile } from '../services/storage';
 import { compositeImageWithLogo } from '../services/imageService';
@@ -36,6 +37,7 @@ import { useNavigate } from 'react-router-dom';
 /*
   SQL REQUIRED FOR SUPABASE:
   
+  -- Tabela de Posts Salvos
   create table if not exists content_posts (
     id uuid primary key default gen_random_uuid(),
     studio_id uuid not null references studio_profiles(user_id) on delete cascade,
@@ -43,21 +45,28 @@ import { useNavigate } from 'react-router-dom';
     created_at timestamptz default now()
   );
 
+  -- Tabela de Planos
   create table if not exists content_plans (
     id uuid primary key default gen_random_uuid(),
     studio_id uuid not null references studio_profiles(user_id) on delete cascade,
     data jsonb not null,
     created_at timestamptz default now()
   );
+
+  -- NOVO: Tabela de Logs de Geração (Para contagem persistente)
+  create table if not exists content_generations (
+    id uuid primary key default gen_random_uuid(),
+    studio_id uuid not null references studio_profiles(user_id) on delete cascade,
+    created_at timestamptz default now()
+  );
   
   alter table content_posts enable row level security;
   alter table content_plans enable row level security;
+  alter table content_generations enable row level security;
 
-  create policy "Users can manage their own posts" on content_posts
-    for all using (auth.uid() = studio_id);
-
-  create policy "Users can manage their own plans" on content_plans
-    for all using (auth.uid() = studio_id);
+  create policy "Users manage content_posts" on content_posts for all using (auth.uid() = studio_id);
+  create policy "Users manage content_plans" on content_plans for all using (auth.uid() = studio_id);
+  create policy "Users manage content_generations" on content_generations for all using (auth.uid() = studio_id);
 */
 
 const INITIAL_REQUEST: ContentRequest = {
@@ -239,7 +248,7 @@ export const ContentAgent: React.FC = () => {
                 setGeneratedVideo(vid);
             }
 
-            // --- AUTO SAVE LOGIC (INCREMENT COUNT) ---
+            // --- AUTO SAVE & LOG LOGIC ---
             if (user?.id) {
                 const newPost: SavedPost = {
                     id: crypto.randomUUID(),
@@ -250,8 +259,11 @@ export const ContentAgent: React.FC = () => {
                     createdAt: new Date().toISOString()
                 };
                 
-                // Save automatically to count as usage
+                // 1. Save Content (Visible in History)
                 const saveResult = await savePost(user.id, newPost);
+                
+                // 2. Log Usage (Permanent Count)
+                await recordGenerationUsage(user.id);
                 
                 if (saveResult.success) {
                     setSavedPosts(prev => [newPost, ...prev]);
@@ -294,36 +306,6 @@ export const ContentAgent: React.FC = () => {
         const override = { ...request, modificationPrompt: modificationInput };
         handleGenerate(override);
         setModificationInput('');
-    };
-
-    const handleSavePostLocal = async () => {
-        if (!user?.id || !generatedText) return;
-        
-        if (isLimitReached) {
-             alert(`Limite diário de ${dailyLimit} posts atingido. Não é possível salvar novos posts hoje.`);
-             return;
-        }
-
-        const newPost: SavedPost = {
-            id: crypto.randomUUID(),
-            request,
-            content: generatedText,
-            imageUrl: generatedImage,
-            videoUrl: generatedVideo,
-            createdAt: new Date().toISOString()
-        };
-        
-        const result = await savePost(user.id, newPost);
-        
-        if (result.success) {
-            setSavedPosts([newPost, ...savedPosts]);
-            const newCount = todayCount + 1;
-            setTodayCount(newCount);
-            if (newCount >= dailyLimit) setIsLimitReached(true);
-            alert('Cópia do post salva com sucesso!');
-        } else {
-            alert('Erro ao salvar post: ' + result.error);
-        }
     };
 
     const handleOpenSavedPost = (post: SavedPost) => {
@@ -701,9 +683,6 @@ export const ContentAgent: React.FC = () => {
                                     <div className="flex gap-2">
                                         <button onClick={() => navigator.clipboard.writeText(generatedText)} className="p-2 text-slate-400 hover:text-brand-600 rounded-lg bg-slate-50 dark:bg-slate-800" title="Copiar Texto">
                                             <Copy className="w-4 h-4"/>
-                                        </button>
-                                        <button onClick={handleSavePostLocal} className="p-2 text-white bg-brand-600 hover:bg-brand-700 rounded-lg" title="Salvar Nova Cópia">
-                                            <Save className="w-4 h-4"/>
                                         </button>
                                     </div>
                                 </div>

@@ -1,5 +1,4 @@
 
-
 import { supabase } from './supabase';
 import { StudioPersona, SavedPost, StrategicContentPlan } from '../types';
 
@@ -95,21 +94,41 @@ export const deleteSavedPost = async (postId: string) => {
     }
 };
 
+// --- USAGE TRACKING (NEW) ---
+// Registra o uso independente se o post foi salvo ou deletado depois
+
+export const recordGenerationUsage = async (studioId: string) => {
+    try {
+        // Tabela simples de log: id, studio_id, created_at
+        await supabase.from('content_generations').insert({ studio_id: studioId });
+    } catch (e) {
+        console.error("Error logging generation usage:", e);
+    }
+};
+
 export const getTodayPostCount = async (studioId: string): Promise<number> => {
     try {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
-        const { count, error } = await supabase
-            .from('content_posts')
+        // 1. Tenta contar na tabela de logs (persistente mesmo se deletar post)
+        const { count: logCount, error: logError } = await supabase
+            .from('content_generations')
             .select('*', { count: 'exact', head: true })
             .eq('studio_id', studioId)
             .gte('created_at', today.toISOString());
 
-        if (error) {
-            console.error("Error counting posts:", error);
-            return 0;
+        if (!logError && logCount !== null) {
+            return logCount;
         }
+
+        // 2. Fallback: Conta posts salvos (se a tabela nova não existir ou der erro)
+        // Isso mantém a compatibilidade até o SQL ser rodado
+        const { count } = await supabase
+            .from('content_posts')
+            .select('*', { count: 'exact', head: true })
+            .eq('studio_id', studioId)
+            .gte('created_at', today.toISOString());
         
         return count || 0;
     } catch (e) {
