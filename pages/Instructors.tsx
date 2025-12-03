@@ -33,6 +33,7 @@ export const Instructors: React.FC = () => {
     email: '',
     cpf: '',
     phone: '',
+    birthDate: '',
     address: '',
     city: '',
     state: '',
@@ -78,6 +79,7 @@ export const Instructors: React.FC = () => {
       email: inst.email,
       cpf: inst.cpf || '',
       phone: inst.phone || '',
+      birthDate: inst.birthDate || '',
       address: inst.address || '',
       city: inst.city || '',
       state: inst.state || '',
@@ -93,7 +95,7 @@ export const Instructors: React.FC = () => {
   };
 
   const handleCancel = () => {
-    setFormData({ name: '', email: '', cpf: '', phone: '', address: '', city: '', state: '', cep: '', photoUrl: '', certifications: [], password: '' });
+    setFormData({ name: '', email: '', cpf: '', phone: '', birthDate: '', address: '', city: '', state: '', cep: '', photoUrl: '', certifications: [], password: '' });
     setPhotoFile(null);
     setPhotoPreview(null);
     setNewCertification('');
@@ -163,6 +165,7 @@ export const Instructors: React.FC = () => {
             email: formData.email,
             cpf: formData.cpf,
             phone: formData.phone,
+            birthDate: formData.birthDate,
             address: formData.address,
             city: formData.city,
             state: formData.state,
@@ -293,6 +296,7 @@ export const Instructors: React.FC = () => {
                     <Input label="Email de Login *" name="email" type="email" value={formData.email} onChange={handleInputChange} required placeholder="email@exemplo.com" />
                     <Input label={editingId ? "Nova Senha (Opcional)" : "Senha de Acesso *"} name="password" type="password" value={formData.password} onChange={handleInputChange} required={!editingId} placeholder={editingId ? "Deixe em branco para manter" : "Mínimo 6 caracteres"} />
                     <Input label="Telefone / WhatsApp" name="phone" value={formData.phone} onChange={handleInputChange} />
+                    <Input label="Data de Nascimento" name="birthDate" type="date" value={formData.birthDate} onChange={handleInputChange} />
                 </div>
             </div>
 

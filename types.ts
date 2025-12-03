@@ -72,6 +72,7 @@ export interface Instructor {
   email: string;
   cpf?: string; 
   phone: string;
+  birthDate?: string; // Novo
   address: string;
   city?: string; // Novo
   state?: string; // Novo

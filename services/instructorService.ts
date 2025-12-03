@@ -24,6 +24,7 @@ import { createClient } from '@supabase/supabase-js';
   ADD COLUMN IF NOT EXISTS city text,
   ADD COLUMN IF NOT EXISTS state text,
   ADD COLUMN IF NOT EXISTS cep text,
+  ADD COLUMN IF NOT EXISTS birth_date date,
   ADD COLUMN IF NOT EXISTS certifications text[];
 */
 
@@ -52,6 +53,7 @@ export const fetchInstructors = async (studioId?: string): Promise<Instructor[]>
       email: item.email,
       cpf: item.cpf || '',
       phone: item.phone || '',
+      birthDate: item.birth_date || '',
       address: item.address || '',
       city: item.city || '',
       state: item.state || '',
@@ -159,6 +161,7 @@ export const createInstructorWithAuth = async (
         email: instructor.email,
         cpf: instructor.cpf,
         phone: instructor.phone,
+        birth_date: instructor.birthDate ? instructor.birthDate : null,
         address: instructor.address,
         city: instructor.city,
         state: instructor.state,
@@ -194,6 +197,7 @@ export const updateInstructor = async (
     if (updates.phone) payload.phone = updates.phone;
     if (updates.address) payload.address = updates.address;
     if (updates.cpf) payload.cpf = updates.cpf;
+    if (updates.birthDate !== undefined) payload.birth_date = updates.birthDate;
     if (updates.city !== undefined) payload.city = updates.city;
     if (updates.state !== undefined) payload.state = updates.state;
     if (updates.cep !== undefined) payload.cep = updates.cep;
