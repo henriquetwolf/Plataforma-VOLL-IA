@@ -4,10 +4,8 @@ import { Instructor } from '../types';
 import { createClient } from '@supabase/supabase-js';
 
 /*
-  ⚠️ SQL NECESSÁRIO PARA ALTERAÇÃO DE SENHA NA EDIÇÃO:
+  ⚠️ SQL NECESSÁRIO PARA ALTERAÇÃO DE SENHA NA EDIÇÃO E NOVOS CAMPOS:
   
-  Execute este comando no SQL Editor do Supabase para permitir que o dono altere a senha do instrutor:
-
   create or replace function update_user_password(target_id uuid, new_password text)
   returns void
   language plpgsql
@@ -20,6 +18,13 @@ import { createClient } from '@supabase/supabase-js';
     where id = target_id;
   end;
   $$;
+
+  ALTER TABLE instructors 
+  ADD COLUMN IF NOT EXISTS photo_url text,
+  ADD COLUMN IF NOT EXISTS city text,
+  ADD COLUMN IF NOT EXISTS state text,
+  ADD COLUMN IF NOT EXISTS cep text,
+  ADD COLUMN IF NOT EXISTS certifications text[];
 */
 
 export const fetchInstructors = async (studioId?: string): Promise<Instructor[]> => {
@@ -30,7 +35,8 @@ export const fetchInstructors = async (studioId?: string): Promise<Instructor[]>
       query = query.eq('studio_user_id', studioId);
     }
 
-    const { data, error } = await query.order('created_at', { ascending: false });
+    // Alterado para ordenar por nome em ordem alfabética
+    const { data, error } = await query.order('name', { ascending: true });
 
     if (error) {
       // Improved error logging

@@ -1,5 +1,4 @@
 
-
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase';
 import { Student } from '../types';
 import { createClient } from '@supabase/supabase-js';
@@ -8,21 +7,15 @@ import { fetchProfile } from './storage';
 /*
   ⚠️ SQL NECESSÁRIO NO SUPABASE (Execute no SQL Editor):
 
-  -- 1. Função para reativação de aluno (Busca ID por email de forma segura)
-  create or replace function get_user_id_by_email(email_input text)
-  returns uuid language plpgsql security definer as $$
-  begin
-    return (select id from auth.users where email = email_input);
-  end;
-  $$;
-
-  -- 2. Função para atualizar senha (caso não exista)
-  create or replace function update_user_password(target_id uuid, new_password text)
-  returns void language plpgsql security definer set search_path = extensions, public, auth as $$
-  begin
-    update auth.users set encrypted_password = crypt(new_password, gen_salt('bf')) where id = target_id;
-  end;
-  $$;
+  ALTER TABLE students 
+  ADD COLUMN IF NOT EXISTS photo_url text,
+  ADD COLUMN IF NOT EXISTS city text,
+  ADD COLUMN IF NOT EXISTS state text,
+  ADD COLUMN IF NOT EXISTS cep text,
+  ADD COLUMN IF NOT EXISTS birth_date date,
+  ADD COLUMN IF NOT EXISTS goals text,
+  ADD COLUMN IF NOT EXISTS emergency_contact_name text,
+  ADD COLUMN IF NOT EXISTS emergency_contact_phone text;
 */
 
 interface ServiceResponse {
@@ -45,7 +38,8 @@ export const fetchStudents = async (studioId?: string): Promise<Student[]> => {
         query = query.eq('user_id', studioId);
     }
 
-    const { data, error } = await query.order('created_at', { ascending: false });
+    // Alterado para ordenar por nome em ordem alfabética
+    const { data, error } = await query.order('name', { ascending: true });
 
     if (error) {
       console.error('Error fetching students:', error.message || error);
@@ -62,11 +56,46 @@ export const fetchStudents = async (studioId?: string): Promise<Student[]> => {
       address: item.address || '',
       phone: item.phone || '',
       observations: item.observations || '',
+      photoUrl: item.photo_url || '',
+      city: item.city || '',
+      state: item.state || '',
+      cep: item.cep || '',
+      birthDate: item.birth_date || '',
+      goals: item.goals || '',
+      emergencyContactName: item.emergency_contact_name || '',
+      emergencyContactPhone: item.emergency_contact_phone || '',
       createdAt: item.created_at
     }));
   } catch (err: any) {
     console.error('Unexpected error fetching students:', err.message || err);
     return [];
+  }
+};
+
+export const uploadStudentPhoto = async (studioId: string, file: File): Promise<string | null> => {
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `student-${studioId}-${Date.now()}.${fileExt}`;
+    // Usaremos o bucket 'studio-logos' para simplificar, mas idealmente seria 'students'
+    const filePath = `students/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('studio-logos') 
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      console.error('Error uploading student photo:', JSON.stringify(uploadError));
+      return null;
+    }
+
+    const { data } = supabase.storage
+      .from('studio-logos')
+      .getPublicUrl(filePath);
+
+    return data.publicUrl;
+  } catch (err) {
+    console.error('Unexpected error uploading student photo:', err);
+    return null;
   }
 };
 
@@ -90,7 +119,7 @@ export const createStudentWithAutoAuth = async (
     }
 
     // Prioriza o limite do PLANO. Se não tiver plano, usa o limite manual legado.
-    // Se ambos nulos, assume ilimitado (ou defina um padrão hardcoded se preferir).
+    // Se ambos nulos, assume ilimitado.
     // @ts-ignore
     let limit = profile?.subscription_plans?.max_students;
     if (limit === undefined || limit === null) {
@@ -169,7 +198,15 @@ export const createStudentWithAutoAuth = async (
       cpf: sanitize(student.cpf),
       address: sanitize(student.address),
       phone: sanitize(student.phone),
-      observations: sanitize(student.observations)
+      observations: sanitize(student.observations),
+      photo_url: student.photoUrl,
+      city: sanitize(student.city),
+      state: sanitize(student.state),
+      cep: sanitize(student.cep),
+      birth_date: sanitize(student.birthDate),
+      goals: sanitize(student.goals),
+      emergency_contact_name: sanitize(student.emergencyContactName),
+      emergency_contact_phone: sanitize(student.emergencyContactPhone)
     };
 
     const { error: dbError } = await supabase
@@ -306,6 +343,16 @@ export const updateStudent = async (studentId: string, updates: Partial<Student>
     if (updates.cpf !== undefined) payload.cpf = sanitize(updates.cpf);
     if (updates.address !== undefined) payload.address = sanitize(updates.address);
     if (updates.observations !== undefined) payload.observations = sanitize(updates.observations);
+    
+    // New Fields
+    if (updates.photoUrl !== undefined) payload.photo_url = updates.photoUrl;
+    if (updates.city !== undefined) payload.city = sanitize(updates.city);
+    if (updates.state !== undefined) payload.state = sanitize(updates.state);
+    if (updates.cep !== undefined) payload.cep = sanitize(updates.cep);
+    if (updates.birthDate !== undefined) payload.birth_date = sanitize(updates.birthDate);
+    if (updates.goals !== undefined) payload.goals = sanitize(updates.goals);
+    if (updates.emergencyContactName !== undefined) payload.emergency_contact_name = sanitize(updates.emergencyContactName);
+    if (updates.emergencyContactPhone !== undefined) payload.emergency_contact_phone = sanitize(updates.emergencyContactPhone);
 
     const { error } = await supabase
       .from('students')

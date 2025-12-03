@@ -73,10 +73,10 @@ export interface Instructor {
   cpf?: string; 
   phone: string;
   address: string;
-  city?: string; // Novo: Cidade
-  state?: string; // Novo: Estado
-  cep?: string; // Novo: CEP
-  photoUrl?: string; // Novo: URL da Foto
+  city?: string; // Novo
+  state?: string; // Novo
+  cep?: string; // Novo
+  photoUrl?: string; // Novo
   certifications?: string[]; // Novo: Lista de Certificações
   active: boolean;
   createdAt: string;
@@ -88,9 +88,24 @@ export interface Student {
   authUserId?: string; 
   name: string;
   email: string;
-  cpf?: string; // Added CPF
-  address?: string; // Added Address
+  cpf?: string; 
   phone: string;
+  
+  // Novos Campos
+  photoUrl?: string;
+  birthDate?: string;
+  goals?: string;
+  
+  // Endereço
+  address?: string;
+  city?: string;
+  state?: string;
+  cep?: string;
+  
+  // Emergência
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+
   observations?: string;
   createdAt?: string;
 }
