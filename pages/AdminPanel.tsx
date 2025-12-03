@@ -11,7 +11,7 @@ import { generateSuggestionTrends } from '../services/geminiService';
 import { fetchAdminDashboardStats, fetchAdminTimelineStats, fetchApiUsageStats, AdminStats, TimelineDataPoint, UserApiCost } from '../services/adminService';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2, MessageSquare, Sparkles, FileText, Download, BarChart3, PieChart as PieChartIcon, TrendingUp, Banknote } from 'lucide-react';
+import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2, MessageSquare, Sparkles, FileText, Download, BarChart3, PieChart as PieChartIcon, TrendingUp, Banknote, Video, Type, Image as ImageIcon, Activity, Calculator, Filter } from 'lucide-react';
 import { SubscriptionPlan, SystemBanner, Suggestion } from '../types';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -78,10 +78,6 @@ export const AdminPanel: React.FC = () => {
   const [suggestionEndDate, setSuggestionEndDate] = useState('');
   const [isAnalyzingSuggestions, setIsAnalyzingSuggestions] = useState(false);
   const [analysisReport, setAnalysisReport] = useState<string | null>(null);
-
-  // API Costs
-  const [apiCosts, setApiCosts] = useState<{ total: number; byUser: UserApiCost[] } | null>(null);
-  const [loadingCosts, setLoadingCosts] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -166,16 +162,6 @@ export const AdminPanel: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
-
-  useEffect(() => {
-    if (activeTab === 'costs' && !apiCosts) {
-        setLoadingCosts(true);
-        fetchApiUsageStats().then(data => {
-            setApiCosts(data);
-            setLoadingCosts(false);
-        });
-    }
-  }, [activeTab]);
 
   const loadBanners = async () => {
     const sBanner = await fetchBannerByType('studio');
@@ -420,7 +406,7 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
     return <div className="p-12 text-center text-red-600">Acesso Restrito</div>;
   }
 
-  // --- DASHBOARD COMPONENT ---
+  // ... (DashboardView component remains same)
   const DashboardView = () => {
     const [timelineData, setTimelineData] = useState<TimelineDataPoint[]>([]);
     const [timelineLoading, setTimelineLoading] = useState(true);
@@ -494,7 +480,7 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
                 </div>
             </div>
 
-            {/* Timeline Chart (New) */}
+            {/* Timeline Chart */}
             <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
@@ -617,21 +603,77 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
 
   // --- API COSTS VIEW ---
   const ApiCostView = () => {
+    const [apiCosts, setApiCosts] = useState<{ total: number; byUser: UserApiCost[] } | null>(null);
+    const [loadingCosts, setLoadingCosts] = useState(true);
+    const [costStartDate, setCostStartDate] = useState('');
+    const [costEndDate, setCostEndDate] = useState('');
+
+    const loadCosts = async () => {
+        setLoadingCosts(true);
+        try {
+            const data = await fetchApiUsageStats(costStartDate, costEndDate);
+            setApiCosts(data);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoadingCosts(false);
+        }
+    };
+
+    useEffect(() => {
+        loadCosts();
+    }, []); // Initial load
+
     if (loadingCosts) {
-        return <div className="text-center p-12 text-slate-500"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-brand-600" /> Calculando custos...</div>;
+        return <div className="text-center p-12 text-slate-500"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-brand-600" /> Calculando custos detalhados...</div>;
     }
 
     if (!apiCosts) return null;
 
     return (
         <div className="space-y-6 animate-in fade-in">
+            {/* Date Filters */}
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-3 items-center">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+                    <Filter className="w-4 h-4"/> Filtrar Data:
+                </div>
+                <div className="flex items-center gap-2 flex-1 w-full">
+                    <input 
+                        type="date" 
+                        value={costStartDate} 
+                        onChange={e => setCostStartDate(e.target.value)}
+                        className="p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-sm flex-1"
+                        placeholder="Início"
+                    />
+                    <span className="text-slate-400">-</span>
+                    <input 
+                        type="date" 
+                        value={costEndDate} 
+                        onChange={e => setCostEndDate(e.target.value)}
+                        className="p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-sm flex-1"
+                        placeholder="Fim"
+                    />
+                </div>
+                <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => { setCostStartDate(''); setCostEndDate(''); loadCosts(); }}>
+                        Limpar
+                    </Button>
+                    <Button size="sm" onClick={loadCosts}>
+                        Filtrar
+                    </Button>
+                </div>
+            </div>
+
             {/* Summary Card */}
             <div className="bg-gradient-to-r from-emerald-600 to-emerald-800 p-8 rounded-2xl shadow-lg text-white">
                 <h3 className="text-lg font-bold opacity-80 uppercase tracking-wide mb-1">{t('admin_cost_total')}</h3>
                 <p className="text-5xl font-extrabold flex items-center gap-2">
                     <span className="text-3xl opacity-60">$</span> {apiCosts.total.toFixed(2)}
                 </p>
-                <p className="text-sm opacity-60 mt-2">Valor estimado com base no volume de uso da API Gemini.</p>
+                <p className="text-sm opacity-60 mt-2">
+                    Valor estimado com base no volume de uso da API Gemini em todos os agentes
+                    {costStartDate && ` (de ${new Date(costStartDate).toLocaleDateString()} a ${costEndDate ? new Date(costEndDate).toLocaleDateString() : 'Hoje'})`}.
+                </p>
             </div>
 
             {/* Detailed Table */}
@@ -644,10 +686,16 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
                         <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase text-xs font-bold tracking-wider">
                             <tr>
                                 <th className="px-6 py-4">Studio / Dono</th>
-                                <th className="px-6 py-4 text-center">Posts (Img/Vid)</th>
-                                <th className="px-6 py-4 text-center">Planos Rehab</th>
-                                <th className="px-6 py-4 text-center">Análises IA</th>
-                                <th className="px-6 py-4 text-right">Custo Est. (USD)</th>
+                                <th className="px-6 py-4 text-center border-l border-slate-200 dark:border-slate-700">
+                                    Content Agent <br/><span className="text-[10px] font-normal opacity-70">(Txt | Img | Vid | Rasc)</span>
+                                </th>
+                                <th className="px-6 py-4 text-center border-l border-slate-200 dark:border-slate-700">
+                                    Clinical Agent <br/><span className="text-[10px] font-normal opacity-70">(Rehab Plans)</span>
+                                </th>
+                                <th className="px-6 py-4 text-center border-l border-slate-200 dark:border-slate-700">
+                                    Strategic Agent <br/><span className="text-[10px] font-normal opacity-70">(Fin | Eval | Sugg)</span>
+                                </th>
+                                <th className="px-6 py-4 text-right border-l border-slate-200 dark:border-slate-700">Custo Total</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -657,16 +705,68 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
                                         <p className="font-bold text-slate-900 dark:text-white">{item.studioName}</p>
                                         <p className="text-xs text-slate-500">{item.ownerName}</p>
                                     </td>
-                                    <td className="px-6 py-4 text-center font-mono">{item.postCount}</td>
-                                    <td className="px-6 py-4 text-center font-mono">{item.lessonCount}</td>
-                                    <td className="px-6 py-4 text-center font-mono">{item.analysisCount}</td>
-                                    <td className="px-6 py-4 text-right font-bold text-emerald-600">
+                                    
+                                    {/* Content Agent Breakdown */}
+                                    <td className="px-6 py-4 text-center border-l border-slate-100 dark:border-slate-800">
+                                        <div className="flex justify-center gap-2 font-mono text-xs">
+                                            <div className="flex flex-col items-center" title="Textos Salvos">
+                                                <Type className="w-3 h-3 text-slate-400 mb-1"/>
+                                                <span>{item.details.content.text}</span>
+                                            </div>
+                                            <div className="w-px h-8 bg-slate-200 dark:bg-slate-700"></div>
+                                            <div className="flex flex-col items-center" title="Imagens Salvas">
+                                                <ImageIcon className="w-3 h-3 text-blue-400 mb-1"/>
+                                                <span>{item.details.content.image}</span>
+                                            </div>
+                                            <div className="w-px h-8 bg-slate-200 dark:bg-slate-700"></div>
+                                            <div className="flex flex-col items-center" title="Vídeos Salvos">
+                                                <Video className="w-3 h-3 text-purple-400 mb-1"/>
+                                                <span>{item.details.content.video}</span>
+                                            </div>
+                                            <div className="w-px h-8 bg-slate-200 dark:bg-slate-700"></div>
+                                            <div className="flex flex-col items-center" title="Rascunhos (Não Salvos)">
+                                                <FileText className="w-3 h-3 text-slate-300 mb-1"/>
+                                                <span className="text-slate-400">{item.details.content.drafts}</span>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    {/* Clinical Agent Breakdown */}
+                                    <td className="px-6 py-4 text-center border-l border-slate-100 dark:border-slate-800">
+                                        <div className="flex flex-col items-center justify-center">
+                                            <div className="flex items-center gap-1 font-mono text-sm">
+                                                <Activity className="w-3 h-3 text-brand-500"/>
+                                                {item.details.rehab}
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    {/* Strategic Agent Breakdown */}
+                                    <td className="px-6 py-4 text-center border-l border-slate-100 dark:border-slate-800">
+                                        <div className="flex justify-center gap-3 font-mono text-xs">
+                                            <div className="flex flex-col items-center" title="Simulações Financeiras">
+                                                <Calculator className="w-3 h-3 text-green-500 mb-1"/>
+                                                <span>{item.details.finance}</span>
+                                            </div>
+                                            <div className="flex flex-col items-center" title="Análises de Avaliação">
+                                                <Sparkles className="w-3 h-3 text-yellow-500 mb-1"/>
+                                                <span>{item.details.evaluation}</span>
+                                            </div>
+                                            <div className="flex flex-col items-center" title="Planos de Ação (Sugestões)">
+                                                <MessageSquare className="w-3 h-3 text-orange-500 mb-1"/>
+                                                <span>{item.details.suggestion}</span>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    {/* Total Cost */}
+                                    <td className="px-6 py-4 text-right font-bold text-emerald-600 border-l border-slate-100 dark:border-slate-800">
                                         $ {item.totalCost.toFixed(2)}
                                     </td>
                                 </tr>
                             ))}
                             {apiCosts.byUser.length === 0 && (
-                                <tr><td colSpan={5} className="p-8 text-center text-slate-500">Sem dados de uso.</td></tr>
+                                <tr><td colSpan={5} className="p-8 text-center text-slate-500">Sem dados de uso no período selecionado.</td></tr>
                             )}
                         </tbody>
                     </table>
@@ -1085,78 +1185,93 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-white dark:bg-slate-900 w-full max-w-4xl h-[90vh] rounded-2xl shadow-xl p-6 border border-slate-200 dark:border-slate-800 overflow-y-auto">
                 <div className="flex items-center gap-4 border-b pb-4 mb-4">
-                    <Button variant="outline" onClick={() => setViewingOwner(null)}>
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setViewingOwner(null)}
+                    >
                         <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
                     </Button>
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{viewingOwner.contextInfo || viewingOwner.name}</h1>
-                        <p className="text-slate-500 text-sm">Gerenciando Studio de {viewingOwner.name} ({viewingOwner.email})</p>
-                    </div>
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm mb-6">
-                    <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-white flex items-center gap-2">
-                        <Crown className="w-5 h-5 text-yellow-500"/> Assinatura e Limites
-                    </h3>
-                    <div className="flex items-end gap-4 max-w-lg">
-                        <div className="flex-1">
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Plano Selecionado</label>
-                            <select 
-                                className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 focus:ring-2 focus:ring-brand-500 outline-none"
-                                value={ownerPlanId || ''}
-                                onChange={e => setOwnerPlanId(e.target.value || undefined)}
-                            >
-                                <option value="">-- Sem Plano Definido --</option>
-                                {plans.map(p => (
-                                    <option key={p.id} value={p.id}>{p.name} (Max: {p.maxStudents} alunos | {p.maxDailyPosts} posts/dia)</option>
-                                ))}
-                            </select>
-                        </div>
-                        <Button onClick={handleSavePlanAssignment} isLoading={savingPlan}>
-                            <Save className="w-4 h-4 mr-2"/> Salvar Plano
-                        </Button>
-                    </div>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                        {viewingOwner.name}
+                    </h2>
+                    <span className="text-slate-500">| {viewingOwner.contextInfo}</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Instructors List */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                        <div className="p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 font-bold flex justify-between">
-                            <span>Instrutores ({linkedInstructors.length})</span>
+                    {/* Basic Info */}
+                    <div className="space-y-4">
+                        <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-lg">
+                            <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-2">Detalhes</h3>
+                            <p><strong>Email:</strong> {viewingOwner.email}</p>
+                            <p><strong>Status:</strong> {viewingOwner.isActive ? 'Ativo' : 'Bloqueado'}</p>
+                            <p><strong>Max Alunos (Legado):</strong> {viewingOwner.maxStudents || 'Ilimitado'}</p>
                         </div>
-                        <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-96 overflow-y-auto">
-                            {linkedInstructors.length === 0 ? <p className="p-4 text-slate-500 text-sm">Nenhum instrutor.</p> : linkedInstructors.map(u => (
-                                <div key={u.id} className="p-4 flex justify-between items-center">
-                                    <div>
-                                        <p className="font-medium text-sm text-slate-800 dark:text-white">{u.name}</p>
-                                        <p className="text-xs text-slate-500">{u.email}</p>
-                                    </div>
-                                    <span className={`text-xs px-2 py-1 rounded-full font-bold ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                        {u.isActive ? 'Ativo' : 'Inativo'}
-                                    </span>
-                                </div>
-                            ))}
+
+                        <div className="bg-yellow-50 dark:bg-yellow-900/10 p-4 rounded-lg border border-yellow-100 dark:border-yellow-800">
+                            <h3 className="font-bold text-yellow-800 dark:text-yellow-500 mb-2 flex items-center gap-2">
+                                <Crown className="w-4 h-4"/> Plano de Assinatura
+                            </h3>
+                            <div className="flex gap-2">
+                                <select 
+                                    className="flex-1 p-2 rounded border border-yellow-300 bg-white dark:bg-slate-900 text-sm"
+                                    value={ownerPlanId || ''}
+                                    onChange={(e) => setOwnerPlanId(e.target.value)}
+                                >
+                                    <option value="">Sem Plano</option>
+                                    {plans.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name} ({p.maxStudents} alunos)</option>
+                                    ))}
+                                </select>
+                                <Button size="sm" onClick={handleSavePlanAssignment} isLoading={savingPlan}>Salvar</Button>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Students List */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                        <div className="p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 font-bold flex justify-between">
-                            <span>Alunos ({linkedStudents.length})</span>
-                        </div>
-                        <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-96 overflow-y-auto">
-                            {linkedStudents.length === 0 ? <p className="p-4 text-slate-500 text-sm">Nenhum aluno.</p> : linkedStudents.map(u => (
-                                <div key={u.id} className="p-4 flex justify-between items-center">
-                                    <div>
-                                        <p className="font-medium text-sm text-slate-800 dark:text-white">{u.name}</p>
-                                        <p className="text-xs text-slate-500">{u.email}</p>
-                                    </div>
-                                    <span className={`text-xs px-2 py-1 rounded-full font-bold ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-                                        {u.isActive ? 'Com Acesso' : 'Sem Acesso'}
-                                    </span>
+                    {/* Stats */}
+                    <div className="space-y-4">
+                        <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-lg">
+                            <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-2">Equipe e Alunos</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="text-center p-2 bg-white dark:bg-slate-900 rounded border">
+                                    <span className="block text-2xl font-bold text-blue-600">{linkedInstructors.length}</span>
+                                    <span className="text-xs text-slate-500">Instrutores</span>
                                 </div>
-                            ))}
+                                <div className="text-center p-2 bg-white dark:bg-slate-900 rounded border">
+                                    <span className="block text-2xl font-bold text-green-600">{linkedStudents.length}</span>
+                                    <span className="text-xs text-slate-500">Alunos</span>
+                                </div>
+                            </div>
                         </div>
+                    </div>
+                </div>
+
+                <div className="mt-8">
+                    <h3 className="font-bold text-lg mb-4">Lista de Alunos</h3>
+                    <div className="bg-slate-50 dark:bg-slate-950 rounded-lg overflow-hidden border">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 font-bold">
+                                <tr>
+                                    <th className="p-3">Nome</th>
+                                    <th className="p-3">Email</th>
+                                    <th className="p-3 text-center">Acesso App</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {linkedStudents.map(s => (
+                                    <tr key={s.id} className="border-t border-slate-200 dark:border-slate-800">
+                                        <td className="p-3">{s.name}</td>
+                                        <td className="p-3 text-slate-500">{s.email}</td>
+                                        <td className="p-3 text-center">
+                                            {s.isActive ? <CheckCircle className="w-4 h-4 text-green-500 mx-auto"/> : <span className="text-slate-300">-</span>}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {linkedStudents.length === 0 && (
+                                    <tr><td colSpan={3} className="p-4 text-center text-slate-500">Nenhum aluno cadastrado.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>

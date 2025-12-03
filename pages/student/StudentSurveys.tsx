@@ -48,7 +48,10 @@ export const SurveyAnswerForm: React.FC<{ survey: Survey; userId: string; userNa
     }
 
     setSubmitting(true);
-    const formattedAnswers = Object.entries(answers).map(([qId, val]) => ({ questionId: qId, value: val }));
+    const formattedAnswers = Object.entries(answers).map(([qId, val]) => ({ 
+        questionId: qId, 
+        value: val as string | string[] 
+    }));
     
     const result = await submitSurveyResponse(survey.id, userId, userName, userType, formattedAnswers);
     setSubmitting(false);

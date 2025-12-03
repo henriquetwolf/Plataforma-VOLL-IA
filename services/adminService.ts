@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 
 export interface AdminStats {
@@ -20,9 +21,18 @@ export interface UserApiCost {
   studioId: string;
   studioName: string;
   ownerName: string;
-  postCount: number;
-  lessonCount: number;
-  analysisCount: number;
+  details: {
+    content: {
+      text: number;
+      image: number;
+      video: number;
+      drafts: number;
+    };
+    rehab: number;
+    finance: number;
+    evaluation: number;
+    suggestion: number;
+  };
   totalCost: number;
 }
 
@@ -133,7 +143,7 @@ export const fetchAdminTimelineStats = async (startDate: string, endDate: string
   }
 };
 
-export const fetchApiUsageStats = async (): Promise<{ total: number; byUser: UserApiCost[] }> => {
+export const fetchApiUsageStats = async (startDate?: string, endDate?: string): Promise<{ total: number; byUser: UserApiCost[] }> => {
   try {
     // 1. Get all studios
     const { data: studios, error: studioError } = await supabase
@@ -142,94 +152,138 @@ export const fetchApiUsageStats = async (): Promise<{ total: number; byUser: Use
 
     if (studioError || !studios) throw studioError || new Error('No studios found');
 
-    // 2. Fetch raw data. Use Promise.allSettled to ensure partial failures don't break the whole view.
-    // Optimized: selecting only IDs necessary for counting.
-    const results = await Promise.allSettled([
-      supabase.from('content_generations').select('studio_id'), // New robust tracking
-      supabase.from('content_posts').select('studio_id'),       // Legacy/Saved tracking
-      supabase.from('rehab_lessons').select('user_id'),
-      supabase.from('evaluation_analyses').select('studio_id'),
-      supabase.from('financial_simulations').select('user_id')
-    ]);
-
-    // 3. Aggregate in Memory
-    const usageMap = new Map<string, { posts: number; lessons: number; analysis: number }>();
-
-    // Helper
-    const increment = (id: string, type: 'posts' | 'lessons' | 'analysis', amount: number = 1) => {
-      if (!id) return;
-      if (!usageMap.has(id)) usageMap.set(id, { posts: 0, lessons: 0, analysis: 0 });
-      const current = usageMap.get(id)!;
-      current[type] += amount;
+    // Helper to apply filters
+    const applyFilter = (query: any) => {
+        if (startDate) query = query.gte('created_at', startDate);
+        if (endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            query = query.lte('created_at', end.toISOString());
+        }
+        return query;
     };
 
-    // --- Process Posts (Smart Merge of Generations logs and Saved Posts) ---
-    // Why? Saved posts might be less than generations (if user didn't save), 
-    // but Generations table might be empty for old users. We take the MAX of both.
-    
-    const genCounts = new Map<string, number>();
+    // 2. Fetch raw data with filters
+    const results = await Promise.allSettled([
+      applyFilter(supabase.from('content_generations').select('studio_id')), 
+      applyFilter(supabase.from('content_posts').select('studio_id, data')), 
+      applyFilter(supabase.from('rehab_lessons').select('user_id')),
+      applyFilter(supabase.from('evaluation_analyses').select('studio_id')),
+      applyFilter(supabase.from('financial_simulations').select('user_id')),
+      applyFilter(supabase.from('suggestion_action_plans').select('studio_id'))
+    ]);
+
+    // 3. Process Data per Studio
+    const usageMap = new Map<string, {
+        content: { totalGen: number; savedText: number; savedImg: number; savedVid: number };
+        rehab: number;
+        finance: number;
+        evaluation: number;
+        suggestion: number;
+    }>();
+
+    const getStats = (id: string) => {
+        if (!usageMap.has(id)) {
+            usageMap.set(id, {
+                content: { totalGen: 0, savedText: 0, savedImg: 0, savedVid: 0 },
+                rehab: 0,
+                finance: 0,
+                evaluation: 0,
+                suggestion: 0
+            });
+        }
+        return usageMap.get(id)!;
+    };
+
+    // --- Content Generations (Log) ---
     if (results[0].status === 'fulfilled' && results[0].value.data) {
         results[0].value.data.forEach((row: any) => {
-            const id = row.studio_id;
-            genCounts.set(id, (genCounts.get(id) || 0) + 1);
+            getStats(row.studio_id).content.totalGen++;
         });
     }
 
-    const savedPostCounts = new Map<string, number>();
+    // --- Content Posts (Saved) ---
     if (results[1].status === 'fulfilled' && results[1].value.data) {
         results[1].value.data.forEach((row: any) => {
-            const id = row.studio_id;
-            savedPostCounts.set(id, (savedPostCounts.get(id) || 0) + 1);
+            const stats = getStats(row.studio_id);
+            const data = row.data;
+            if (data.videoUrl) stats.content.savedVid++;
+            else if (data.imageUrl) stats.content.savedImg++;
+            else stats.content.savedText++;
         });
     }
 
-    // Merge logic: Take the max of logged generations OR saved posts for each user
-    const allPostIds = new Set([...genCounts.keys(), ...savedPostCounts.keys()]);
-    allPostIds.forEach(id => {
-        const count = Math.max(genCounts.get(id) || 0, savedPostCounts.get(id) || 0);
-        increment(id, 'posts', count);
-    });
-
-    // --- Rehab Lessons ---
+    // --- Rehab ---
     if (results[2].status === 'fulfilled' && results[2].value.data) {
-        results[2].value.data.forEach((row: any) => increment(row.user_id, 'lessons'));
+        results[2].value.data.forEach((row: any) => getStats(row.user_id).rehab++);
     }
 
-    // --- Analysis (Evaluation Reports) ---
+    // --- Evaluation Analysis ---
     if (results[3].status === 'fulfilled' && results[3].value.data) {
-        results[3].value.data.forEach((row: any) => increment(row.studio_id, 'analysis'));
+        results[3].value.data.forEach((row: any) => getStats(row.studio_id).evaluation++);
     }
 
-    // --- Financial Simulations (Count as Analysis) ---
+    // --- Finance ---
     if (results[4].status === 'fulfilled' && results[4].value.data) {
-        results[4].value.data.forEach((row: any) => increment(row.user_id, 'analysis'));
+        results[4].value.data.forEach((row: any) => getStats(row.user_id).finance++);
+    }
+
+    // --- Suggestions ---
+    if (results[5].status === 'fulfilled' && results[5].value.data) {
+        results[5].value.data.forEach((row: any) => getStats(row.studio_id).suggestion++);
     }
 
     // 4. Calculate Costs
-    // Est. Costs (USD) - Adjusted
-    const COST_POST = 0.04;      // ~1000-2000 tokens output + input
-    const COST_LESSON = 0.02;    // Rehab is complex, higher input context
-    const COST_ANALYSIS = 0.01;  // Analysis usually has large input context
+    // Estimated Costs (USD)
+    const COST_TEXT = 0.005; // Standard Text Prompt
+    const COST_IMG = 0.040;  // Image Generation
+    const COST_VID = 0.200;  // Video Generation (Veo)
+    const COST_COMPLEX = 0.010; // Rehab / Large Analysis
 
     let totalGlobalCost = 0;
-    const byUser: UserApiCost[] = studios.map(studio => {
-      const stats = usageMap.get(studio.user_id) || { posts: 0, lessons: 0, analysis: 0 };
-      
-      const cost = 
-        (stats.posts * COST_POST) + 
-        (stats.lessons * COST_LESSON) + 
-        (stats.analysis * COST_ANALYSIS);
 
-      totalGlobalCost += cost;
+    const byUser: UserApiCost[] = studios.map(studio => {
+      const stats = getStats(studio.user_id);
+      
+      // Calculate Drafts (Total generations minus saved posts)
+      // We assume drafts are Text based for cost estimation to be conservative/realistic
+      // If date range is used, totalGen might be less than saved if data is inconsistent, so max(0, ...)
+      const totalSaved = stats.content.savedText + stats.content.savedImg + stats.content.savedVid;
+      const draftsCount = Math.max(0, stats.content.totalGen - totalSaved);
+
+      // Cost Calculation
+      const costContent = 
+        (stats.content.savedText * COST_TEXT) +
+        (stats.content.savedImg * COST_IMG) +
+        (stats.content.savedVid * COST_VID) +
+        (draftsCount * COST_TEXT); // Drafts charged as text
+
+      const costAgents = 
+        (stats.rehab * COST_COMPLEX) +
+        (stats.finance * COST_COMPLEX) +
+        (stats.evaluation * COST_COMPLEX) +
+        (stats.suggestion * COST_COMPLEX);
+
+      const totalCost = costContent + costAgents;
+      totalGlobalCost += totalCost;
 
       return {
         studioId: studio.user_id,
         studioName: studio.studio_name || 'Studio Sem Nome',
         ownerName: studio.owner_name || 'Desconhecido',
-        postCount: stats.posts,
-        lessonCount: stats.lessons,
-        analysisCount: stats.analysis,
-        totalCost: cost
+        details: {
+            content: {
+                text: stats.content.savedText,
+                image: stats.content.savedImg,
+                video: stats.content.savedVid,
+                drafts: draftsCount
+            },
+            rehab: stats.rehab,
+            finance: stats.finance,
+            evaluation: stats.evaluation,
+            suggestion: stats.suggestion
+        },
+        totalCost
       };
     });
 
