@@ -5,10 +5,10 @@ import { useAuth } from '../context/AuthContext';
 import { fetchAllProfiles, toggleUserStatus, adminResetPassword, upsertProfile, fetchSubscriptionPlans, updateSubscriptionPlan } from '../services/storage';
 import { fetchInstructors, toggleInstructorStatus } from '../services/instructorService';
 import { fetchStudents, revokeStudentAccess } from '../services/studentService';
-import { uploadBannerImage, upsertBanner, fetchBannerByType } from '../services/bannerService';
+import { uploadBannerImage, upsertBanner, fetchBannerByType, deleteBanner } from '../services/bannerService';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload } from 'lucide-react';
+import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2 } from 'lucide-react';
 import { SubscriptionPlan, SystemBanner } from '../types';
 
 const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
@@ -287,6 +287,24 @@ export const AdminPanel: React.FC = () => {
         alert("Erro ao atualizar link: " + result.error);
     }
     setIsUploadingBanner(false);
+  };
+
+  const handleDeleteBanner = async (type: 'studio' | 'instructor') => {
+    if (!confirm('Tem certeza que deseja remover este banner?')) return;
+    
+    const result = await deleteBanner(type);
+    if (result.success) {
+      // Clear local state
+      if (type === 'studio') {
+        setStudioBanner(null);
+        setStudioBannerLink('');
+      } else {
+        setInstructorBanner(null);
+        setInstructorBannerLink('');
+      }
+    } else {
+      alert("Erro ao remover banner: " + result.error);
+    }
   };
 
   const copySql = () => {
@@ -722,10 +740,21 @@ select 'Plano 1', 50 where not exists (select 1 from subscription_plans where na
                         <h4 className="font-bold text-slate-800 dark:text-white border-b pb-2">Área do Studio (Donos)</h4>
                         
                         <div className="flex flex-col md:flex-row gap-4">
-                            <div className="w-40 h-24 bg-slate-100 rounded-lg border border-dashed border-slate-300 flex items-center justify-center relative overflow-hidden">
-                                {studioBanner?.imageUrl ? (
-                                    <img src={studioBanner.imageUrl} className="w-full h-full object-cover" alt="Banner Studio" />
-                                ) : <span className="text-xs text-slate-400">Sem imagem</span>}
+                            <div className="relative w-40 h-24">
+                                <div className="w-full h-full bg-slate-100 rounded-lg border border-dashed border-slate-300 flex items-center justify-center relative overflow-hidden">
+                                    {studioBanner?.imageUrl ? (
+                                        <img src={studioBanner.imageUrl} className="w-full h-full object-cover" alt="Banner Studio" />
+                                    ) : <span className="text-xs text-slate-400">Sem imagem</span>}
+                                </div>
+                                {studioBanner?.imageUrl && (
+                                    <button 
+                                        onClick={() => handleDeleteBanner('studio')}
+                                        className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 shadow-md hover:bg-red-200 transition-colors"
+                                        title="Remover Banner"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                )}
                             </div>
                             <div className="flex-1 space-y-3">
                                 <input type="file" accept="image/*" onChange={(e) => e.target.files && handleBannerUpload(e.target.files[0], 'studio')} disabled={isUploadingBanner} className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"/>
@@ -742,10 +771,21 @@ select 'Plano 1', 50 where not exists (select 1 from subscription_plans where na
                         <h4 className="font-bold text-slate-800 dark:text-white border-b pb-2">Área do Instrutor</h4>
                         
                         <div className="flex flex-col md:flex-row gap-4">
-                            <div className="w-40 h-24 bg-slate-100 rounded-lg border border-dashed border-slate-300 flex items-center justify-center relative overflow-hidden">
-                                {instructorBanner?.imageUrl ? (
-                                    <img src={instructorBanner.imageUrl} className="w-full h-full object-cover" alt="Banner Instrutor" />
-                                ) : <span className="text-xs text-slate-400">Sem imagem</span>}
+                            <div className="relative w-40 h-24">
+                                <div className="w-full h-full bg-slate-100 rounded-lg border border-dashed border-slate-300 flex items-center justify-center relative overflow-hidden">
+                                    {instructorBanner?.imageUrl ? (
+                                        <img src={instructorBanner.imageUrl} className="w-full h-full object-cover" alt="Banner Instrutor" />
+                                    ) : <span className="text-xs text-slate-400">Sem imagem</span>}
+                                </div>
+                                {instructorBanner?.imageUrl && (
+                                    <button 
+                                        onClick={() => handleDeleteBanner('instructor')}
+                                        className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 shadow-md hover:bg-red-200 transition-colors"
+                                        title="Remover Banner"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                )}
                             </div>
                             <div className="flex-1 space-y-3">
                                 <input type="file" accept="image/*" onChange={(e) => e.target.files && handleBannerUpload(e.target.files[0], 'instructor')} disabled={isUploadingBanner} className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>

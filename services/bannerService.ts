@@ -88,3 +88,20 @@ export const upsertBanner = async (
     return { success: false, error: err.message };
   }
 };
+
+// Remove o banner do banco
+export const deleteBanner = async (type: 'studio' | 'instructor'): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { error } = await supabase
+      .from('system_banners')
+      .delete()
+      .eq('type', type);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+};
