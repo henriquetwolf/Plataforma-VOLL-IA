@@ -3,6 +3,8 @@
 
 
 
+
+
 import { supabase } from './supabase';
 import { StudioProfile, SubscriptionPlan } from '../types';
 
@@ -41,7 +43,8 @@ const toDBProfile = (profile: Partial<StudioProfile>): Partial<DBProfile> => {
     cnpj: profile.cnpj,
     instagram: profile.instagram,
     whatsapp: profile.whatsapp,
-    owner_cpf: profile.ownerCpf
+    owner_cpf: profile.ownerCpf,
+    owner_photo_url: profile.ownerPhotoUrl // Map to snake_case
   };
 
   return {
@@ -113,7 +116,8 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
     cnpj: dbSettings.cnpj,
     instagram: dbSettings.instagram,
     whatsapp: dbSettings.whatsapp,
-    ownerCpf: dbSettings.owner_cpf
+    ownerCpf: dbSettings.owner_cpf,
+    ownerPhotoUrl: dbSettings.owner_photo_url
   };
 };
 
@@ -206,6 +210,32 @@ export const uploadLogo = async (userId: string, file: File): Promise<string | n
     return data.publicUrl;
   } catch (err) {
     console.error('Unexpected error uploading logo:', err);
+    return null;
+  }
+};
+
+export const uploadOwnerPhoto = async (userId: string, file: File): Promise<string | null> => {
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `owner-${userId}-${Date.now()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('studio-logos') // Reuse existing bucket
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      console.error('Error uploading owner photo:', JSON.stringify(uploadError));
+      return null;
+    }
+
+    const { data } = supabase.storage
+      .from('studio-logos')
+      .getPublicUrl(filePath);
+
+    return data.publicUrl;
+  } catch (err) {
+    console.error('Unexpected error uploading owner photo:', err);
     return null;
   }
 };

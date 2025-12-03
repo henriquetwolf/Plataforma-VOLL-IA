@@ -1,14 +1,16 @@
 
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
-import { fetchProfile, upsertProfile, uploadLogo } from '../services/storage';
+import { fetchProfile, upsertProfile, uploadLogo, uploadOwnerPhoto } from '../services/storage';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Save, Building2, MapPin, Palette, Upload, Loader2, X, AlertTriangle, Lock, Instagram, Smartphone, Shield, Key } from 'lucide-react';
+import { Save, Building2, MapPin, Palette, Upload, Loader2, X, AlertTriangle, Lock, Instagram, Smartphone, Shield, Key, User, Camera } from 'lucide-react';
 import { StudioProfile } from '../types';
 import { supabase } from '../services/supabase';
 
@@ -18,6 +20,7 @@ export const Profile: React.FC = () => {
   const { t } = useLanguage();
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingOwner, setIsUploadingOwner] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
   const [dataLoaded, setDataLoaded] = useState(false);
 
@@ -44,7 +47,8 @@ export const Profile: React.FC = () => {
     cnpj: '',
     instagram: '',
     whatsapp: '',
-    ownerCpf: ''
+    ownerCpf: '',
+    ownerPhotoUrl: ''
   });
   
   const [specialtiesInput, setSpecialtiesInput] = useState('');
@@ -126,9 +130,35 @@ export const Profile: React.FC = () => {
     setIsUploading(false);
   };
 
+  const handleOwnerPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isReadOnly || !e.target.files || e.target.files.length === 0 || !user?.id) return;
+    
+    const file = e.target.files[0];
+    if (file.size > 2 * 1024 * 1024) {
+      setMessage({ text: 'A imagem deve ter no máximo 2MB.', type: 'error' });
+      return;
+    }
+
+    setIsUploadingOwner(true);
+    const publicUrl = await uploadOwnerPhoto(user.id, file);
+    
+    if (publicUrl) {
+      setFormData(prev => ({ ...prev, ownerPhotoUrl: publicUrl }));
+      setMessage({ text: 'Foto enviada com sucesso! Clique em Salvar.', type: 'success' });
+    } else {
+      setMessage({ text: 'Erro ao fazer upload da foto.', type: 'error' });
+    }
+    setIsUploadingOwner(false);
+  };
+
   const removeLogo = () => {
     if (isReadOnly) return;
     setFormData(prev => ({ ...prev, logoUrl: '' }));
+  };
+
+  const removeOwnerPhoto = () => {
+    if (isReadOnly) return;
+    setFormData(prev => ({ ...prev, ownerPhotoUrl: '' }));
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -241,8 +271,39 @@ export const Profile: React.FC = () => {
                 disabled={isReadOnly}
               />
             </div>
+
+            <div className="mt-4 border-t border-slate-100 dark:border-slate-800 pt-4">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">Foto do Proprietário</label>
+              <div className="flex items-center gap-4">
+                <div className={`relative w-20 h-20 rounded-full border-2 border-dashed border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-800 overflow-hidden group ${!isReadOnly && 'cursor-pointer hover:border-brand-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
+                    {isUploadingOwner ? (
+                        <div className="flex flex-col items-center"><Loader2 className="h-6 w-6 text-brand-500 animate-spin" /></div>
+                    ) : formData.ownerPhotoUrl ? (
+                        <div className="relative w-full h-full">
+                            <img src={formData.ownerPhotoUrl} alt="Proprietário" className="w-full h-full object-cover" />
+                            {!isReadOnly && (
+                                <button type="button" onClick={removeOwnerPhoto} className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white">
+                                    <X className="h-5 w-5" />
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center text-slate-400">
+                            <Camera className="h-6 w-6" />
+                        </div>
+                    )}
+                    {!isReadOnly && (
+                        <input type="file" accept="image/*" onChange={handleOwnerPhotoChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isUploadingOwner} />
+                    )}
+                </div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                    <p className="font-medium mb-1">Foto para perfil e assinatura.</p>
+                    <p>Formato ideal: JPG/PNG, Rosto bem visível (Max 2MB).</p>
+                </div>
+              </div>
+            </div>
             
-            <div className="mt-4">
+            <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('bio_label')}</label>
               </div>

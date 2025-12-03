@@ -4,6 +4,8 @@
 
 
 
+
+
 export interface User {
   id: string;
   dbId?: string; // ID interno do banco de dados (PK da tabela students/instructors)
@@ -38,6 +40,7 @@ export interface StudioProfile {
   studioName: string;
   ownerName: string;
   ownerCpf?: string; // Novo
+  ownerPhotoUrl?: string; // Novo: Foto do Proprietário
   cnpj?: string; // Novo
   email?: string; 
   description: string;
