@@ -30,57 +30,62 @@ export const compositeImageWithLogo = async (
       logoImg.src = logoUrl;
 
       logoImg.onload = () => {
-        // Calculate Size based on the largest dimension to fit within the target percentage relative to the smallest canvas side
-        // This ensures the logo fits regardless if it's wide or tall, or if the canvas is portrait/landscape.
+        // 1. Determinar a dimensão de referência (menor lado da imagem base)
         const baseMinDim = Math.min(canvas.width, canvas.height);
-        let targetSize = 0;
+        
+        // 2. Definir fator de escala fixo (Pequeno, Médio, Grande)
+        // Isso define o tamanho máximo que o MAIOR lado da logo terá em relação à imagem
+        let scaleFactor = 0.15; // Pequeno (15% da menor dimensão)
+        if (config.size === 'medium') scaleFactor = 0.25; // Médio (25%)
+        if (config.size === 'large') scaleFactor = 0.35;  // Grande (35%)
 
-        // Adjusted percentages to be safe and visible
-        if (config.size === 'small') {
-          targetSize = baseMinDim * 0.15; 
-        } else if (config.size === 'medium') {
-          targetSize = baseMinDim * 0.20;
+        // 3. Calcular dimensões de desenho mantendo o Aspect Ratio da logo
+        const logoAspectRatio = logoImg.width / logoImg.height;
+        let drawWidth, drawHeight;
+
+        if (logoAspectRatio > 1) {
+          // Logo é mais larga que alta
+          drawWidth = baseMinDim * scaleFactor;
+          drawHeight = drawWidth / logoAspectRatio;
         } else {
-          targetSize = baseMinDim * 0.30;
+          // Logo é mais alta que larga ou quadrada
+          drawHeight = baseMinDim * scaleFactor;
+          drawWidth = drawHeight * logoAspectRatio;
         }
 
-        // Calculate scale to fit the logo's largest dimension into the target size
-        const scale = targetSize / Math.max(logoImg.width, logoImg.height);
-        
-        const logoWidth = logoImg.width * scale;
-        const logoHeight = logoImg.height * scale;
-
-        // Calculate Position with padding
+        // 4. Calcular Posição com Margem de Segurança (Padding)
+        const padding = baseMinDim * 0.05; // 5% de margem
         let x = 0;
         let y = 0;
-        const padding = baseMinDim * 0.05; // 5% padding relative to image size
 
+        // Lógica de alinhamento horizontal
         if (config.position.includes('left')) {
           x = padding;
         } else {
-          x = canvas.width - logoWidth - padding;
+          // Right: Largura Total - Largura Logo - Margem
+          x = canvas.width - drawWidth - padding;
         }
 
+        // Lógica de alinhamento vertical
         if (config.position.includes('top')) {
           y = padding;
         } else {
-          y = canvas.height - logoHeight - padding;
+          // Bottom: Altura Total - Altura Logo - Margem
+          y = canvas.height - drawHeight - padding;
         }
 
-        // Safety: Ensure logo is fully within canvas bounds (never cropped)
-        x = Math.max(0, Math.min(x, canvas.width - logoWidth));
-        y = Math.max(0, Math.min(y, canvas.height - logoHeight));
+        // 5. Aplicar Transparência se for Marca D'água
+        ctx.save(); // Salvar estado atual
+        ctx.globalAlpha = config.type === 'watermark' ? 0.6 : 1.0; 
 
-        // Apply Opacity/Watermark
-        ctx.globalAlpha = config.type === 'watermark' ? 0.5 : 1.0; 
+        // 6. Desenhar a Logo (usando drawImage com 4 argumentos para escalar)
+        // drawImage(img, x, y, width, height)
+        ctx.drawImage(logoImg, x, y, drawWidth, drawHeight);
 
-        // Draw Logo
-        ctx.drawImage(logoImg, x, y, logoWidth, logoHeight);
+        // Restaurar estado (para não afetar futuros desenhos se houver)
+        ctx.restore();
 
-        // Reset alpha for safety
-        ctx.globalAlpha = 1.0;
-
-        // Return result
+        // Retornar resultado
         resolve(canvas.toDataURL('image/png'));
       };
 

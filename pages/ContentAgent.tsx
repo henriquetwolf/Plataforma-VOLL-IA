@@ -620,9 +620,9 @@ export const ContentAgent: React.FC = () => {
                                                     className="w-full p-1 border rounded bg-white dark:bg-slate-800"
                                                     disabled={isLimitReached}
                                                 >
-                                                    <option value="small">Pequeno (5%)</option>
-                                                    <option value="medium">Médio (10%)</option>
-                                                    <option value="large">Grande (20%)</option>
+                                                    <option value="small">Pequeno</option>
+                                                    <option value="medium">Médio</option>
+                                                    <option value="large">Grande</option>
                                                 </select>
                                             </div>
                                             <div>
@@ -693,7 +693,7 @@ export const ContentAgent: React.FC = () => {
                                         {generatedVideo ? (
                                             <video src={generatedVideo} controls className="w-full max-h-96 object-contain" />
                                         ) : (
-                                            <img src={generatedImage!} alt="Gerado" className="w-full max-h-96 object-cover" />
+                                            <img src={generatedImage!} alt="Gerado" className="w-full max-h-96 object-contain" />
                                         )}
                                         <div className="p-2 flex justify-center gap-2 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700">
                                             <a href={generatedVideo || generatedImage!} download="conteudo_pilates" target="_blank" rel="noreferrer" className="text-xs text-brand-600 font-bold hover:underline">
