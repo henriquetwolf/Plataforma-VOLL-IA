@@ -402,7 +402,30 @@ export const AdminPanel: React.FC = () => {
 
   const copySql = () => {
     const sql = `
--- GARANTIR TABELAS E COLUNAS
+-- TABELA DE SUGESTÕES E PERMISSÕES
+create table if not exists suggestions (
+  id uuid primary key default gen_random_uuid(),
+  studio_id uuid references studio_profiles(user_id) on delete cascade,
+  student_id uuid references students(id) on delete set null,
+  student_name text,
+  content text,
+  is_read boolean default false,
+  created_at timestamptz default now()
+);
+
+alter table suggestions enable row level security;
+
+-- Políticas
+drop policy if exists "Owners view own suggestions" on suggestions;
+create policy "Owners view own suggestions" on suggestions for select to authenticated using (auth.uid() = studio_id);
+
+drop policy if exists "Students insert suggestions" on suggestions;
+create policy "Students insert suggestions" on suggestions for insert to authenticated with check (true);
+
+drop policy if exists "Admin view all suggestions" on suggestions;
+create policy "Admin view all suggestions" on suggestions for select to authenticated using (auth.jwt() ->> 'email' = '${ADMIN_EMAIL}');
+
+-- TABELAS DO SISTEMA
 create table if not exists subscription_plans (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -415,12 +438,12 @@ alter table studio_profiles
 add column if not exists is_active BOOLEAN DEFAULT TRUE,
 add column if not exists plan_id uuid references subscription_plans(id);
 
--- Insert Default Plans if empty
+-- Planos Padrão
 insert into subscription_plans (name, max_students, max_daily_posts) 
-select 'Plano 1', 50, 5 where not exists (select 1 from subscription_plans where name = 'Plano 1');
+select 'Plano Básico', 50, 5 where not exists (select 1 from subscription_plans);
     `;
     navigator.clipboard.writeText(sql.trim());
-    alert('SQL copiado!');
+    alert('SQL copiado! Execute no Supabase SQL Editor para corrigir permissões.');
   };
 
   const filteredUsers = allUsers.filter(u => {
