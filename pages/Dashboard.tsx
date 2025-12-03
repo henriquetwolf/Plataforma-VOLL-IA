@@ -7,7 +7,7 @@ import { AppRoute, StudioProfile } from '../types';
 import { 
   Users, Sparkles, Compass, ArrowRight, Building2, Calculator, 
   Banknote, Activity, MessageSquare, Newspaper, Wand2, Star, 
-  BookUser, TrendingUp, CheckCircle2, Layers, LineChart
+  BookUser, TrendingUp, CheckCircle2, Layers, LineChart, ClipboardList
 } from 'lucide-react';
 import { fetchProfile } from '../services/storage';
 
@@ -240,6 +240,13 @@ export const Dashboard: React.FC = () => {
             icon={Star}
             color="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400"
             isAi
+          />
+          <ActionCard 
+            to={AppRoute.SURVEY_MANAGER}
+            title={t('surveys_title')}
+            desc={t('card_surveys_desc')}
+            icon={ClipboardList}
+            color="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400"
           />
           <ActionCard 
             to={AppRoute.STUDIO_SUGGESTIONS}
