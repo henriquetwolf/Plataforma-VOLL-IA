@@ -1,24 +1,29 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import { fetchProfile, upsertProfile, uploadLogo } from '../services/storage';
-import { generateStudioDescription } from '../services/geminiService';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Save, Wand2, Building2, MapPin, Palette, Upload, Loader2, X, AlertTriangle, Lock } from 'lucide-react';
+import { Save, Building2, MapPin, Palette, Upload, Loader2, X, AlertTriangle, Lock, Instagram, Smartphone, Shield, Key } from 'lucide-react';
 import { StudioProfile } from '../types';
+import { supabase } from '../services/supabase';
 
 export const Profile: React.FC = () => {
   const { user } = useAuth();
   const { setBrandColor } = useTheme();
   const { t } = useLanguage();
   const [isLoading, setIsLoading] = useState(false);
-  const [isAiLoading, setIsAiLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
   const [dataLoaded, setDataLoaded] = useState(false);
+
+  // Password State
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const isReadOnly = user?.isInstructor;
 
@@ -36,6 +41,10 @@ export const Profile: React.FC = () => {
     brandColor: '#14b8a6',
     isAdmin: false,
     isActive: true,
+    cnpj: '',
+    instagram: '',
+    whatsapp: '',
+    ownerCpf: ''
   });
   
   const [specialtiesInput, setSpecialtiesInput] = useState('');
@@ -128,9 +137,39 @@ export const Profile: React.FC = () => {
 
     setIsLoading(true);
     try {
+      // 1. Save Profile Data
       const result = await upsertProfile(user.id, formData);
+      
+      let passwordMsg = '';
+      
+      // 2. Change Password if provided
+      if (newPassword) {
+        if (newPassword.length < 6) {
+            setMessage({ text: 'A senha deve ter no mínimo 6 caracteres.', type: 'error' });
+            setIsLoading(false);
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            setMessage({ text: 'As senhas não coincidem.', type: 'error' });
+            setIsLoading(false);
+            return;
+        }
+
+        const { error: pwdError } = await supabase.auth.updateUser({
+            password: newPassword
+        });
+
+        if (pwdError) {
+            passwordMsg = ' Erro ao atualizar senha: ' + pwdError.message;
+        } else {
+            passwordMsg = ' Senha atualizada com sucesso!';
+            setNewPassword('');
+            setConfirmPassword('');
+        }
+      }
+
       if (result.success) {
-        setMessage({ text: 'Perfil salvo com sucesso!', type: 'success' });
+        setMessage({ text: 'Perfil salvo com sucesso!' + passwordMsg, type: 'success' });
         if (formData.brandColor) setBrandColor(formData.brandColor);
         setTimeout(() => setMessage({ text: '', type: '' }), 5000);
       } else {
@@ -141,22 +180,6 @@ export const Profile: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleAiGenerate = async () => {
-    if (isReadOnly) return;
-    if (!formData.studioName || !formData.ownerName) {
-      setMessage({ text: 'Preencha o Nome do Studio e Proprietário.', type: 'error' });
-      return;
-    }
-    setIsAiLoading(true);
-    const description = await generateStudioDescription(
-      formData.studioName,
-      formData.ownerName,
-      formData.specialties
-    );
-    setFormData(prev => ({ ...prev, description }));
-    setIsAiLoading(false);
   };
 
   return (
@@ -195,9 +218,25 @@ export const Profile: React.FC = () => {
                 disabled={isReadOnly}
               />
               <Input
+                label="CNPJ do Studio (Opcional)"
+                name="cnpj"
+                placeholder="00.000.000/0000-00"
+                value={formData.cnpj || ''}
+                onChange={handleChange}
+                disabled={isReadOnly}
+              />
+              <Input
                 label={t('owner_name_label')}
                 name="ownerName"
                 value={formData.ownerName}
+                onChange={handleChange}
+                disabled={isReadOnly}
+              />
+              <Input
+                label="CPF do Proprietário (Opcional)"
+                name="ownerCpf"
+                placeholder="000.000.000-00"
+                value={formData.ownerCpf || ''}
                 onChange={handleChange}
                 disabled={isReadOnly}
               />
@@ -206,17 +245,6 @@ export const Profile: React.FC = () => {
             <div className="mt-4">
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('bio_label')}</label>
-                {!isReadOnly && (
-                  <button
-                    type="button"
-                    onClick={handleAiGenerate}
-                    disabled={isAiLoading}
-                    className="text-xs flex items-center gap-1 text-brand-600 dark:text-brand-400 hover:text-brand-700 font-medium bg-brand-50 dark:bg-brand-900/20 px-2 py-1 rounded-md transition-colors"
-                  >
-                    {isAiLoading ? <span className="animate-spin h-3 w-3 border-2 border-brand-600 rounded-full border-t-transparent"></span> : <Wand2 className="h-3 w-3" />}
-                    {isAiLoading ? '...' : t('ai_write_btn')}
-                  </button>
-                )}
               </div>
               <textarea
                 name="description"
@@ -224,8 +252,12 @@ export const Profile: React.FC = () => {
                 onChange={handleChange}
                 rows={4}
                 disabled={isReadOnly}
+                placeholder="Conte sobre a história do studio, metodologia, e o que torna seu espaço único..."
                 className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all text-sm disabled:opacity-60 disabled:bg-slate-50 dark:disabled:bg-slate-800"
               />
+              <p className="text-xs text-slate-500 mt-2">
+                Dica: Uma boa biografia ajuda na criação de conteúdo personalizado pela IA. Mencione seus diferenciais!
+              </p>
             </div>
           </div>
           
@@ -257,6 +289,9 @@ export const Profile: React.FC = () => {
                     <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isUploading} />
                   )}
                 </div>
+                <p className="text-xs text-slate-500 mt-2 text-center">
+                    Formato ideal: PNG ou JPG (Quadrado 1:1), mín. 500x500px.
+                </p>
               </div>
 
               <div>
@@ -289,15 +324,60 @@ export const Profile: React.FC = () => {
              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
               <MapPin className="h-5 w-5 text-brand-500" /> {t('contact_label')}
             </h2>
-            <Input label={t('address_label')} name="address" value={formData.address} onChange={handleChange} disabled={isReadOnly} />
+            <Input label="Endereço Completo do Studio" name="address" value={formData.address} onChange={handleChange} disabled={isReadOnly} />
             <Input label={t('phone_label')} name="phone" value={formData.phone} onChange={handleChange} disabled={isReadOnly} />
+            
+            <div className="relative">
+                <Input label="Whatsapp (Opcional)" name="whatsapp" value={formData.whatsapp || ''} onChange={handleChange} disabled={isReadOnly} className="pl-10" />
+                <Smartphone className="absolute left-3 top-9 w-4 h-4 text-slate-400" />
+            </div>
+
+            <div className="relative">
+                <Input label="Instagram (Opcional)" name="instagram" value={formData.instagram || ''} onChange={handleChange} disabled={isReadOnly} placeholder="@seu.studio" className="pl-10" />
+                <Instagram className="absolute left-3 top-9 w-4 h-4 text-slate-400" />
+            </div>
+
             <Input label={t('website_label')} name="website" value={formData.website} onChange={handleChange} disabled={isReadOnly} />
           </div>
 
           {!isReadOnly && (
-            <Button type="submit" className="w-full h-12 text-lg shadow-lg shadow-brand-200/50" isLoading={isLoading}>
-              <Save className="h-5 w-5 mr-2" /> {t('save_profile_btn')}
-            </Button>
+            <>
+                {/* Password Change Card */}
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
+                    <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
+                        <Shield className="h-5 w-5 text-red-500" /> Segurança
+                    </h2>
+                    <p className="text-xs text-slate-500 mb-4">Use este campo para alterar sua senha provisória ou atualizar seu acesso.</p>
+                    <div className="space-y-4">
+                        <div className="relative">
+                            <Input 
+                                label="Nova Senha" 
+                                type="password" 
+                                value={newPassword} 
+                                onChange={(e) => setNewPassword(e.target.value)} 
+                                placeholder="Mínimo 6 caracteres"
+                                className="pl-10"
+                            />
+                            <Key className="absolute left-3 top-9 w-4 h-4 text-slate-400" />
+                        </div>
+                        <div className="relative">
+                            <Input 
+                                label="Confirmar Senha" 
+                                type="password" 
+                                value={confirmPassword} 
+                                onChange={(e) => setConfirmPassword(e.target.value)} 
+                                placeholder="Repita a senha"
+                                className="pl-10"
+                            />
+                            <Key className="absolute left-3 top-9 w-4 h-4 text-slate-400" />
+                        </div>
+                    </div>
+                </div>
+
+                <Button type="submit" className="w-full h-12 text-lg shadow-lg shadow-brand-200/50" isLoading={isLoading}>
+                <Save className="h-5 w-5 mr-2" /> {t('save_profile_btn')}
+                </Button>
+            </>
           )}
         </div>
       </form>

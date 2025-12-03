@@ -1,6 +1,8 @@
 
 
 
+
+
 import { supabase } from './supabase';
 import { StudioProfile, SubscriptionPlan } from '../types';
 
@@ -33,6 +35,15 @@ interface DBProfile {
 
 // Converter do formato do App (camelCase) para o DB (snake_case)
 const toDBProfile = (profile: Partial<StudioProfile>): Partial<DBProfile> => {
+  // Preserve existing settings and merge new fields into it
+  const settings = {
+    ...(profile.settings || {}),
+    cnpj: profile.cnpj,
+    instagram: profile.instagram,
+    whatsapp: profile.whatsapp,
+    owner_cpf: profile.ownerCpf
+  };
+
   return {
     studio_name: profile.studioName,
     owner_name: profile.ownerName,
@@ -49,7 +60,7 @@ const toDBProfile = (profile: Partial<StudioProfile>): Partial<DBProfile> => {
     plan_id: profile.planId, // Mapeamento novo
     // REMOVIDO: is_active não deve ser atualizado por aqui para evitar que 
     // o usuário sobrescreva o bloqueio do admin ao salvar o perfil.
-    settings: profile.settings
+    settings: settings
   };
 };
 
@@ -97,7 +108,12 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
     planName: dbProfile.subscription_plans?.name,
     planLimit: dbProfile.subscription_plans?.max_students,
     planMaxDailyPosts: dbProfile.subscription_plans?.max_daily_posts,
-    settings: settings
+    settings: settings,
+    // Extrair campos estendidos do settings
+    cnpj: dbSettings.cnpj,
+    instagram: dbSettings.instagram,
+    whatsapp: dbSettings.whatsapp,
+    ownerCpf: dbSettings.owner_cpf
   };
 };
 
@@ -127,7 +143,25 @@ export const fetchProfile = async (userId: string): Promise<StudioProfile | null
 
 export const upsertProfile = async (userId: string, profile: Partial<StudioProfile>): Promise<{ success: boolean; error?: string }> => {
   try {
-    const dbPayload = toDBProfile(profile);
+    // Primeiro buscamos o perfil atual para garantir que o merge do settings não sobrescreva dados
+    const { data: currentData } = await supabase
+        .from('studio_profiles')
+        .select('settings')
+        .eq('user_id', userId)
+        .maybeSingle();
+    
+    const currentSettings = currentData?.settings || {};
+    
+    // Mesclamos os settings atuais com os novos dados do profile
+    const mergedProfile = {
+        ...profile,
+        settings: {
+            ...currentSettings,
+            ...(profile.settings || {})
+        }
+    };
+
+    const dbPayload = toDBProfile(mergedProfile);
     
     const { error } = await supabase
       .from('studio_profiles')

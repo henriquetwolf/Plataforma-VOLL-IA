@@ -2,6 +2,8 @@
 
 
 
+
+
 export interface User {
   id: string;
   dbId?: string; // ID interno do banco de dados (PK da tabela students/instructors)
@@ -35,10 +37,14 @@ export interface StudioProfile {
   userId: string;
   studioName: string;
   ownerName: string;
+  ownerCpf?: string; // Novo
+  cnpj?: string; // Novo
   email?: string; 
   description: string;
   address: string;
   phone: string;
+  whatsapp?: string; // Novo
+  instagram?: string; // Novo
   website: string;
   specialties: string[];
   logoUrl?: string;
