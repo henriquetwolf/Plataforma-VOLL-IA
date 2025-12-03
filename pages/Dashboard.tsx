@@ -7,7 +7,7 @@ import { AppRoute, StudioProfile } from '../types';
 import { 
   Users, Sparkles, Compass, ArrowRight, Building2, Calculator, 
   Banknote, Activity, MessageSquare, Newspaper, Wand2, Star, 
-  BookUser, TrendingUp, CheckCircle2, Layers, LineChart, ClipboardList
+  BookUser, TrendingUp, CheckCircle2, Layers, LineChart, ClipboardList, User
 } from 'lucide-react';
 import { fetchProfile } from '../services/storage';
 
@@ -99,24 +99,43 @@ export const Dashboard: React.FC = () => {
     <div className="max-w-6xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 pb-12">
       
       {/* Cabeçalho de Boas-vindas */}
-      <div className="flex flex-col md:flex-row items-center gap-6 bg-gradient-to-r from-slate-900 to-slate-800 dark:from-slate-950 dark:to-slate-900 rounded-2xl p-8 text-white shadow-xl relative overflow-hidden">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-gradient-to-r from-slate-900 to-slate-800 dark:from-slate-950 dark:to-slate-900 rounded-2xl p-8 text-white shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
         
-        {profile?.logoUrl ? (
-          <img src={profile.logoUrl} alt="Logo" className="w-20 h-20 object-contain bg-white rounded-xl p-1 shadow-lg z-10" />
-        ) : (
-          <div className="w-20 h-20 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-sm z-10">
-            <Building2 className="w-10 h-10 text-white" />
-          </div>
-        )}
+        {/* Lado Esquerdo: Foto Proprietário + Texto */}
+        <div className="flex flex-col md:flex-row items-center gap-6 z-10">
+            {/* Foto Proprietário */}
+            {profile?.ownerPhotoUrl ? (
+                <img 
+                    src={profile.ownerPhotoUrl} 
+                    alt="Proprietário" 
+                    className="w-24 h-24 rounded-full border-4 border-white/20 object-cover shadow-lg flex-shrink-0" 
+                />
+            ) : (
+                <div className="w-24 h-24 rounded-full bg-white/10 border-4 border-white/20 flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
+                    <User className="w-10 h-10 text-white/80" />
+                </div>
+            )}
+
+            <div className="text-center md:text-left">
+                <h1 className="text-3xl font-bold mb-2">
+                    {t('hello')}, {user?.name.split(' ')[0]}!
+                </h1>
+                <p className="text-slate-300 text-lg max-w-xl">
+                    {t('dashboard_welcome')} <span className="font-semibold text-white">{profile?.studioName || 'seu Studio'}</span>. 
+                </p>
+            </div>
+        </div>
         
-        <div className="flex-1 text-center md:text-left z-10">
-          <h1 className="text-3xl font-bold mb-2">
-            {t('hello')}, {user?.name.split(' ')[0]}!
-          </h1>
-          <p className="text-slate-300 text-lg max-w-2xl">
-            {t('dashboard_welcome')} <span className="font-semibold text-white">{profile?.studioName || 'seu Studio'}</span>. 
-          </p>
+        {/* Lado Direito: Logo do Studio */}
+        <div className="z-10 mt-4 md:mt-0">
+            {profile?.logoUrl ? (
+            <img src={profile.logoUrl} alt="Logo Studio" className="w-24 h-24 object-contain bg-white rounded-xl p-2 shadow-lg" />
+            ) : (
+            <div className="w-24 h-24 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                <Building2 className="w-10 h-10 text-white" />
+            </div>
+            )}
         </div>
       </div>
 
