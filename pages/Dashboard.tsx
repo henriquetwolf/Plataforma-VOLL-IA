@@ -7,9 +7,10 @@ import { AppRoute, StudioProfile } from '../types';
 import { 
   Users, Sparkles, Compass, ArrowRight, Building2, Calculator, 
   Banknote, Activity, MessageSquare, Newspaper, Wand2, Star, 
-  BookUser, TrendingUp, CheckCircle2, Layers, LineChart, ClipboardList, User, MessageCircle, FileText
+  BookUser, TrendingUp, Layers, LineChart, ClipboardList, User, MessageCircle, FileText, Bell, CheckCircle
 } from 'lucide-react';
 import { fetchProfile } from '../services/storage';
+import { fetchDashboardNotifications, DashboardNotification, dismissNotificationLocal } from '../services/notificationService';
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -17,6 +18,7 @@ export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<StudioProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
 
   // REDIRECT IMMEDIATELY if Instructor
   if (user?.isInstructor) {
@@ -24,18 +26,33 @@ export const Dashboard: React.FC = () => {
   }
 
   useEffect(() => {
-    const loadProfile = async () => {
+    const loadData = async () => {
       // Se for dono, usa o id.
       const targetId = user?.id;
       
       if (targetId) {
-        const data = await fetchProfile(targetId);
-        setProfile(data);
+        const [profileData, notifs] = await Promise.all([
+            fetchProfile(targetId),
+            fetchDashboardNotifications(targetId)
+        ]);
+        setProfile(profileData);
+        setNotifications(notifs);
       }
       setLoading(false);
     };
-    loadProfile();
+    loadData();
   }, [user, navigate]);
+
+  const handleNotificationClick = async (notif: DashboardNotification) => {
+    // 1. Remove from UI immediately
+    setNotifications(prev => prev.filter(n => n !== notif));
+
+    // 2. Perform logic (Dismiss)
+    dismissNotificationLocal(notif.type);
+
+    // 3. Navigate
+    navigate(notif.link);
+  };
 
   if (loading) {
     return (
@@ -138,6 +155,44 @@ export const Dashboard: React.FC = () => {
             )}
         </div>
       </div>
+
+      {/* NOTIFICATIONS SECTION */}
+      {notifications.length > 0 && (
+        <section className="animate-in fade-in slide-in-from-top-4">
+            <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                <Bell className="w-5 h-5 text-brand-600 animate-pulse" /> Notificações & Alertas
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {notifications.map((notif, index) => (
+                    <div 
+                        key={index} 
+                        onClick={() => handleNotificationClick(notif)}
+                        className={`p-4 rounded-xl border shadow-sm flex items-start gap-4 transition-transform hover:-translate-y-1 cursor-pointer ${
+                            notif.type === 'content_plan' ? 'bg-purple-50 border-purple-200 dark:bg-purple-900/10 dark:border-purple-800' :
+                            'bg-blue-50 border-blue-200 dark:bg-blue-900/10 dark:border-blue-800'
+                        }`}
+                    >
+                        <div className={`p-2 rounded-lg shrink-0 ${
+                            notif.type === 'content_plan' ? 'bg-purple-100 text-purple-600' :
+                            'bg-blue-100 text-blue-600'
+                        }`}>
+                            {(notif.type === 'survey_student' || notif.type === 'survey_instructor') && <ClipboardList className="w-5 h-5" />}
+                            {notif.type === 'content_plan' && <Wand2 className="w-5 h-5" />}
+                        </div>
+                        <div>
+                            <h4 className={`font-bold text-sm ${
+                                notif.type === 'content_plan' ? 'text-purple-800 dark:text-purple-300' :
+                                'text-blue-800 dark:text-blue-300'
+                            }`}>
+                                {notif.message}
+                            </h4>
+                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">{notif.detail}</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </section>
+      )}
 
       {/* ETAPA 1: CADASTROS (Fundação) */}
       <section>
