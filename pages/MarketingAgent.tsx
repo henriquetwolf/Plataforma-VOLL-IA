@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { MarketingFormData, GeneratedContent, SavedContent, ContentRequest, LogoConfig, StudioPersona } from '../types';
@@ -9,7 +8,7 @@ import { Button } from '../components/ui/Button';
 import { 
   Sparkles, ArrowRight, Dumbbell, Trash2, CalendarDays, FileText, 
   Target, Users, Lightbulb, Zap, ShoppingBag, Heart, BookOpen, Camera, MessageCircle, Star, Image as ImageIcon, Video, Eye,
-  Layout, RotateCcw, Save, RefreshCw, Copy, Loader2
+  Layout, RotateCcw, Save, RefreshCw, Copy, Loader2, History
 } from 'lucide-react';
 import { compositeImageWithLogo } from '../services/imageService';
 
@@ -49,7 +48,6 @@ const FORMATS = [
 
 const STYLES = [
   'IA Decide (Recomendado)',
-  'Persona da Marca (Padrão)',
   'Fotorealista / Clean',
   'Minimalista',
   'Ilustração',
@@ -57,7 +55,7 @@ const STYLES = [
   'Energético / Vibrante'
 ];
 
-// --- EXTRACTED COMPONENTS TO PREVENT RE-RENDER LAG ---
+// --- EXTRACTED COMPONENTS ---
 
 const StepMode = ({ formData, updateFormData }: any) => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-right-8">
@@ -298,7 +296,7 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate }:
                         {result.carouselCards && (
                             <div className="h-96 flex overflow-x-auto gap-4 p-2">
                                 {result.carouselCards.map((card: any, idx: number) => (
-                                    <div key={idx} className="min-w-[200px] w-[200px] bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
+                                    <div key={idx} className="min-w-[200px] w-[200px] bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden group">
                                         <div className="h-40 bg-slate-200 dark:bg-slate-900 relative">
                                             {card.generatedImage ? (
                                                 <img src={card.generatedImage} alt={`Card ${idx+1}`} className="w-full h-full object-cover" />
@@ -307,9 +305,9 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate }:
                                             )}
                                             <span className="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded">{idx+1}/6</span>
                                         </div>
-                                        <div className="p-3 flex-1 flex flex-col">
-                                            <p className="text-xs font-bold text-slate-500 uppercase mb-1">Texto do Card</p>
-                                            <p className="text-sm text-slate-800 dark:text-slate-200 leading-tight">{card.textOverlay}</p>
+                                        <div className="p-3 flex-1 flex flex-col bg-white dark:bg-slate-900">
+                                            <p className="text-xs font-bold text-slate-500 uppercase mb-1">Texto Sugerido</p>
+                                            <p className="text-xs text-slate-700 dark:text-slate-300 leading-tight flex-1">{card.textOverlay}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -333,7 +331,7 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate }:
                 </div>
             )}
 
-            {/* STORIES & PLANS Views (Unchanged logic) */}
+            {/* STORIES & PLANS Views */}
             {result.isStory && result.storySequence && (
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm overflow-x-auto">
                     <h4 className="font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2"><Zap className="w-5 h-5 text-yellow-500"/> Sequência Estratégica</h4>
@@ -391,10 +389,8 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate }:
     );
 };
 
-// ... SavedPostsList kept same ...
 const SavedPostsList = ({ savedPosts, onDelete }: any) => (
     <div className="animate-in fade-in">
-        <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-6">Meus Posts Salvos</h2>
         {savedPosts.length === 0 ? (
             <div className="text-center py-10 text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
                 <div className="bg-slate-100 dark:bg-slate-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -430,8 +426,9 @@ const SavedPostsList = ({ savedPosts, onDelete }: any) => (
 
 export const MarketingAgent: React.FC = () => {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<'create' | 'saved'>('create');
   
-  // Steps: 0=Mode, 1=Goal, 2=Audience, 3=Topic, 4=Format/Style (Single Only), 5=Result, 6=SavedPosts
+  // Steps: 0=Mode, 1=Goal, 2=Audience, 3=Topic, 4=Format/Style (Single Only), 5=Result
   const [step, setStep] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingMsg, setLoadingMsg] = useState('');
@@ -456,7 +453,12 @@ export const MarketingAgent: React.FC = () => {
   // Load saved posts on mount
   useEffect(() => {
     if (user?.id) {
-        // Use generic saved posts service
+        loadSaved();
+    }
+  }, [user]);
+
+  const loadSaved = () => {
+      if(user?.id) {
         fetchSavedPosts(user.id).then(posts => {
             const mapped = posts.map(p => {
                 return {
@@ -467,22 +469,16 @@ export const MarketingAgent: React.FC = () => {
                     suggestedFormat: p.request.format,
                     hashtags: [],
                     tips: '',
-                    ...((p as any).data || {}) // Spread extra data if available
+                    ...((p as any).data || {})
                 } as SavedContent;
             });
             setSavedPosts(mapped);
         });
-    }
-  }, [user]);
+      }
+  };
 
   const handleNext = () => setStep((prev) => prev + 1);
-  const handleBack = () => {
-    if (step === 6) {
-      setStep(0);
-    } else {
-      setStep((prev) => Math.max(0, prev - 1));
-    }
-  };
+  const handleBack = () => setStep((prev) => Math.max(0, prev - 1));
 
   const isReadyToGenerate = () => {
     // For Plan AND Stories, we generate after Step 3 (Topic)
@@ -494,49 +490,53 @@ export const MarketingAgent: React.FC = () => {
 
   const handleGenerateAction = async () => {
     setIsLoading(true);
-    setLoadingMsg("A IA está criando sua estratégia...");
+    setLoadingMsg(formData.mode === 'plan' ? "Criando calendário estratégico..." : "A IA está criando sua estratégia...");
     setError(null);
     setCanRegenerate(true);
     
     try {
       // 1. Generate Text Structure
-      const content = await generateMarketingContent(formData);
-      
-      if (!content) throw new Error("Falha na geração do texto.");
+      // Force format: auto if not available in current step context
+      const requestData = { ...formData };
+      if (formData.mode === 'plan') requestData.format = 'auto'; // Plan mode doesn't select format
 
-      // 2. Image Generation Logic
-      // Check for Carousel (6 cards)
+      const content = await generateMarketingContent(requestData);
+      
+      if (!content) throw new Error("Falha na geração. Tente novamente.");
+
+      // 2. Image Generation Logic (Only for Single/Story/Carousel)
+      // Carousel (6 images)
       if (content.carouselCards && content.carouselCards.length > 0) {
-          setLoadingMsg("Gerando 6 imagens para o Carrossel (isso pode levar 1 min)...");
+          setLoadingMsg("Gerando 6 imagens de alta qualidade para o Carrossel (isso pode levar 1 min)...");
           
-          // Generate 6 images in parallel based on visual prompts
           const cardPromises = content.carouselCards.map(async (card: any, idx: number) => {
               // Add delay to avoid immediate rate limit if strict
-              await new Promise(r => setTimeout(r, idx * 500));
+              await new Promise(r => setTimeout(r, idx * 800));
               
               const imgRequest: ContentRequest = {
                   format: 'Carrossel',
                   objective: formData.goal,
                   customObjective: formData.customGoal,
-                  theme: card.visualPrompt, // Use the specific card prompt
+                  theme: card.visualPrompt, 
                   audience: formData.audience,
                   customAudience: formData.customAudience,
-                  tone: 'Visual', // Required by type
+                  tone: 'Visual',
                   imageStyle: formData.style
               };
               
-              const img = await generatePilatesImage(imgRequest, null, '');
+              // Enhanced Prompt prefix for better quality
+              const enhancedPrompt = `Photorealistic, 8k, cinematic lighting, professional photography: ${card.visualPrompt}`;
+              const img = await generatePilatesImage(imgRequest, null, enhancedPrompt);
               return { ...card, generatedImage: img };
           });
 
           const cardsWithImages = await Promise.all(cardPromises);
           content.carouselCards = cardsWithImages;
       } 
-      // Check for Static Post (1 image)
-      else if (!content.isReels && !content.isPlan && !content.isStory) {
+      // Static Post (1 image)
+      else if (formData.mode === 'single' && !content.isReels && !content.isPlan) {
           setLoadingMsg("Criando a imagem do post...");
-          // Fallback visual prompt if missing from response
-          const visualPrompt = content.visualPrompt || `Image for pilates post about ${formData.topic}. Style: ${formData.style}`;
+          const visualPrompt = content.visualPrompt || `Pilates post about ${formData.topic}. Style: ${formData.style}`;
           
           const imgRequest: ContentRequest = {
               format: 'Post Estático',
@@ -545,17 +545,18 @@ export const MarketingAgent: React.FC = () => {
               theme: visualPrompt,
               audience: formData.audience,
               customAudience: formData.customAudience,
-              tone: 'Visual', // Required by type
+              tone: 'Visual',
               imageStyle: formData.style
           };
           
-          const img = await generatePilatesImage(imgRequest, null, '');
+          const enhancedPrompt = `Photorealistic, 8k, cinematic lighting, professional photography: ${visualPrompt}`;
+          const img = await generatePilatesImage(imgRequest, null, enhancedPrompt);
           content.generatedImage = img || undefined;
       }
 
       setResult(content);
-      setStep(5);
-    } catch (err) {
+      setStep(5); // Go to Result View
+    } catch (err: any) {
       setError("Ocorreu um erro ao gerar o conteúdo. Por favor, tente novamente.");
       console.error(err);
     } finally {
@@ -566,13 +567,12 @@ export const MarketingAgent: React.FC = () => {
 
   const handleRegenerateAction = async () => {
     if (!canRegenerate) return;
-    handleGenerateAction(); // Reuse logic
+    handleGenerateAction(); 
   };
 
   const handleSavePost = async () => {
     if (!result || !user?.id) return;
     
-    // Convert to generic SavedPost structure for storage
     const newPost: any = {
       id: crypto.randomUUID(),
       request: {
@@ -583,23 +583,17 @@ export const MarketingAgent: React.FC = () => {
           tone: formData.style,
           imageStyle: formData.style
       },
-      content: JSON.stringify(result), // Store full result JSON
+      content: JSON.stringify(result),
       imageUrl: result.generatedImage || null,
       createdAt: new Date().toISOString(),
-      // Custom fields to help retrieval
       data: result 
     };
     
     const res = await savePost(user.id, newPost);
     if (res.success) {
         alert("Salvo com sucesso!");
-        // Update local list
-        setSavedPosts(prev => [{
-            ...result,
-            id: newPost.id,
-            date: new Date().toLocaleDateString(),
-            topic: formData.topic
-        }, ...prev]);
+        loadSaved();
+        setActiveTab('saved'); // Switch to saved tab
     } else {
         alert("Erro ao salvar.");
     }
@@ -608,7 +602,7 @@ export const MarketingAgent: React.FC = () => {
   const handleDeleteSaved = async (id: string) => {
     if (confirm("Tem certeza?")) {
         await deleteSavedPost(id);
-        setSavedPosts(prev => prev.filter(p => p.id !== id));
+        loadSaved();
     }
   };
 
@@ -677,120 +671,137 @@ export const MarketingAgent: React.FC = () => {
           <Dumbbell className="w-8 h-8" />
         </div>
         <h1 className="text-3xl md:text-4xl font-bold text-slate-800 dark:text-white tracking-tight">
-          Pilates Marketing AI
+          Marketing Digital IA
         </h1>
         <p className="text-slate-500 mt-2 max-w-lg">
-          Crie posts, stories e planejamentos para seu estúdio em segundos.
+          Crie posts, carrosséis e planejamentos estratégicos.
         </p>
-        {step === 0 && (
-            <button onClick={() => setStep(6)} className="mt-4 text-sm text-brand-600 font-bold hover:underline flex items-center gap-1">
-                <FileText className="w-4 h-4"/> Ver Salvos
-            </button>
-        )}
       </header>
 
-      {/* Main Content Area */}
-      <main className="w-full bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden relative min-h-[500px] flex flex-col">
-        
-        {/* Progress Bar */}
-        {step < 5 && step !== 6 && (
-          <div className="w-full bg-slate-100 dark:bg-slate-800 h-2">
-            <div 
-              className="bg-brand-500 h-2 transition-all duration-500 ease-out" 
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        )}
+      {/* Tabs */}
+      <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mb-8">
+          <button 
+              onClick={() => setActiveTab('create')} 
+              className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'create' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-brand-400' : 'text-slate-500'}`}
+          >
+              Gerador
+          </button>
+          <button 
+              onClick={() => setActiveTab('saved')} 
+              className={`px-6 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'saved' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-brand-400' : 'text-slate-500'}`}
+          >
+              <History className="w-4 h-4"/> Histórico
+          </button>
+      </div>
 
-        <div className="flex-1 p-6 md:p-10 flex flex-col">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-xl mb-6 flex items-center gap-2">
-               <span>⚠️</span> {error}
-            </div>
-          )}
-
-          {isLoading ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6 animate-in fade-in duration-500 py-20">
-              <div className="relative">
-                <div className="w-16 h-16 border-4 border-slate-100 border-t-brand-500 rounded-full animate-spin"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Sparkles className="w-6 h-6 text-brand-500 animate-pulse" />
-                </div>
-              </div>
-              <div>
-                <h3 className="text-xl font-semibold text-slate-800 dark:text-white">
-                  {loadingMsg || 'Processando com Inteligência Artificial...'}
-                </h3>
-                <p className="text-slate-500 mt-2">Aguarde enquanto criamos o melhor conteúdo para você.</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              {step === 0 && <StepMode formData={formData} updateFormData={updateFormData} />}
-              {step === 1 && <StepGoal formData={formData} updateFormData={updateFormData} />}
-              {step === 2 && <StepAudience formData={formData} updateFormData={updateFormData} />}
-              {step === 3 && (
-                  <StepTopic 
-                    formData={formData} 
-                    updateFormData={updateFormData} 
-                    suggestions={topicSuggestions}
-                    onGenerateIdeas={handleGenerateIdeas}
-                    isGeneratingIdeas={isGeneratingIdeas}
-                  />
-              )}
-              {step === 4 && <StepFormatStyle formData={formData} updateFormData={updateFormData} />}
-              {step === 5 && (
-                  <ResultDisplay 
-                    result={result} 
-                    onReset={handleReset} 
-                    onSave={handleSavePost} 
-                    onRegenerate={handleRegenerateAction}
-                    canRegenerate={canRegenerate}
-                  />
-              )}
-              {step === 6 && <SavedPostsList savedPosts={savedPosts} onDelete={handleDeleteSaved} />}
-            </>
-          )}
-        </div>
-
-        {/* Footer Navigation */}
-        {!isLoading && step < 5 && step !== 6 && (
-          <div className="p-6 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-            {step > 0 ? (
-              <button 
-                onClick={handleBack}
-                className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white font-medium px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-              >
-                Voltar
-              </button>
-            ) : (
-              <div></div> 
-            )}
+      {activeTab === 'create' && (
+        <main className="w-full bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden relative min-h-[500px] flex flex-col">
             
-            <button
-            onClick={isReadyToGenerate() ? handleGenerateAction : handleNext}
-            disabled={isNextDisabled()}
-            className={`
-                flex items-center gap-2 px-6 py-3 rounded-xl font-semibold shadow-md transition-all
-                ${isNextDisabled()
-                ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none dark:bg-slate-800 dark:text-slate-600'
-                : 'bg-brand-600 text-white hover:bg-brand-700 hover:shadow-lg active:scale-95'
-                }
-            `}
-            >
-            {isReadyToGenerate() ? (
-                <>
-                Gerar <Sparkles className="w-5 h-5" />
-                </>
+            {/* Progress Bar (Only for Wizard) */}
+            {step < 5 && (
+            <div className="w-full bg-slate-100 dark:bg-slate-800 h-2">
+                <div 
+                className="bg-brand-500 h-2 transition-all duration-500 ease-out" 
+                style={{ width: `${progress}%` }}
+                />
+            </div>
+            )}
+
+            <div className="flex-1 p-6 md:p-10 flex flex-col">
+            {error && (
+                <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-xl mb-6 flex items-center gap-2">
+                <span>⚠️</span> {error}
+                </div>
+            )}
+
+            {isLoading ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6 animate-in fade-in duration-500 py-20">
+                <div className="relative">
+                    <div className="w-16 h-16 border-4 border-slate-100 border-t-brand-500 rounded-full animate-spin"></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                    <Sparkles className="w-6 h-6 text-brand-500 animate-pulse" />
+                    </div>
+                </div>
+                <div>
+                    <h3 className="text-xl font-semibold text-slate-800 dark:text-white">
+                    {loadingMsg || 'Processando com Inteligência Artificial...'}
+                    </h3>
+                    <p className="text-slate-500 mt-2">Estamos criando sua estratégia personalizada.</p>
+                </div>
+                </div>
             ) : (
                 <>
-                Próximo <ArrowRight className="w-5 h-5" />
+                {step === 0 && <StepMode formData={formData} updateFormData={updateFormData} />}
+                {step === 1 && <StepGoal formData={formData} updateFormData={updateFormData} />}
+                {step === 2 && <StepAudience formData={formData} updateFormData={updateFormData} />}
+                {step === 3 && (
+                    <StepTopic 
+                        formData={formData} 
+                        updateFormData={updateFormData} 
+                        suggestions={topicSuggestions}
+                        onGenerateIdeas={handleGenerateIdeas}
+                        isGeneratingIdeas={isGeneratingIdeas}
+                    />
+                )}
+                {step === 4 && <StepFormatStyle formData={formData} updateFormData={updateFormData} />}
+                {step === 5 && (
+                    <ResultDisplay 
+                        result={result} 
+                        onReset={handleReset} 
+                        onSave={handleSavePost} 
+                        onRegenerate={handleRegenerateAction}
+                        canRegenerate={canRegenerate}
+                    />
+                )}
                 </>
             )}
-            </button>
+            </div>
+
+            {/* Footer Navigation */}
+            {!isLoading && step < 5 && (
+            <div className="p-6 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                {step > 0 ? (
+                <button 
+                    onClick={handleBack}
+                    className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white font-medium px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                >
+                    Voltar
+                </button>
+                ) : (
+                <div></div> 
+                )}
+                
+                <button
+                onClick={isReadyToGenerate() ? handleGenerateAction : handleNext}
+                disabled={isNextDisabled()}
+                className={`
+                    flex items-center gap-2 px-6 py-3 rounded-xl font-semibold shadow-md transition-all
+                    ${isNextDisabled()
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none dark:bg-slate-800 dark:text-slate-600'
+                    : 'bg-brand-600 text-white hover:bg-brand-700 hover:shadow-lg active:scale-95'
+                    }
+                `}
+                >
+                {isReadyToGenerate() ? (
+                    <>
+                    Gerar <Sparkles className="w-5 h-5" />
+                    </>
+                ) : (
+                    <>
+                    Próximo <ArrowRight className="w-5 h-5" />
+                    </>
+                )}
+                </button>
+            </div>
+            )}
+        </main>
+      )}
+
+      {activeTab === 'saved' && (
+          <div className="w-full bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 p-6 md:p-10">
+              <SavedPostsList savedPosts={savedPosts} onDelete={handleDeleteSaved} />
           </div>
-        )}
-      </main>
+      )}
     </div>
   );
 };
