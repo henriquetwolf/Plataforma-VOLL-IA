@@ -724,6 +724,7 @@ export interface MarketingFormData {
   goal: string; 
   customGoal?: string; 
   audience: string;
+  customAudience?: string;
   topic: string;
   format: string; 
   style: string;
@@ -767,14 +768,22 @@ export interface StorySequence {
   frames: StoryFrame[];
 }
 
+export interface CarouselCard {
+  order: number;
+  textOverlay: string;
+  visualPrompt: string;
+  generatedImage?: string;
+}
+
 export interface GeneratedContent {
   suggestedFormat: string;
   reasoning: string;
   hashtags: string[];
   tips: string;
-  captionShort?: string;
-  captionLong?: string;
+  captionShort: string; // Made required
+  captionLong: string;  // Made required
   visualContent?: string[];
+  visualPrompt?: string; // Prompt for generating static image
   generatedImage?: string;
   isReels?: boolean;
   reelsOptions?: ReelOption[];
@@ -782,6 +791,7 @@ export interface GeneratedContent {
   weeks?: WeekPlan[];
   isStory?: boolean;
   storySequence?: StorySequence;
+  carouselCards?: CarouselCard[]; // New field for carousel cards
 }
 
 export interface SavedContent extends GeneratedContent {

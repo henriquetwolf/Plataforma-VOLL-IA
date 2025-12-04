@@ -88,6 +88,7 @@ export const generateTopicSuggestions = async (goal: string, audience: string): 
 export const generateMarketingContent = async (formData: MarketingFormData): Promise<GeneratedContent | null> => {
   const isPlan = formData.mode === 'plan';
   const isStory = formData.mode === 'story';
+  const isCarousel = formData.format === 'carousel';
   
   // Base schema properties common to all
   const baseProperties: any = {
@@ -95,12 +96,15 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
     reasoning: { type: Type.STRING },
     hashtags: { type: Type.ARRAY, items: { type: Type.STRING } },
     tips: { type: Type.STRING },
+    // Captions are mandatory for all formats
+    captionShort: { type: Type.STRING },
+    captionLong: { type: Type.STRING },
   };
 
   let responseSchema: any = {
     type: Type.OBJECT,
     properties: baseProperties,
-    required: ['suggestedFormat', 'reasoning', 'hashtags', 'tips']
+    required: ['suggestedFormat', 'reasoning', 'hashtags', 'tips', 'captionShort', 'captionLong']
   };
 
   // Adjust schema based on mode
@@ -152,8 +156,6 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
     };
   } else {
     // Single Post
-    responseSchema.properties.captionShort = { type: Type.STRING };
-    responseSchema.properties.captionLong = { type: Type.STRING };
     responseSchema.properties.visualContent = { type: Type.ARRAY, items: { type: Type.STRING } };
     
     // Check if it might be reels to add reels options
@@ -174,6 +176,24 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
         }
       }
     };
+
+    if (isCarousel) {
+      responseSchema.properties.carouselCards = {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            order: { type: Type.INTEGER },
+            textOverlay: { type: Type.STRING },
+            visualPrompt: { type: Type.STRING },
+          },
+          required: ['order', 'textOverlay', 'visualPrompt']
+        }
+      };
+    } else {
+      // Static Post needs visual prompt for single image
+      responseSchema.properties.visualPrompt = { type: Type.STRING };
+    }
   }
 
   let prompt = `
@@ -182,10 +202,14 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
   
   Modo: ${formData.mode}
   Objetivo: ${formData.customGoal || formData.goal}
-  Público: ${formData.audience}
+  Público: ${formData.customAudience || formData.audience}
   Tópico: ${formData.topic}
   Formato Preferido: ${formData.format}
-  Estilo: ${formData.style}
+  Estilo Visual: ${formData.style}
+  
+  REGRAS:
+  1. SEMPRE retorne 'captionShort' (curta e direta) E 'captionLong' (storytelling detalhado).
+  2. Use hashtags relevantes para Pilates e Brasil.
   `;
 
   if (isPlan) {
@@ -202,12 +226,19 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
     Use gatilhos mentais adequados ao objetivo.
     Preencha 'isStory' como true e detalhe a 'storySequence'.
     `;
+  } else if (isCarousel) {
+    prompt += `
+    Crie um Carrossel Educativo de 6 Cards.
+    Preencha 'carouselCards' com exatamente 6 itens.
+    Para cada card, forneça:
+    - 'textOverlay': Texto curto para escrever na imagem.
+    - 'visualPrompt': Descrição visual DETALHADA para gerar a imagem do card com IA (inclua estilo, cores, elementos do pilates, sem texto na descrição).
+    `;
   } else {
     prompt += `
     Crie um post único completo.
-    Se o formato for Reels ou Vídeo, forneça roteiro detalhado em 'reelsOptions' (pelo menos 2 opções diferentes).
-    Se for Estático/Carrossel, foque em 'visualContent' e legendas.
-    Preencha 'isReels' como true se for vídeo.
+    Se o formato for Reels ou Vídeo, forneça roteiro detalhado em 'reelsOptions' (pelo menos 2 opções diferentes) e marque 'isReels' como true.
+    Se for Estático (Post), forneça 'visualPrompt' com uma descrição detalhada para gerar a imagem.
     `;
   }
 
