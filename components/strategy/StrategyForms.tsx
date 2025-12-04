@@ -1,8 +1,9 @@
+
 import React, { useState } from 'react';
 import { StrategicPlan } from '../../types';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
-import { Plus, Trash2, ArrowRight, ArrowLeft, Wand2, Lightbulb, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
+import { Plus, Trash2, ArrowRight, ArrowLeft, Wand2, Lightbulb, CheckCircle2, Loader2, Sparkles, Info, Calendar } from 'lucide-react';
 import { 
   generateMissionOptions, 
   generateVisionOptions, 
@@ -159,6 +160,19 @@ export const VisionStep: React.FC<StepProps> = ({ planData, updatePlanData, onNe
             placeholder="Ex: Ser referência em reabilitação na região e atingir 100 alunos ativos."
           />
         </div>
+
+        {/* VALUES - NEW FIELD */}
+        <div>
+          <label className="text-sm font-medium text-slate-700 block mb-1">Valores e Princípios</label>
+          <p className="text-xs text-slate-400 mb-2">Quais princípios guiam seu atendimento? (Ex: Empatia, Excelência Técnica)</p>
+          <textarea 
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none transition-all"
+            rows={2}
+            value={planData.values || ''}
+            onChange={(e) => updatePlanData({ values: e.target.value })}
+            placeholder="Ex: Profissionalismo, Acolhimento, Respeito ao limite do corpo..."
+          />
+        </div>
       </div>
 
       <div className="flex justify-between pt-4">
@@ -182,7 +196,6 @@ export const SwotStep: React.FC<StepProps> = ({ planData, updatePlanData, onNext
   };
 
   const addItem = (category: keyof typeof planData.swot, value: string = '') => {
-    // Se for string vazia, adiciona input vazio. Se tiver valor, adiciona o valor.
     updatePlanData({ swot: { ...planData.swot, [category]: [...planData.swot[category], value] } });
   };
 
@@ -202,7 +215,6 @@ export const SwotStep: React.FC<StepProps> = ({ planData, updatePlanData, onNext
   const addSuggestion = (text: string) => {
     if (activeSuggestions) {
       addItem(activeSuggestions, text);
-      // Opcional: remover da lista de sugestões ou fechar modal
     }
   };
 
@@ -238,7 +250,6 @@ export const SwotStep: React.FC<StepProps> = ({ planData, updatePlanData, onNext
         </button>
       </div>
 
-      {/* Suggestion Popover (simplificado) */}
       {activeSuggestions === category && (
         <div className="absolute top-10 right-0 left-0 z-10 p-4 bg-white border border-slate-200 shadow-xl rounded-xl mx-2">
           <div className="flex justify-between items-center mb-2">
@@ -270,14 +281,28 @@ export const SwotStep: React.FC<StepProps> = ({ planData, updatePlanData, onNext
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
       <div className="text-center mb-6">
         <h2 className="text-2xl font-bold text-slate-800">Análise SWOT</h2>
-        <p className="text-slate-500">Mapeie seu cenário atual. Use o botão <Lightbulb className="inline h-3 w-3"/> para ideias.</p>
+        <p className="text-slate-500">Mapeie seu cenário atual.</p>
+      </div>
+
+      {/* SWOT Explanation Block */}
+      <div className="bg-blue-50 border border-blue-100 text-blue-800 p-4 rounded-xl text-sm flex gap-3">
+        <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
+        <div>
+            <p className="font-bold mb-1">O que é SWOT?</p>
+            <ul className="list-disc pl-4 space-y-1 text-blue-700/80">
+                <li><strong>Forças (Strengths):</strong> O que seu studio faz de melhor (ex: equipe, localização).</li>
+                <li><strong>Fraquezas (Weaknesses):</strong> Onde precisa melhorar (ex: marketing, equipamentos).</li>
+                <li><strong>Oportunidades (Opportunities):</strong> Fatores externos positivos (ex: bairro crescendo).</li>
+                <li><strong>Ameaças (Threats):</strong> Fatores externos negativos (ex: novos concorrentes).</li>
+            </ul>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {renderSection('Forças', 'strengths', 'border-green-200 shadow-green-50')}
-        {renderSection('Fraquezas', 'weaknesses', 'border-red-200 shadow-red-50')}
-        {renderSection('Oportunidades', 'opportunities', 'border-blue-200 shadow-blue-50')}
-        {renderSection('Ameaças', 'threats', 'border-orange-200 shadow-orange-50')}
+        {renderSection('Forças (Interno)', 'strengths', 'border-green-200 shadow-green-50')}
+        {renderSection('Fraquezas (Interno)', 'weaknesses', 'border-red-200 shadow-red-50')}
+        {renderSection('Oportunidades (Externo)', 'opportunities', 'border-blue-200 shadow-blue-50')}
+        {renderSection('Ameaças (Externo)', 'threats', 'border-orange-200 shadow-orange-50')}
       </div>
 
       <div className="flex justify-between pt-4">
@@ -328,6 +353,12 @@ export const GoalsStep: React.FC<StepProps> = ({ planData, updatePlanData, onNex
     updatePlanData({ objectives: newObjectives });
   };
 
+  const removeKeyResult = (objIndex: number, krIndex: number) => {
+    const newObjectives = [...planData.objectives];
+    newObjectives[objIndex].keyResults = newObjectives[objIndex].keyResults.filter((_, i) => i !== krIndex);
+    updatePlanData({ objectives: newObjectives });
+  };
+
   const removeObjective = (index: number) => {
     updatePlanData({ objectives: planData.objectives.filter((_, i) => i !== index) });
   };
@@ -336,14 +367,26 @@ export const GoalsStep: React.FC<StepProps> = ({ planData, updatePlanData, onNex
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
       <div className="text-center mb-6">
         <h2 className="text-2xl font-bold text-slate-800">Objetivos Estratégicos</h2>
-        <p className="text-slate-500">O que você quer conquistar com base na sua análise?</p>
+        <p className="text-slate-500">O que você quer conquistar?</p>
+      </div>
+
+      {/* OKR Explanation Block */}
+      <div className="bg-brand-50 border border-brand-100 text-brand-800 p-4 rounded-xl text-sm flex gap-3">
+        <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
+        <div>
+            <p className="font-bold mb-1">Método OKR (Objectives and Key Results)</p>
+            <ul className="list-disc pl-4 space-y-1 text-brand-700/80">
+                <li><strong>Objetivo:</strong> ONDE eu quero chegar? (Ex: Ser referência em reabilitação).</li>
+                <li><strong>Resultados Chave (Metas):</strong> COMO eu meço se cheguei lá? Devem ser números. (Ex: Atingir 50 alunos ativos).</li>
+            </ul>
+        </div>
       </div>
       
       {/* Smart Generate Button */}
-      <div className="bg-brand-50 border border-brand-100 rounded-xl p-4 flex items-center justify-between">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-between shadow-sm">
         <div>
-          <h4 className="font-bold text-brand-800 text-sm">Assistente de Estratégia</h4>
-          <p className="text-xs text-brand-600">Gere objetivos automaticamente baseado na sua SWOT.</p>
+          <h4 className="font-bold text-slate-800 text-sm">Assistente de Estratégia</h4>
+          <p className="text-xs text-slate-500">Gere objetivos automaticamente baseado na sua SWOT.</p>
         </div>
         <Button onClick={handleSmartGenerate} disabled={isGenerating} className="shadow-sm">
            {isGenerating ? <Loader2 className="animate-spin h-4 w-4 mr-2"/> : <Sparkles className="h-4 w-4 mr-2"/>}
@@ -357,6 +400,7 @@ export const GoalsStep: React.FC<StepProps> = ({ planData, updatePlanData, onNex
             <button 
               onClick={() => removeObjective(idx)}
               className="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+              title="Remover Objetivo"
             >
               <Trash2 className="h-5 w-5" />
             </button>
@@ -372,13 +416,22 @@ export const GoalsStep: React.FC<StepProps> = ({ planData, updatePlanData, onNex
             <div className="pl-4 border-l-2 border-brand-100 space-y-2">
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Resultados Chave (Metas Mensuráveis)</label>
               {obj.keyResults.map((kr, krIdx) => (
-                <input
-                  key={krIdx}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none"
-                  value={kr}
-                  onChange={(e) => updateKeyResult(idx, krIdx, e.target.value)}
-                  placeholder="Ex: Matricular 15 novos alunos"
-                />
+                <div key={krIdx} className="flex gap-2 items-center">
+                    <input
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none"
+                    value={kr}
+                    onChange={(e) => updateKeyResult(idx, krIdx, e.target.value)}
+                    placeholder="Ex: Matricular 15 novos alunos"
+                    />
+                    <button 
+                        onClick={() => removeKeyResult(idx, krIdx)}
+                        className="text-slate-400 hover:text-red-500 p-1 flex items-center gap-1 rounded hover:bg-red-50"
+                        title="Remover Meta"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="text-[10px] font-bold md:hidden">Remover</span>
+                    </button>
+                </div>
               ))}
               <button onClick={() => addKeyResult(idx)} className="text-xs text-brand-600 font-medium hover:underline flex items-center gap-1 mt-2">
                 <Plus className="h-3 w-3" /> Adicionar Meta
@@ -465,6 +518,3 @@ export const ActionsStep: React.FC<StepProps> = ({ planData, updatePlanData, onN
     </div>
   );
 };
-
-// Helper icon needed for ActionsStep
-import { Calendar } from 'lucide-react';

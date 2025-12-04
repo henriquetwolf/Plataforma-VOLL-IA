@@ -185,7 +185,7 @@ export const Dashboard: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pl-2 md:pl-4 border-l-2 border-slate-100 dark:border-slate-800 ml-6 md:ml-8 lg:ml-8">
           <ActionCard 
             to={AppRoute.STRATEGY}
-            title={t('strategy')}
+            title={t('planning_ai')}
             desc={t('card_strategy_desc')}
             icon={Compass}
             color="bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-400"

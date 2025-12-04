@@ -35,7 +35,7 @@ const translations: Record<Language, TranslationDict> = {
     'students': 'Meus Alunos',
     'settings': 'Configurações',
     'strategy': 'Estratégia',
-    'planning_ai': 'Planejamento IA',
+    'planning_ai': 'Planejamento Estratégico',
     'pilates_rehab': 'Pilates Rehab',
     'content_agent': 'Assistente Conteúdo',
     'finance_calc': 'Calculadora Financeira',
@@ -229,7 +229,7 @@ const translations: Record<Language, TranslationDict> = {
     'admin_cost_per_user': 'Custo por Usuário',
 
     // Strategy Agent
-    'strategy_agent_title': 'Planejador Estratégico AI',
+    'strategy_agent_title': 'Planejamento Estratégico',
     'strategy_agent_desc': 'Transforme seus objetivos em um plano de ação claro e prático.',
     'create_plan': 'Criar Novo Plano',
     'view_history': 'Ver Histórico',
@@ -329,7 +329,7 @@ const translations: Record<Language, TranslationDict> = {
     'students': 'My Students',
     'settings': 'Settings',
     'strategy': 'Strategy',
-    'planning_ai': 'AI Planning',
+    'planning_ai': 'Strategic Planning',
     'pilates_rehab': 'Pilates Rehab',
     'content_agent': 'Content Assistant',
     'finance_calc': 'Financial Calc',
@@ -503,7 +503,7 @@ const translations: Record<Language, TranslationDict> = {
     'admin_avg_engagement': 'Avg Engagement',
     'admin_cost_total': 'Total Estimated Cost',
     'admin_cost_per_user': 'Cost per User',
-    'strategy_agent_title': 'AI Strategic Planner',
+    'strategy_agent_title': 'Strategic Planning',
     'strategy_agent_desc': 'Transform your goals into a clear and practical action plan.',
     'create_plan': 'Create New Plan',
     'view_history': 'View History',
@@ -585,7 +585,6 @@ const translations: Record<Language, TranslationDict> = {
     'action_plan_generated': 'Action Plan Generated',
     'trends_report': 'Trends Report',
   },
-  // ... (Other languages follow same pattern, keeping existing structure and adding keys)
   es: {
     // ... existing ES translations ...
     'surveys_title': 'Encuestas',

@@ -259,6 +259,7 @@ export interface StrategicPlan {
   planningYear: string;
   vision: string;
   mission: string;
+  values?: string; // New field
   swot: {
     strengths: string[];
     weaknesses: string[];

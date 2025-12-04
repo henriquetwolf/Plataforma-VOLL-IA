@@ -9,13 +9,14 @@ import { VisionStep, SwotStep, GoalsStep, ActionsStep } from '../components/stra
 import { GeneratedPlan } from '../components/strategy/GeneratedPlan';
 import { SavedPlansList } from '../components/strategy/SavedPlansList';
 import { Button } from '../components/ui/Button';
-import { Compass, Clock, PlayCircle, Loader2 } from 'lucide-react';
+import { Compass, Clock, PlayCircle, Loader2, Target, BarChart2, ListTodo, Flag } from 'lucide-react';
 
 const initialPlanData: StrategicPlan = {
   studioName: '',
   planningYear: new Date().getFullYear().toString(),
   vision: '',
   mission: '',
+  values: '',
   swot: {
     strengths: [''],
     weaknesses: [''],
@@ -161,14 +162,46 @@ export const StrategicPlanning: React.FC = () => {
 
   if (currentStep === StrategyStep.Welcome) {
     return (
-      <div className="max-w-3xl mx-auto text-center py-12 animate-in fade-in zoom-in-95">
+      <div className="max-w-4xl mx-auto text-center py-12 animate-in fade-in zoom-in-95">
         <div className="inline-flex items-center justify-center w-20 h-20 bg-brand-50 rounded-full mb-6">
           <Compass className="h-10 w-10 text-brand-600" />
         </div>
         <h1 className="text-4xl font-bold text-slate-900 mb-4">{t('strategy_agent_title')}</h1>
-        <p className="text-lg text-slate-500 max-w-lg mx-auto mb-10">
+        <p className="text-lg text-slate-500 max-w-2xl mx-auto mb-10">
           {t('strategy_agent_desc')}
         </p>
+
+        {/* Process Steps Summary */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-12 max-w-4xl mx-auto text-left">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><Flag className="w-5 h-5"/></div>
+                    <h3 className="font-bold text-slate-800">1. Identidade</h3>
+                </div>
+                <p className="text-sm text-slate-500">Missão, Visão e Valores para alinhar a cultura do estúdio.</p>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 bg-orange-100 text-orange-600 rounded-lg"><BarChart2 className="w-5 h-5"/></div>
+                    <h3 className="font-bold text-slate-800">2. Análise SWOT</h3>
+                </div>
+                <p className="text-sm text-slate-500">Mapeamento de forças, fraquezas, oportunidades e ameaças.</p>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 bg-green-100 text-green-600 rounded-lg"><Target className="w-5 h-5"/></div>
+                    <h3 className="font-bold text-slate-800">3. Objetivos</h3>
+                </div>
+                <p className="text-sm text-slate-500">Definição de metas claras e resultados chave (OKRs).</p>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 bg-purple-100 text-purple-600 rounded-lg"><ListTodo className="w-5 h-5"/></div>
+                    <h3 className="font-bold text-slate-800">4. Plano de Ação</h3>
+                </div>
+                <p className="text-sm text-slate-500">Cronograma trimestral prático para execução.</p>
+            </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-xl mx-auto">
           <button 
