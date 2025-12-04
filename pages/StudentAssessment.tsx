@@ -7,7 +7,7 @@ import { saveAssessment, fetchAssessments, deleteAssessment, saveAssessmentTempl
 import { Student, Instructor, StudentAssessment, AssessmentTemplate } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ClipboardList, Plus, History, Search, Trash2, Eye, FileText, Printer, Save, Layout, ArrowRight, X, ArrowLeft, CheckCircle, Activity } from 'lucide-react';
+import { ClipboardList, Plus, History, Search, Trash2, Eye, FileText, Printer, Save, Layout, ArrowRight, X, ArrowLeft, CheckCircle, Activity, Accessibility } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -145,6 +145,88 @@ const KNEE_TEMPLATE_FIELDS: CustomField[] = [
     { id: 'k_conc_str', label: 'Força (Percepção Funcional)', type: 'radio', options: ['Boa', 'Moderada', 'Fraca'], value: '' },
     { id: 'k_conc_rec', label: 'Recomendação Inicial para Pilates', type: 'checkbox', options: ['Foco em mobilidade', 'Foco em estabilidade', 'Foco em fortalecimento', 'Foco em controle motor', 'Evitar sobrecarga em flexão profunda'], value: [] },
     { id: 'k_final_obs', label: 'Observações Finais', type: 'long_text', value: '' }
+];
+
+// --- SPECIALIZED HIP TEMPLATE ---
+const HIP_TEMPLATE_FIELDS: CustomField[] = [
+  // 1. Queixa
+  { id: 'h1', label: '--- 1. QUEIXA RELACIONADA AO QUADRIL ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'h_side', label: 'Lado acometido', type: 'radio', options: ['Direito', 'Esquerdo', 'Bilateral', 'Sem queixa no quadril'], value: '' },
+  { id: 'h_loc', label: 'Região predominante da dor', type: 'radio', options: ['Anterior / virilha (intra-articular)', 'Lateral / região do trocânter maior', 'Posterior / glútea', 'Lombar com irradiação', 'Sem dor'], value: '' },
+  { id: 'h_pain_type', label: 'Tipo de dor (se houver)', type: 'text', value: '' },
+  { id: 'h_pain_int', label: 'Intensidade da dor (0-10)', type: 'select', options: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'], value: '' },
+
+  // 2. Inspeção
+  { id: 'h2', label: '--- 2. INSPEÇÃO / MARCHA / CONTROLE PÉLVICO ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'h_gait', label: 'Marcha', type: 'radio', options: ['Normal', 'Antálgica (manquejando)', 'Claudicante', 'Compensações visíveis'], value: '' },
+  { id: 'h_gait_obs', label: 'Observações Marcha', type: 'text', value: '' },
+  { id: 'h_pelvis', label: 'Comportamento da pelve ao caminhar / ficar em pé', type: 'radio', options: ['Estável', 'Queda pélvica contra-lateral', 'Inclinação exagerada de tronco'], value: '' },
+
+  // 3. Trendelenburg
+  { id: 'h3', label: '--- 3. TESTE DE TRENDELENBURG ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'h_trend_r', label: 'Quadril DIREITO em apoio', type: 'radio', options: ['Negativo (pelve estável)', 'Positivo (queda pelve esq / compensação)'], value: '' },
+  { id: 'h_trend_l', label: 'Quadril ESQUERDO em apoio', type: 'radio', options: ['Negativo (pelve estável)', 'Positivo (queda pelve dir / compensação)'], value: '' },
+
+  // 4. ADM
+  { id: 'h4', label: '--- 4. AMPLITUDE DE MOVIMENTO (ADM) ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'h_rom_flex_r', label: 'Flexão Direito', type: 'radio', options: ['Normal', 'Reduzida', 'Dolorosa'], value: '' },
+  { id: 'h_rom_flex_l', label: 'Flexão Esquerdo', type: 'radio', options: ['Normal', 'Reduzida', 'Dolorosa'], value: '' },
+  { id: 'h_rom_ext_r', label: 'Extensão Direito', type: 'radio', options: ['Normal', 'Reduzida', 'Dolorosa'], value: '' },
+  { id: 'h_rom_ext_l', label: 'Extensão Esquerdo', type: 'radio', options: ['Normal', 'Reduzida', 'Dolorosa'], value: '' },
+  { id: 'h_rom_abd_r', label: 'Abdução Direito', type: 'radio', options: ['Normal', 'Reduzida', 'Dolorosa'], value: '' },
+  { id: 'h_rom_abd_l', label: 'Abdução Esquerdo', type: 'radio', options: ['Normal', 'Reduzida', 'Dolorosa'], value: '' },
+  { id: 'h_rom_add_r', label: 'Adução Direito', type: 'radio', options: ['Normal', 'Reduzida', 'Dolorosa'], value: '' },
+  { id: 'h_rom_add_l', label: 'Adução Esquerdo', type: 'radio', options: ['Normal', 'Reduzida', 'Dolorosa'], value: '' },
+  { id: 'h_rom_rot_int_r', label: 'Rot. Interna Direito', type: 'radio', options: ['Normal', 'Reduzida', 'Dolorosa'], value: '' },
+  { id: 'h_rom_rot_int_l', label: 'Rot. Interna Esquerdo', type: 'radio', options: ['Normal', 'Reduzida', 'Dolorosa'], value: '' },
+  { id: 'h_rom_rot_ext_r', label: 'Rot. Externa Direito', type: 'radio', options: ['Normal', 'Reduzida', 'Dolorosa'], value: '' },
+  { id: 'h_rom_rot_ext_l', label: 'Rot. Externa Esquerdo', type: 'radio', options: ['Normal', 'Reduzida', 'Dolorosa'], value: '' },
+  { id: 'h_rom_obs', label: 'Observações ADM', type: 'long_text', value: '' },
+
+  // 5. Encurtamento
+  { id: 'h5', label: '--- 5. TESTES DE ENCURTAMENTO ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'h_thomas_r', label: 'Thomas (Flexores) - Direito', type: 'radio', options: ['Normal', 'Encurtado', 'Dor'], value: '' },
+  { id: 'h_thomas_l', label: 'Thomas (Flexores) - Esquerdo', type: 'radio', options: ['Normal', 'Encurtado', 'Dor'], value: '' },
+  { id: 'h_ely_r', label: 'Ely (Reto Femoral) - Direito', type: 'radio', options: ['Normal', 'Encurtado', 'Dor'], value: '' },
+  { id: 'h_ely_l', label: 'Ely (Reto Femoral) - Esquerdo', type: 'radio', options: ['Normal', 'Encurtado', 'Dor'], value: '' },
+  { id: 'h_ober_r', label: 'Ober (Trato Iliotibial) - Direito', type: 'radio', options: ['Negativo (cede)', 'Positivo (alto/encurtado)'], value: '' },
+  { id: 'h_ober_l', label: 'Ober (Trato Iliotibial) - Esquerdo', type: 'radio', options: ['Negativo (cede)', 'Positivo (alto/encurtado)'], value: '' },
+
+  // 6. Trocantérica
+  { id: 'h6', label: '--- 6. REGIÃO TROCANTÉRICA ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'h_palp_r', label: 'Palpação Trocânter - Direito', type: 'radio', options: ['Sem dor', 'Dor localizada', 'Hipersensível'], value: '' },
+  { id: 'h_palp_l', label: 'Palpação Trocânter - Esquerdo', type: 'radio', options: ['Sem dor', 'Dor localizada', 'Hipersensível'], value: '' },
+  { id: 'h_derot_r', label: 'Derotation Test - Direito', type: 'radio', options: ['Não realizado', 'Negativo', 'Positivo (dor lateral)'], value: '' },
+  { id: 'h_derot_l', label: 'Derotation Test - Esquerdo', type: 'radio', options: ['Não realizado', 'Negativo', 'Positivo (dor lateral)'], value: '' },
+
+  // 7. Adutores
+  { id: 'h7', label: '--- 7. ADUTORES / PÚBIS ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'h_squeeze', label: 'Squeeze Test (Contração resistida)', type: 'radio', options: ['Não realizado', 'Negativo (sem dor)', 'Positivo (Dor virilha)', 'Positivo (Dor adutores)', 'Positivo (Dor sínfise)'], value: '' },
+
+  // 8. Intra-articular
+  { id: 'h8', label: '--- 8. TESTES INTRA-ARTICULARES ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'h_faber_mob', label: 'FABER - Mobilidade', type: 'radio', options: ['Simétrica', 'Assimétrica / Joelho alto'], value: '' },
+  { id: 'h_faber_pain', label: 'FABER - Dor', type: 'radio', options: ['Sem dor', 'Dor na virilha (intra)', 'Dor sacroilíaca (post)'], value: '' },
+  { id: 'h_fadir', label: 'FADIR (Impacto Femoroacetabular)', type: 'radio', options: ['Não realizado', 'Negativo', 'Positivo (dor na virilha)'], value: '' },
+  { id: 'h_drehmann', label: 'Sinal de Drehmann', type: 'radio', options: ['Não observado', 'Positivo (rot. ext. precoce na flexão)'], value: '' },
+
+  // 9. Piriforme
+  { id: 'h9', label: '--- 9. PIRIFORME / DOR GLÚTEA ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'h_piri', label: 'Teste ativo de piriforme', type: 'radio', options: ['Não realizado', 'Negativo', 'Positivo (Dor glútea)', 'Positivo (Dor irradiada/ciático)'], value: '' },
+
+  // 10. Sacro-ilíaca
+  { id: 'h10', label: '--- 10. SACRO-ILÍACA (OPCIONAL) ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'h_sij_palp', label: 'Palpação SIJ', type: 'radio', options: ['Sem dor', 'Dor unilat. dir', 'Dor unilat. esq', 'Dor bilateral'], value: '' },
+  { id: 'h_gaenslen', label: 'Gaenslen', type: 'radio', options: ['Não realizado', 'Negativo', 'Positivo (dor sacroilíaca)'], value: '' },
+
+  // 11. Conclusão
+  { id: 'h11', label: '--- 11. SÍNTESE FUNCIONAL ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'h_conc_stab', label: 'Estabilidade', type: 'radio', options: ['Boa', 'Moderada', 'Instável'], value: '' },
+  { id: 'h_conc_mob', label: 'Mobilidade', type: 'radio', options: ['Boa', 'Reduzida', 'Assimétrica'], value: '' },
+  { id: 'h_conc_str', label: 'Força percebida', type: 'radio', options: ['Boa', 'Moderada', 'Fraca'], value: '' },
+  { id: 'h_conc_pain', label: 'Dor ao movimento funcional (agachar, subir degrau)', type: 'radio', options: ['Não', 'Sim'], value: '' },
+  { id: 'h_conc_rec', label: 'Recomendação para Pilates', type: 'checkbox', options: ['Mobilidade de quadril', 'Estabilização pélvica/abdutores', 'Foco em flexores', 'Foco em adutores/pubalgia', 'Evitar amplitudes extremas'], value: [] },
+  { id: 'h_final_obs', label: 'Observações Finais', type: 'long_text', value: '' }
 ];
 
 // --- COMPONENTS DEFINED OUTSIDE TO PREVENT RE-RENDER FOCUS LOSS ---
@@ -511,6 +593,22 @@ export const StudentAssessmentPage: React.FC = () => {
                                 </div>
                                 <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Modelo Joelho (Especializado)</h3>
                                 <p className="text-sm text-slate-500 text-center">Protocolo completo para joelho: menisco, ligamentos e funcional.</p>
+                            </button>
+
+                            {/* HIP SPECIALIZED MODEL (HARDCODED) */}
+                            <button 
+                                onClick={() => { 
+                                    initCustomForm(selectedStudent, 'Avaliação de Quadril', HIP_TEMPLATE_FIELDS); 
+                                    setFormMode('custom'); 
+                                }}
+                                className="relative bg-white dark:bg-slate-900 p-6 rounded-xl border-2 border-orange-100 dark:border-orange-900/30 hover:border-orange-500 hover:shadow-lg transition-all text-left group flex flex-col items-center justify-center min-h-[200px]"
+                            >
+                                <div className="absolute top-4 right-4 text-orange-600 opacity-0 group-hover:opacity-100 transition-opacity"><ArrowRight className="w-5 h-5"/></div>
+                                <div className="bg-orange-50 dark:bg-orange-900/20 w-16 h-16 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                    <Accessibility className="w-8 h-8 text-orange-600" />
+                                </div>
+                                <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Modelo Quadril (Especializado)</h3>
+                                <p className="text-sm text-slate-500 text-center">Avaliação completa para quadril: queixas, testes ortopédicos e função.</p>
                             </button>
 
                             {/* Custom Templates Cards */}
