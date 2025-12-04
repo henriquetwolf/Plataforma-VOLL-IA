@@ -5,7 +5,8 @@ import {
   PathologyResponse, LessonPlanResponse, LessonExercise, ChatMessage, 
   TriageStep, TriageStatus, RecipeResponse, WorkoutResponse, Suggestion, 
   NewsletterAudience, ContentRequest, StudioPersona, ClassEvaluation,
-  StudioInfo, StudentEvolution, TreatmentPlanResponse, WhatsAppScriptRequest
+  StudioInfo, StudentEvolution, TreatmentPlanResponse, WhatsAppScriptRequest,
+  ActionInput, ActionIdea
 } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -760,5 +761,79 @@ export const generateWhatsAppScript = async (
   } catch (e) {
     console.error("WhatsApp Script Error:", e);
     return "Erro ao gerar mensagem. Tente novamente.";
+  }
+};
+
+// --- ACTION AGENT GENERATORS ---
+
+export const generateActionIdeas = async (input: ActionInput): Promise<ActionIdea[]> => {
+  const prompt = `
+  Atue como um Especialista em Marketing para Studios de Pilates.
+  O dono do studio quer criar uma ação de marketing/evento.
+  
+  DADOS:
+  - Tema/Evento: ${input.theme}
+  - Objetivo Principal: ${input.objective}
+  - Nº de Alunos Atuais: ${input.studentCount}
+  - Tem Orçamento?: ${input.hasBudget ? 'Sim' : 'Não'}
+  ${input.hasBudget ? `- Investimento por Aluno: R$ ${input.budgetPerStudent}` : ''}
+  
+  Gere 3 ideias criativas e distintas para esta ação.
+  Para cada ideia, forneça um título, um resumo curto e o nível de esforço estimado.
+  
+  Retorne JSON:
+  [
+    { "id": "1", "title": "Título Criativo", "summary": "Resumo da ideia em 2 frases.", "effort": "Baixo" },
+    { "id": "2", "title": "Título Criativo", "summary": "Resumo da ideia em 2 frases.", "effort": "Médio" },
+    { "id": "3", "title": "Título Criativo", "summary": "Resumo da ideia em 2 frases.", "effort": "Alto" }
+  ]
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: { responseMimeType: 'application/json' }
+    });
+    return cleanAndParseJSON(response.text || '[]') || [];
+  } catch (e) {
+    console.error("Action Ideas Error:", e);
+    return [];
+  }
+};
+
+export const generateActionPlanDetail = async (idea: ActionIdea, input: ActionInput): Promise<string> => {
+  const prompt = `
+  Atue como um Gerente de Projetos e Marketing para Pilates.
+  Desenvolva um Plano de Ação detalhado para a ideia selecionada.
+  
+  CONTEXTO:
+  - Ideia Escolhida: ${idea.title} - ${idea.summary}
+  - Tema: ${input.theme}
+  - Objetivo: ${input.objective}
+  - Público: ${input.studentCount} alunos
+  - Orçamento: ${input.hasBudget ? `R$ ${input.budgetPerStudent} por aluno` : 'Sem investimento financeiro (Orgânico)'}
+  
+  Gere um relatório HTML profissional e bonito.
+  
+  FORMATO HTML OBRIGATÓRIO:
+  - <h2> para Títulos de Seção (ex: Visão Geral, Cronograma, Canais de Divulgação, Custos, Passo a Passo).
+  - Use <ul> e <li> para listas de tarefas.
+  - Crie uma TABELA HTML (<table>) para o Cronograma Sugerido (Semana/Dia | Ação).
+  - Se houver orçamento, crie uma tabela de estimativa de custos.
+  - Adicione uma seção de "Métricas de Sucesso" (KPIs) para monitorar.
+  - Tom motivador e prático.
+  - NÃO use blocos markdown.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+    return cleanHtmlOutput(response.text || '');
+  } catch (e) {
+    console.error("Action Plan Error:", e);
+    return "<p>Erro ao gerar plano. Tente novamente.</p>";
   }
 };

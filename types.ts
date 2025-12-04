@@ -166,6 +166,9 @@ export enum AppRoute {
   
   // Novo Agente WhatsApp
   WHATSAPP_AGENT = '/whatsapp-agent',
+  
+  // Novo Agente de Ação
+  ACTION_AGENT = '/action-agent',
 
   ROOT = '/'
 }
@@ -678,6 +681,33 @@ export interface SavedWhatsAppScript {
   title: string;
   content: string;
   category: string;
+  createdAt: string;
+}
+
+// --- Action Agent Types ---
+
+export interface ActionInput {
+  theme: string;
+  objective: string;
+  studentCount: number;
+  hasBudget: boolean;
+  budgetPerStudent?: number;
+}
+
+export interface ActionIdea {
+  id: string;
+  title: string;
+  summary: string;
+  effort: 'Baixo' | 'Médio' | 'Alto';
+}
+
+export interface SavedActionPlan {
+  id: string;
+  studioId: string;
+  title: string;
+  theme: string;
+  content: string; // HTML report
+  inputs: ActionInput;
   createdAt: string;
 }
 
