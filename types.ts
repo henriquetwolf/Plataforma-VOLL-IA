@@ -162,6 +162,9 @@ export enum AppRoute {
   
   // Novo Agente de Conteúdo
   CONTENT_AGENT = '/content-agent',
+  
+  // Novo Agente WhatsApp
+  WHATSAPP_AGENT = '/whatsapp-agent',
 
   ROOT = '/'
 }
@@ -631,6 +634,25 @@ export interface StrategicContentPlan {
             generatedPostId?: string; // Links to SavedPost ID
         }[];
     }[];
+}
+
+// --- WhatsApp Agent Types ---
+
+export interface WhatsAppScriptRequest {
+  objective: string;
+  clientName?: string;
+  productService?: string;
+  tone: string;
+  context?: string;
+}
+
+export interface SavedWhatsAppScript {
+  id: string;
+  studioId: string;
+  title: string;
+  content: string;
+  category: string;
+  createdAt: string;
 }
 
 // --- Class Evaluation Types ---

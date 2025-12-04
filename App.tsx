@@ -24,15 +24,16 @@ import { StudentWorkout } from './pages/student/StudentWorkout';
 import { StudentSuggestions } from './pages/student/StudentSuggestions';
 import { StudentNewsletters } from './pages/student/StudentNewsletters';
 import { StudentEvaluation } from './pages/student/StudentEvaluation';
-import { StudentSurveys } from './pages/student/StudentSurveys'; // Added
+import { StudentSurveys } from './pages/student/StudentSurveys'; 
 import { InstructorNewsletters } from './pages/instructor/InstructorNewsletters';
 import { InstructorDashboard } from './pages/instructor/InstructorDashboard';
-import { InstructorSurveys } from './pages/instructor/InstructorSurveys'; // Added
+import { InstructorSurveys } from './pages/instructor/InstructorSurveys'; 
 import { NewsletterAgent } from './pages/NewsletterAgent';
 import { StudioSuggestions } from './pages/StudioSuggestions';
 import { StudioEvaluations } from './pages/StudioEvaluations';
-import { SurveyManager } from './pages/SurveyManager'; // Added
+import { SurveyManager } from './pages/SurveyManager'; 
 import { ContentAgent } from './pages/ContentAgent'; 
+import { WhatsAppAgent } from './pages/WhatsAppAgent';
 import { StudentEvolutionPage } from './pages/StudentEvolution';
 import { AppRoute } from './types';
 
@@ -133,9 +134,10 @@ const AppRoutes = () => {
       <Route path={AppRoute.STUDIO_SUGGESTIONS} element={<OwnerRoute><StudioSuggestions /></OwnerRoute>} />
       <Route path={AppRoute.STUDIO_EVALUATIONS} element={<OwnerRoute><StudioEvaluations /></OwnerRoute>} />
       <Route path={AppRoute.CONTENT_AGENT} element={<OwnerRoute><ContentAgent /></OwnerRoute>} />
+      <Route path={AppRoute.WHATSAPP_AGENT} element={<OwnerRoute><WhatsAppAgent /></OwnerRoute>} />
       <Route path={AppRoute.SETTINGS} element={<OwnerRoute><Settings /></OwnerRoute>} />
       <Route path={AppRoute.NEWSLETTER_AGENT} element={<OwnerRoute><NewsletterAgent /></OwnerRoute>} />
-      <Route path={AppRoute.SURVEY_MANAGER} element={<OwnerRoute><SurveyManager /></OwnerRoute>} /> {/* Added */}
+      <Route path={AppRoute.SURVEY_MANAGER} element={<OwnerRoute><SurveyManager /></OwnerRoute>} /> 
       
       {/* Rotas Compartilhadas (Dono e Instrutor) */}
       <Route path={AppRoute.STUDENTS} element={<SharedRoute><Students /></SharedRoute>} />
@@ -145,7 +147,7 @@ const AppRoutes = () => {
       {/* Rotas Exclusivas do Instrutor */}
       <Route path={AppRoute.INSTRUCTOR_DASHBOARD} element={<InstructorRoute><InstructorDashboard /></InstructorRoute>} />
       <Route path={AppRoute.INSTRUCTOR_NEWSLETTERS} element={<InstructorRoute><InstructorNewsletters /></InstructorRoute>} />
-      <Route path={AppRoute.INSTRUCTOR_SURVEYS} element={<InstructorRoute><InstructorSurveys /></InstructorRoute>} /> {/* Added */}
+      <Route path={AppRoute.INSTRUCTOR_SURVEYS} element={<InstructorRoute><InstructorSurveys /></InstructorRoute>} /> 
       
       {/* Rotas do Aluno */}
       <Route path={AppRoute.STUDENT_DASHBOARD} element={<StudentRoute><StudentDashboard /></StudentRoute>} />
@@ -154,7 +156,7 @@ const AppRoutes = () => {
       <Route path={AppRoute.STUDENT_SUGGESTIONS} element={<StudentRoute><StudentSuggestions /></StudentRoute>} />
       <Route path={AppRoute.STUDENT_NEWSLETTERS} element={<StudentRoute><StudentNewsletters /></StudentRoute>} />
       <Route path={AppRoute.STUDENT_EVALUATION} element={<StudentRoute><StudentEvaluation /></StudentRoute>} />
-      <Route path={AppRoute.STUDENT_SURVEYS} element={<StudentRoute><StudentSurveys /></StudentRoute>} /> {/* Added */}
+      <Route path={AppRoute.STUDENT_SURVEYS} element={<StudentRoute><StudentSurveys /></StudentRoute>} /> 
 
       <Route path={AppRoute.ADMIN} element={<AdminRoute><AdminPanel /></AdminRoute>} />
       

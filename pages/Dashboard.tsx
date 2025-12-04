@@ -7,7 +7,7 @@ import { AppRoute, StudioProfile } from '../types';
 import { 
   Users, Sparkles, Compass, ArrowRight, Building2, Calculator, 
   Banknote, Activity, MessageSquare, Newspaper, Wand2, Star, 
-  BookUser, TrendingUp, CheckCircle2, Layers, LineChart, ClipboardList, User
+  BookUser, TrendingUp, CheckCircle2, Layers, LineChart, ClipboardList, User, MessageCircle
 } from 'lucide-react';
 import { fetchProfile } from '../services/storage';
 
@@ -192,18 +192,26 @@ export const Dashboard: React.FC = () => {
             isAi
           />
           <ActionCard 
-            to={AppRoute.REHAB}
-            title="Guia Clínico"
-            desc={t('card_rehab_desc')}
-            icon={Activity}
-            color="bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-400"
-            isAi
-          />
-          <ActionCard 
             to={AppRoute.CONTENT_AGENT}
             title={t('content_agent')}
             desc={t('card_content_desc')}
             icon={Wand2}
+            color="bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-400"
+            isAi
+          />
+          <ActionCard 
+            to={AppRoute.WHATSAPP_AGENT}
+            title="Assistente WhatsApp"
+            desc="Crie scripts de vendas e atendimento prontos para usar."
+            icon={MessageCircle}
+            color="bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400"
+            isAi
+          />
+          <ActionCard 
+            to={AppRoute.REHAB}
+            title="Guia Clínico"
+            desc={t('card_rehab_desc')}
+            icon={Activity}
             color="bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-400"
             isAi
           />

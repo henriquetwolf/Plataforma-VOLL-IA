@@ -5,7 +5,7 @@ import {
   PathologyResponse, LessonPlanResponse, LessonExercise, ChatMessage, 
   TriageStep, TriageStatus, RecipeResponse, WorkoutResponse, Suggestion, 
   NewsletterAudience, ContentRequest, StudioPersona, ClassEvaluation,
-  StudioInfo, StudentEvolution, TreatmentPlanResponse
+  StudioInfo, StudentEvolution, TreatmentPlanResponse, WhatsAppScriptRequest
 } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -724,5 +724,41 @@ export const generateEvolutionReport = async (
   } catch (e) {
     console.error("Evolution Report Error:", e);
     return `<p>Erro ao gerar relatório: ${handleGeminiError(e)}</p>`;
+  }
+};
+
+// --- WhatsApp Script Generator ---
+
+export const generateWhatsAppScript = async (
+  request: WhatsAppScriptRequest
+): Promise<string> => {
+  const prompt = `
+  Atue como Especialista em Vendas por WhatsApp para um Studio de Pilates.
+  Crie um roteiro de abordagem curto, persuasivo e natural.
+  
+  CONTEXTO:
+  - Objetivo: ${request.objective}
+  - Nome do Cliente: ${request.clientName || 'Cliente'}
+  - Produto/Serviço: ${request.productService || 'Aulas de Pilates'}
+  - Tom de Voz: ${request.tone}
+  - Detalhes Extras: ${request.context || ''}
+  
+  REGRAS:
+  1. Use quebras de linha para facilitar a leitura no celular.
+  2. Use emojis moderadamente para manter o tom amigável.
+  3. Termine sempre com uma Pergunta Aberta (CTA) para incentivar resposta.
+  4. Não seja robótico. Pareça uma pessoa real conversando.
+  5. Retorne APENAS o texto da mensagem, sem explicações extras.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+    return response.text?.trim() || '';
+  } catch (e) {
+    console.error("WhatsApp Script Error:", e);
+    return "Erro ao gerar mensagem. Tente novamente.";
   }
 };
