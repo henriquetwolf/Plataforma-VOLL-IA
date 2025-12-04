@@ -7,7 +7,7 @@ import { saveAssessment, fetchAssessments, deleteAssessment, saveAssessmentTempl
 import { Student, Instructor, StudentAssessment, AssessmentTemplate } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ClipboardList, Plus, History, Search, Trash2, Eye, FileText, Printer, Save, Layout, ArrowRight, X, ArrowLeft, CheckCircle, Activity, Accessibility } from 'lucide-react';
+import { ClipboardList, Plus, History, Search, Trash2, Eye, FileText, Printer, Save, Layout, ArrowRight, X, ArrowLeft, CheckCircle, Activity, Accessibility, AlignJustify, UserCheck } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -227,6 +227,118 @@ const HIP_TEMPLATE_FIELDS: CustomField[] = [
   { id: 'h_conc_pain', label: 'Dor ao movimento funcional (agachar, subir degrau)', type: 'radio', options: ['Não', 'Sim'], value: '' },
   { id: 'h_conc_rec', label: 'Recomendação para Pilates', type: 'checkbox', options: ['Mobilidade de quadril', 'Estabilização pélvica/abdutores', 'Foco em flexores', 'Foco em adutores/pubalgia', 'Evitar amplitudes extremas'], value: [] },
   { id: 'h_final_obs', label: 'Observações Finais', type: 'long_text', value: '' }
+];
+
+// --- SPECIALIZED SPINE TEMPLATE ---
+const SPINE_TEMPLATE_FIELDS: CustomField[] = [
+  // 1. Região
+  { id: 's1', label: '--- 1. REGIÃO AVALIADA ---', type: 'text', value: 'Seção', options: [] },
+  { id: 's_region', label: 'Região Principal', type: 'checkbox', options: ['Cervical', 'Torácica', 'Lombar', 'Sacroilíaca', 'Múltiplas'], value: [] },
+
+  // 2. Dor
+  { id: 's2', label: '--- 2. LOCALIZAÇÃO E DOR ---', type: 'text', value: 'Seção', options: [] },
+  { id: 's_pain_loc', label: 'Localização Específica', type: 'checkbox', options: ['Cervical Anterior', 'Cervical Posterior', 'Trapézio/Ombro', 'Torácica', 'Lombar Central', 'Lombar Direita', 'Lombar Esquerda'], value: [] },
+  { id: 's_pain_irr', label: 'Irradiação', type: 'radio', options: ['Não', 'MMSS (Braços)', 'MMII (Pernas) - Direita', 'MMII (Pernas) - Esquerda', 'MMII - Bilateral'], value: '' },
+  { id: 's_irr_area', label: 'Região de Irradiação', type: 'checkbox', options: ['Glútea', 'Posterior Coxa', 'Lateral Coxa', 'Panturrilha', 'Pé/Dedos'], value: [] },
+  { id: 's_pain_scale', label: 'Escala de Dor (0-10)', type: 'select', options: ['0','1','2','3','4','5','6','7','8','9','10'], value: '' },
+
+  // 3. Fatores
+  { id: 's3', label: '--- 3. FATORES AGRAVANTES / ALIVIANTES ---', type: 'text', value: 'Seção', options: [] },
+  { id: 's_worse', label: 'Piora com', type: 'checkbox', options: ['Flexão', 'Extensão', 'Rotação', 'Sentado', 'Em pé', 'Caminhada', 'Impacto', 'Ao acordar'], value: [] },
+  { id: 's_better', label: 'Melhora com', type: 'checkbox', options: ['Repouso', 'Calor', 'Movimento leve', 'Alongamento', 'Analgesia', 'Deitado'], value: '' },
+
+  // 4. Testes Funcionais
+  { id: 's4', label: '--- 4. TESTES FUNCIONAIS / ORTOPÉDICOS ---', type: 'text', value: 'Seção', options: [] },
+  
+  // Lombar
+  { id: 's_test_lasegue', label: 'Lasegue (Lombar/Ciático)', type: 'radio', options: ['Negativo', 'Positivo (30-70 graus)'], value: '' },
+  { id: 's_test_bragard', label: 'Bragard (Confirmação Lasegue)', type: 'radio', options: ['Negativo', 'Positivo'], value: '' },
+  { id: 's_test_slump', label: 'Slump Test (Tensão Neural)', type: 'radio', options: ['Negativo', 'Positivo'], value: '' },
+  { id: 's_test_instab', label: 'Instabilidade Segmentar (Prone)', type: 'radio', options: ['Negativo', 'Positivo (dor some com ativação)'], value: '' },
+  { id: 's_test_valsalva', label: 'Valsalva (Aumento pressão)', type: 'radio', options: ['Negativo', 'Positivo (dor/irradiação)'], value: '' },
+
+  // Torácica
+  { id: 's_thor_mob', label: 'Mobilidade Torácica', type: 'radio', options: ['Normal', 'Rígida/Bloco', 'Dor ao movimento'], value: '' },
+  { id: 's_test_adams', label: 'Adams (Escoliose)', type: 'radio', options: ['Sem gibosidade', 'Gibosidade Direita', 'Gibosidade Esquerda'], value: '' },
+
+  // Cervical
+  { id: 's_test_spurling', label: 'Spurling (Compressão Foraminal)', type: 'radio', options: ['Negativo', 'Positivo (Irradiação)'], value: '' },
+  { id: 's_test_distrac', label: 'Distração Cervical', type: 'radio', options: ['Sem alteração', 'Alívio da dor (Positivo)', 'Piora'], value: '' },
+  { id: 's_test_tos', label: 'Desfiladeiro Torácico (Adson/Roos)', type: 'radio', options: ['Negativo', 'Positivo'], value: '' },
+
+  // 5. Mobilidade
+  { id: 's5', label: '--- 5. ANÁLISE DE MOBILIDADE ATIVA ---', type: 'text', value: 'Seção', options: [] },
+  { id: 's_mob_flex', label: 'Flexão Lombar (Dedos ao chão)', type: 'radio', options: ['Toca o chão', 'Tornozelos', 'Joelhos', 'Limitado (Coxa)'], value: '' },
+  { id: 's_mob_ext', label: 'Extensão Global', type: 'radio', options: ['Normal', 'Limitada', 'Dolorosa'], value: '' },
+  { id: 's_mob_rot', label: 'Rotação de Tronco', type: 'radio', options: ['Simétrica', 'Limitada Dir', 'Limitada Esq'], value: '' },
+  { id: 's_mob_cerv', label: 'Mobilidade Cervical', type: 'checkbox', options: ['Livre', 'Limitada Flex/Ext', 'Limitada Rotação', 'Dor final de ADM'], value: [] },
+
+  // 6. Força
+  { id: 's6', label: '--- 6. CONTROLE MOTOR / FORÇA (0-5) ---', type: 'text', value: 'Seção', options: [] },
+  { id: 's_str_core', label: 'Estabilidade Core/Abdominal', type: 'text', value: '' },
+  { id: 's_str_ext', label: 'Extensores da Coluna', type: 'text', value: '' },
+  { id: 's_str_glute', label: 'Glúteos', type: 'text', value: '' },
+  
+  // 7. Conclusão
+  { id: 's7', label: '--- 7. CONCLUSÃO E PLANO ---', type: 'text', value: 'Seção', options: [] },
+  { id: 's_goals_student', label: 'Objetivos do Aluno', type: 'long_text', value: '' },
+  { id: 's_goals_instructor', label: 'Objetivos do Instrutor (Plano)', type: 'long_text', value: '' },
+  { id: 's_certainty', label: 'Grau de Certeza', type: 'radio', options: ['100% Seguro', 'Acho que acertei', 'Inseguro'], value: '' },
+  { id: 's_obs', label: 'Observações Finais', type: 'long_text', value: '' }
+];
+
+// --- SPECIALIZED SHOULDER TEMPLATE ---
+const SHOULDER_TEMPLATE_FIELDS: CustomField[] = [
+  // 1. Inspeção
+  { id: 'sh1', label: '--- 1. INSPEÇÃO (Estática e Dinâmica) ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'sh_static', label: 'Inspeção Estática (Simetria, Atrofias, Cicatrizes)', type: 'long_text', value: '' },
+  { id: 'sh_dyn_elev', label: 'Elevação do Braço (ADM)', type: 'radio', options: ['Completa (180°)', 'Limitada (90-160°)', 'Muito Limitada (<90°)', 'Arco doloroso'], value: '' },
+  { id: 'sh_scap_rhythm', label: 'Ritmo Escápulo-Umeral', type: 'radio', options: ['Normal', 'Discinesia (borda medial)', 'Discinesia (ângulo inferior)', 'Hiking (elevação trapézio)'], value: '' },
+
+  // 2. Palpação
+  { id: 'sh2', label: '--- 2. PALPAÇÃO (Pontos Dolorosos) ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'sh_palp_bone', label: 'Estruturas Ósseas/Articulares', type: 'checkbox', options: ['AC (Acrômio-Clavicular)', 'Esterno-Clavicular', 'Acrômio', 'Tubérculo Maior', 'Processo Coracoide', 'Espinha da Escápula'], value: [] },
+  { id: 'sh_palp_musc', label: 'Musculatura / Tendões', type: 'checkbox', options: ['Trapézio Superior', 'Levantador da Escápula', 'Supraespinhal', 'Infraespinhal', 'Bíceps (Sulco)', 'Peitoral Menor', 'Romboides'], value: [] },
+
+  // 3. ADM Funcional
+  { id: 'sh3', label: '--- 3. ADM E FUNÇÃO (Mão nas Costas/Nuca) ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'sh_apple_nuca', label: 'Mão na Nuca (Abd + Rot Ext)', type: 'radio', options: ['Normal', 'Limitado', 'Dor'], value: '' },
+  { id: 'sh_apple_costas', label: 'Mão nas Costas (Add + Rot Int)', type: 'radio', options: ['T12-L1 (Normal)', 'L2-L5', 'Glúteo', 'Dor'], value: '' },
+  { id: 'sh_reach', label: 'Alcance Funcional', type: 'checkbox', options: ['Alcança objeto alto', 'Penteia cabelo', 'Coloca sutiã/carteira', 'Dorme sobre o ombro'], value: [] },
+
+  // 4. Testes Especiais
+  { id: 'sh4', label: '--- 4. TESTES ESPECIAIS (Ortopédicos) ---', type: 'text', value: 'Seção', options: [] },
+  
+  // Impacto
+  { id: 'sh_imp_neer', label: 'Neer (Impacto)', type: 'radio', options: ['Negativo', 'Positivo (Dor anterior)'], value: '' },
+  { id: 'sh_imp_hawkins', label: 'Hawkins-Kennedy (Impacto)', type: 'radio', options: ['Negativo', 'Positivo'], value: '' },
+  { id: 'sh_imp_yocum', label: 'Yocum', type: 'radio', options: ['Negativo', 'Positivo'], value: '' },
+
+  // Manguito
+  { id: 'sh_rc_jobe', label: 'Jobe / Empty Can (Supraespinhal)', type: 'radio', options: ['Forte/Sem dor', 'Dor', 'Fraqueza (Queda do braço)'], value: '' },
+  { id: 'sh_rc_patte', label: 'Patte / Rot. Ext (Infraespinhal)', type: 'radio', options: ['Forte', 'Fraco/Dor'], value: '' },
+  { id: 'sh_rc_gerber', label: 'Gerber / Lift-off (Subescapular)', type: 'radio', options: ['Consegue afastar', 'Não consegue/Dor'], value: '' },
+  { id: 'sh_rc_drop', label: 'Drop Arm (Rotura Massiva)', type: 'radio', options: ['Negativo', 'Positivo (Braço cai)'], value: '' },
+
+  // Bíceps
+  { id: 'sh_bic_speed', label: 'Speed Test (Bíceps)', type: 'radio', options: ['Negativo', 'Positivo (Dor sulco)'], value: '' },
+  { id: 'sh_bic_yerg', label: 'Yergason (Bíceps/Instab)', type: 'radio', options: ['Negativo', 'Positivo'], value: '' },
+
+  // AC e Instabilidade
+  { id: 'sh_ac_cross', label: 'Cross-body (Acrômio-Clavicular)', type: 'radio', options: ['Negativo', 'Positivo (Dor no topo)'], value: '' },
+  { id: 'sh_inst_appr', label: 'Apreensão (Instabilidade Ant)', type: 'radio', options: ['Negativo', 'Positivo (Medo/Dor)'], value: '' },
+
+  // 5. Força
+  { id: 'sh5', label: '--- 5. FORÇA MUSCULAR (0-5) ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'sh_str_delt', label: 'Deltóide', type: 'text', value: '' },
+  { id: 'sh_str_serr', label: 'Serrátil Anterior', type: 'text', value: '' },
+  { id: 'sh_str_trap', label: 'Trapézio (Inf/Médio)', type: 'text', value: '' },
+  { id: 'sh_str_rot', label: 'Manguito Global', type: 'text', value: '' },
+
+  // 6. Conclusão
+  { id: 'sh6', label: '--- 6. ANÁLISE FINAL ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'sh_hyp', label: 'Hipótese Principal', type: 'checkbox', options: ['Síndrome do Impacto', 'Tendinopatia Manguito', 'Bursite', 'Capsulite Adesiva', 'Instabilidade', 'Discinesia Escapular', 'Disfunção Cervical Associada'], value: [] },
+  { id: 'sh_plan', label: 'Plano de Ação', type: 'long_text', value: '' }
 ];
 
 // --- COMPONENTS DEFINED OUTSIDE TO PREVENT RE-RENDER FOCUS LOSS ---
@@ -579,6 +691,38 @@ export const StudentAssessmentPage: React.FC = () => {
                                 <p className="text-sm text-slate-500 text-center">Avaliação completa com anamnese, dor, postura e testes físicos.</p>
                             </button>
 
+                            {/* SPINE SPECIALIZED MODEL (NEW) */}
+                            <button 
+                                onClick={() => { 
+                                    initCustomForm(selectedStudent, 'Avaliação da Coluna', SPINE_TEMPLATE_FIELDS); 
+                                    setFormMode('custom'); 
+                                }}
+                                className="relative bg-white dark:bg-slate-900 p-6 rounded-xl border-2 border-purple-100 dark:border-purple-900/30 hover:border-purple-500 hover:shadow-lg transition-all text-left group flex flex-col items-center justify-center min-h-[200px]"
+                            >
+                                <div className="absolute top-4 right-4 text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity"><ArrowRight className="w-5 h-5"/></div>
+                                <div className="bg-purple-50 dark:bg-purple-900/20 w-16 h-16 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                    <AlignJustify className="w-8 h-8 text-purple-600" />
+                                </div>
+                                <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Modelo Coluna (Especializado)</h3>
+                                <p className="text-sm text-slate-500 text-center">Foco em Cervical, Torácica e Lombar com testes neurais e ortopédicos.</p>
+                            </button>
+
+                            {/* SHOULDER SPECIALIZED MODEL (NEW) */}
+                            <button 
+                                onClick={() => { 
+                                    initCustomForm(selectedStudent, 'Avaliação do Ombro', SHOULDER_TEMPLATE_FIELDS); 
+                                    setFormMode('custom'); 
+                                }}
+                                className="relative bg-white dark:bg-slate-900 p-6 rounded-xl border-2 border-cyan-100 dark:border-cyan-900/30 hover:border-cyan-500 hover:shadow-lg transition-all text-left group flex flex-col items-center justify-center min-h-[200px]"
+                            >
+                                <div className="absolute top-4 right-4 text-cyan-600 opacity-0 group-hover:opacity-100 transition-opacity"><ArrowRight className="w-5 h-5"/></div>
+                                <div className="bg-cyan-50 dark:bg-cyan-900/20 w-16 h-16 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                    <UserCheck className="w-8 h-8 text-cyan-600" />
+                                </div>
+                                <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Modelo Ombro (Especializado)</h3>
+                                <p className="text-sm text-slate-500 text-center">Foco em manguito, impacto, instabilidade e ritmo escapular.</p>
+                            </button>
+
                             {/* KNEE SPECIALIZED MODEL (HARDCODED) */}
                             <button 
                                 onClick={() => { 
@@ -616,11 +760,11 @@ export const StudentAssessmentPage: React.FC = () => {
                                 <button 
                                     key={tpl.id}
                                     onClick={() => { initCustomForm(selectedStudent, tpl.title, tpl.fields); setFormMode('custom'); }}
-                                    className="relative bg-white dark:bg-slate-900 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-800 hover:border-purple-500 hover:shadow-lg transition-all text-left group flex flex-col items-center justify-center min-h-[200px]"
+                                    className="relative bg-white dark:bg-slate-900 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-800 hover:border-gray-500 hover:shadow-lg transition-all text-left group flex flex-col items-center justify-center min-h-[200px]"
                                 >
-                                    <div className="absolute top-4 right-4 text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity"><ArrowRight className="w-5 h-5"/></div>
-                                    <div className="bg-purple-50 dark:bg-purple-900/20 w-16 h-16 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                                        <Layout className="w-8 h-8 text-purple-600" />
+                                    <div className="absolute top-4 right-4 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"><ArrowRight className="w-5 h-5"/></div>
+                                    <div className="bg-gray-50 dark:bg-gray-900/20 w-16 h-16 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                        <Layout className="w-8 h-8 text-gray-600" />
                                     </div>
                                     <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2 text-center">{tpl.title}</h3>
                                     <p className="text-sm text-slate-500 text-center">{tpl.fields.length} campos personalizados.</p>
