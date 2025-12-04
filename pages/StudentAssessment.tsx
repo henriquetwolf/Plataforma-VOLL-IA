@@ -7,7 +7,7 @@ import { saveAssessment, fetchAssessments, deleteAssessment, saveAssessmentTempl
 import { Student, Instructor, StudentAssessment, AssessmentTemplate } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ClipboardList, Plus, History, Search, Trash2, Eye, FileText, Printer, Save, Layout, ArrowRight, X, ArrowLeft, CheckCircle, Activity, Accessibility, AlignJustify, UserCheck, Footprints } from 'lucide-react';
+import { ClipboardList, Plus, History, Search, Trash2, Eye, FileText, Printer, Save, Layout, ArrowRight, X, ArrowLeft, CheckCircle, Activity, Accessibility, AlignJustify, UserCheck, Footprints, Filter, Calendar } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -502,7 +502,13 @@ export const StudentAssessmentPage: React.FC = () => {
 
   // History View
   const [viewAssessment, setViewAssessment] = useState<StudentAssessment | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Filters State
+  const [filterModel, setFilterModel] = useState('');
+  const [filterEvaluator, setFilterEvaluator] = useState('');
+  const [filterStudent, setFilterStudent] = useState('');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
 
   useEffect(() => {
     loadData();
@@ -719,6 +725,37 @@ export const StudentAssessmentPage: React.FC = () => {
         pdf.save('avaliacao.pdf');
       });
     }
+  };
+
+  // --- FILTERED ASSESSMENTS ---
+  const filteredAssessments = assessments.filter(a => {
+    const matchesModel = !filterModel || a.title === filterModel;
+    const matchesEvaluator = !filterEvaluator || (a.instructorName || 'Desconhecido') === filterEvaluator;
+    const matchesStudent = !filterStudent || a.studentName === filterStudent;
+    
+    let matchesDate = true;
+    if (filterStartDate) {
+        matchesDate = matchesDate && new Date(a.createdAt) >= new Date(filterStartDate);
+    }
+    if (filterEndDate) {
+        const end = new Date(filterEndDate);
+        end.setHours(23, 59, 59, 999);
+        matchesDate = matchesDate && new Date(a.createdAt) <= end;
+    }
+
+    return matchesModel && matchesEvaluator && matchesStudent && matchesDate;
+  });
+
+  const uniqueModels = Array.from(new Set(assessments.map(a => a.title))).sort();
+  const uniqueEvaluators = Array.from(new Set(assessments.map(a => a.instructorName || 'Desconhecido'))).sort();
+  const uniqueStudentsHistory = Array.from(new Set(assessments.map(a => a.studentName))).sort();
+
+  const clearFilters = () => {
+      setFilterModel('');
+      setFilterEvaluator('');
+      setFilterStudent('');
+      setFilterStartDate('');
+      setFilterEndDate('');
   };
 
   return (
@@ -1289,37 +1326,87 @@ export const StudentAssessmentPage: React.FC = () => {
             </div>
         )}
 
-        {/* --- TAB: HISTORY VIEW --- */}
+        {/* --- TAB: HISTORY VIEW (WITH FILTERS) --- */}
         {activeTab === 'history' && !viewAssessment && (
             <div className="space-y-4 animate-in fade-in">
-                <div className="flex gap-4 mb-4">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"/>
-                        <input className="w-full pl-10 p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Buscar por aluno..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                {/* Advanced Filters */}
+                <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-4">
+                    <div className="flex items-center gap-2 text-slate-500 font-bold text-sm uppercase">
+                        <Filter className="w-4 h-4" /> Filtros Avançados
                     </div>
-                </div>
-
-                {assessments.length === 0 ? (
-                    <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-800">
-                        <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-50"/>
-                        <p>Nenhuma avaliação encontrada.</p>
-                    </div>
-                ) : (
-                    assessments.filter(a => a.studentName.toLowerCase().includes(searchTerm.toLowerCase())).map(a => (
-                        <div key={a.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex justify-between items-center hover:border-brand-300 transition-colors">
-                            <div>
-                                <h3 className="font-bold text-lg text-slate-900 dark:text-white">{a.studentName}</h3>
-                                <p className="text-sm text-slate-500 flex items-center gap-2">
-                                    <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs font-bold uppercase">{a.type === 'simple' ? 'Padrão' : 'Personalizada'}</span>
-                                    {a.title} • {new Date(a.createdAt).toLocaleDateString()}
-                                </p>
-                            </div>
-                            <div className="flex gap-2">
-                                <Button variant="outline" size="sm" onClick={() => setViewAssessment(a)}><Eye className="w-4 h-4 mr-2"/> Ver</Button>
-                                <button onClick={async () => { if(confirm("Deletar?")) { await deleteAssessment(a.id); loadData(); } }} className="p-2 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"><Trash2 className="w-4 h-4"/></button>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Modelo / Título</label>
+                            <select className="w-full p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-sm" value={filterModel} onChange={e => setFilterModel(e.target.value)}>
+                                <option value="">Todos</option>
+                                {uniqueModels.map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Avaliador</label>
+                            <select className="w-full p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-sm" value={filterEvaluator} onChange={e => setFilterEvaluator(e.target.value)}>
+                                <option value="">Todos</option>
+                                {uniqueEvaluators.map(e => <option key={e} value={e}>{e}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Aluno</label>
+                            <select className="w-full p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-sm" value={filterStudent} onChange={e => setFilterStudent(e.target.value)}>
+                                <option value="">Todos</option>
+                                {uniqueStudentsHistory.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Período</label>
+                            <div className="flex gap-1">
+                                <input type="date" className="w-1/2 p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-xs" value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} />
+                                <input type="date" className="w-1/2 p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-xs" value={filterEndDate} onChange={e => setFilterEndDate(e.target.value)} />
                             </div>
                         </div>
-                    ))
+                    </div>
+                    {(filterModel || filterEvaluator || filterStudent || filterStartDate || filterEndDate) && (
+                        <div className="flex justify-end">
+                            <button onClick={clearFilters} className="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
+                                <X className="w-3 h-3" /> Limpar Filtros
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* Results List */}
+                <div className="bg-slate-50 dark:bg-slate-950/50 p-2 rounded-lg text-xs text-slate-500 mb-2">
+                    Exibindo {filteredAssessments.length} avaliações.
+                </div>
+
+                {filteredAssessments.length === 0 ? (
+                    <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-800">
+                        <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-50"/>
+                        <p>Nenhuma avaliação encontrada com os filtros atuais.</p>
+                    </div>
+                ) : (
+                    <div className="grid gap-3">
+                        {filteredAssessments.map(a => (
+                            <div key={a.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center hover:border-brand-300 transition-colors gap-4">
+                                <div>
+                                    <h3 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                                        {a.studentName}
+                                        <span className="text-xs font-normal text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
+                                            {a.type === 'simple' ? 'Padrão' : 'Personalizada'}
+                                        </span>
+                                    </h3>
+                                    <div className="text-sm text-slate-500 mt-1 space-y-1">
+                                        <p className="flex items-center gap-2"><FileText className="w-3 h-3"/> {a.title}</p>
+                                        <p className="flex items-center gap-2"><UserCheck className="w-3 h-3"/> Avaliador: {a.instructorName || 'Não informado'}</p>
+                                        <p className="flex items-center gap-2"><Calendar className="w-3 h-3"/> {new Date(a.createdAt).toLocaleDateString()}</p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2 w-full md:w-auto">
+                                    <Button variant="outline" size="sm" onClick={() => setViewAssessment(a)} className="flex-1 md:flex-none"><Eye className="w-4 h-4 mr-2"/> Ver Detalhes</Button>
+                                    <button onClick={async () => { if(confirm("Deletar permanentemente?")) { await deleteAssessment(a.id); loadData(); } }} className="p-2 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors border border-slate-200 dark:border-slate-700"><Trash2 className="w-4 h-4"/></button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 )}
             </div>
         )}
