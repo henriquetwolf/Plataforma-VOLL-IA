@@ -1,13 +1,12 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchStudents } from '../services/studentService';
 import { fetchInstructors } from '../services/instructorService';
-import { saveAssessment, fetchAssessments, deleteAssessment } from '../services/assessmentService';
-import { Student, Instructor, StudentAssessment } from '../types';
+import { saveAssessment, fetchAssessments, deleteAssessment, saveAssessmentTemplate, fetchAssessmentTemplates, deleteAssessmentTemplate } from '../services/assessmentService';
+import { Student, Instructor, StudentAssessment, AssessmentTemplate } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ClipboardList, Plus, History, Search, Trash2, Eye, FileText, ChevronDown, ChevronUp, Printer, Calendar, User, CheckCircle, X } from 'lucide-react';
+import { ClipboardList, Plus, History, Search, Trash2, Eye, FileText, Printer, Save, Layout, ArrowRight, X } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -15,7 +14,7 @@ import jsPDF from 'jspdf';
 interface SimpleFormState {
   studentId: string;
   studentName: string;
-  studentAge: string; // Calculated
+  studentAge: string;
   studentSex: string;
   evaluatorId: string;
   evaluatorName: string;
@@ -39,7 +38,7 @@ interface SimpleFormState {
   historyChronicPainDesc: string;
 
   // 3. Clínico
-  clinicalConditions: string[]; // ['Hipertensão', 'Diabetes'...]
+  clinicalConditions: string[];
   clinicalOther: string;
 
   // 4. Hábitos
@@ -55,9 +54,9 @@ interface SimpleFormState {
 
   // 5-9 Campos Abertos
   postureObs: string;
-  mobilityFlexibility: string; // Escala 
+  mobilityFlexibility: string;
   mobilityObs: string;
-  strengthGlobal: string; // Escala 0-5
+  strengthGlobal: string;
   strengthObs: string;
   studentGoals: string;
   instructorOpinion: string;
@@ -90,21 +89,30 @@ interface CustomField {
 
 export const StudentAssessmentPage: React.FC = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
+  const [activeTab, setActiveTab] = useState<'new' | 'templates' | 'history'>('new');
   const [mode, setMode] = useState<'select' | 'simple' | 'custom'>('select');
   
   // Data
   const [students, setStudents] = useState<Student[]>([]);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [assessments, setAssessments] = useState<StudentAssessment[]>([]);
+  const [templates, setTemplates] = useState<AssessmentTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // --- NEW EVALUATION STATE ---
+  const [selectedStudent, setSelectedStudent] = useState<string>('');
+  const [selectedTemplate, setSelectedTemplate] = useState<AssessmentTemplate | null>(null);
 
   // Forms
   const [simpleForm, setSimpleForm] = useState<SimpleFormState>(INITIAL_SIMPLE_FORM);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
-  const [customTitle, setCustomTitle] = useState('Avaliação Personalizada');
   
-  // Custom Field Builder
+  // --- TEMPLATE MANAGER STATE ---
+  const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
+  const [templateTitle, setTemplateTitle] = useState('');
+  const [templateFields, setTemplateFields] = useState<CustomField[]>([]);
+  
+  // Field Builder (Shared)
   const [newFieldLabel, setNewFieldLabel] = useState('');
   const [newFieldType, setNewFieldType] = useState<CustomField['type']>('text');
   const [newFieldOptions, setNewFieldOptions] = useState('');
@@ -120,14 +128,16 @@ export const StudentAssessmentPage: React.FC = () => {
   const loadData = async () => {
     const targetId = user?.isInstructor ? user.studioId : user?.id;
     if (targetId) {
-        const [s, i, a] = await Promise.all([
+        const [s, i, a, t] = await Promise.all([
             fetchStudents(targetId),
             fetchInstructors(targetId),
-            fetchAssessments(targetId)
+            fetchAssessments(targetId),
+            fetchAssessmentTemplates(targetId)
         ]);
         setStudents(s);
         setInstructors(i);
         setAssessments(a);
+        setTemplates(t);
         
         // Auto-set evaluator if current user is instructor
         if (user?.isInstructor) {
@@ -145,36 +155,45 @@ export const StudentAssessmentPage: React.FC = () => {
     return Math.abs(ageDate.getUTCFullYear() - 1970).toString();
   };
 
-  const handleStudentSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const id = e.target.value;
-    const student = students.find(s => s.id === id);
-    if (student) {
-        setSimpleForm(prev => ({
-            ...prev,
-            studentId: student.id,
-            studentName: student.name,
-            studentAge: calculateAge(student.birthDate)
-        }));
-    }
+  const initSimpleForm = (studentId: string) => {
+    const student = students.find(s => s.id === studentId);
+    if (!student) return;
+    setSimpleForm({
+        ...INITIAL_SIMPLE_FORM,
+        studentId: student.id,
+        studentName: student.name,
+        studentAge: calculateAge(student.birthDate),
+        evaluatorId: user?.isInstructor ? (user.dbId || user.id) : (user?.id || ''),
+        evaluatorName: user?.name || ''
+    });
   };
 
-  const handleEvaluatorSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const id = e.target.value;
-    const inst = instructors.find(i => i.id === id);
-    if (inst) {
-        setSimpleForm(prev => ({ ...prev, evaluatorId: inst.id, evaluatorName: inst.name }));
-    } else if (id === user?.id) { // Owner case
-        setSimpleForm(prev => ({ ...prev, evaluatorId: user.id, evaluatorName: user.name }));
-    }
+  const initCustomForm = (studentId: string, template: AssessmentTemplate) => {
+    const student = students.find(s => s.id === studentId);
+    if (!student) return;
+    
+    // Initialize fields with empty values based on template structure
+    const initializedFields = template.fields.map((f: any) => ({
+        ...f,
+        value: f.type === 'checkbox' ? [] : ''
+    }));
+
+    setCustomFields(initializedFields);
+    // We reuse simpleForm for header data (Evaluator, Date, Student Info)
+    setSimpleForm(prev => ({
+        ...prev,
+        studentId: student.id,
+        studentName: student.name,
+        studentAge: calculateAge(student.birthDate),
+        evaluatorId: user?.isInstructor ? (user.dbId || user.id) : (user?.id || ''),
+        evaluatorName: user?.name || ''
+    }));
   };
 
   const handleSaveSimple = async () => {
     if (!user) return;
     const targetId = user.isInstructor ? user.studioId : user.id;
-    if (!targetId || !simpleForm.studentId) {
-        alert("Selecione um aluno.");
-        return;
-    }
+    if (!targetId || !simpleForm.studentId) return;
 
     const result = await saveAssessment(targetId, {
         studioId: targetId,
@@ -188,55 +207,28 @@ export const StudentAssessmentPage: React.FC = () => {
     });
 
     if (result.success) {
-        alert("Avaliação salva com sucesso!");
+        alert("Avaliação salva!");
         loadData();
         setMode('select');
-        setSimpleForm(INITIAL_SIMPLE_FORM);
+        setSelectedStudent('');
         setActiveTab('history');
     } else {
-        alert("Erro ao salvar: " + result.error);
+        alert("Erro: " + result.error);
     }
   };
 
-  // --- CUSTOM BUILDER ---
-  const addCustomField = () => {
-    if (!newFieldLabel) return;
-    const options = ['radio', 'checkbox', 'select'].includes(newFieldType) 
-        ? newFieldOptions.split(',').map(s => s.trim()) 
-        : undefined;
-    
-    setCustomFields([...customFields, {
-        id: crypto.randomUUID(),
-        label: newFieldLabel,
-        type: newFieldType,
-        options,
-        value: newFieldType === 'checkbox' ? [] : ''
-    }]);
-    setNewFieldLabel('');
-    setNewFieldOptions('');
-  };
-
-  const handleCustomValueChange = (id: string, val: any) => {
-    setCustomFields(prev => prev.map(f => f.id === id ? { ...f, value: val } : f));
-  };
-
-  const handleSaveCustom = async () => {
-    if (!user) return;
+  const handleSaveCustomAssessment = async () => {
+    if (!user || !selectedTemplate) return;
     const targetId = user.isInstructor ? user.studioId : user.id;
-    // For custom, allow flexible student selection or just name text? Let's enforce selection for data integrity
-    if (!targetId || !simpleForm.studentId) {
-        alert("Selecione um aluno no cabeçalho.");
-        return;
-    }
     
-    const result = await saveAssessment(targetId, {
-        studioId: targetId,
+    const result = await saveAssessment(targetId!, {
+        studioId: targetId!,
         studentId: simpleForm.studentId,
         instructorId: simpleForm.evaluatorId || undefined,
         studentName: simpleForm.studentName,
         instructorName: simpleForm.evaluatorName,
         type: 'custom',
-        title: customTitle,
+        title: selectedTemplate.title,
         content: {
             ...simpleForm, // Header data
             fields: customFields
@@ -247,11 +239,53 @@ export const StudentAssessmentPage: React.FC = () => {
         alert("Avaliação salva!");
         loadData();
         setMode('select');
+        setSelectedStudent('');
         setCustomFields([]);
         setActiveTab('history');
     } else {
         alert("Erro: " + result.error);
     }
+  };
+
+  // --- TEMPLATE BUILDER ---
+  const addFieldToTemplate = () => {
+    if (!newFieldLabel) return;
+    const options = ['radio', 'checkbox', 'select'].includes(newFieldType) 
+        ? newFieldOptions.split(',').map(s => s.trim()) 
+        : undefined;
+    
+    setTemplateFields([...templateFields, {
+        id: crypto.randomUUID(),
+        label: newFieldLabel,
+        type: newFieldType,
+        options,
+        value: '' // Placeholder
+    }]);
+    setNewFieldLabel('');
+    setNewFieldOptions('');
+  };
+
+  const saveNewTemplate = async () => {
+      if (!user || !templateTitle) return;
+      const targetId = user.isInstructor ? user.studioId : user.id;
+      
+      const result = await saveAssessmentTemplate(targetId!, templateTitle, templateFields);
+      if (result.success) {
+          alert("Modelo criado!");
+          loadData();
+          setIsCreatingTemplate(false);
+          setTemplateFields([]);
+          setTemplateTitle('');
+      } else {
+          alert("Erro: " + result.error);
+      }
+  };
+
+  const handleDeleteTemplate = async (id: string) => {
+      if (confirm("Excluir este modelo?")) {
+          await deleteAssessmentTemplate(id);
+          loadData();
+      }
   };
 
   // --- PRINT ---
@@ -290,39 +324,167 @@ export const StudentAssessmentPage: React.FC = () => {
     </div>
   );
 
+  const FieldBuilder = ({ onAdd }: { onAdd: () => void }) => (
+    <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4 rounded-lg mb-4 grid gap-4">
+        <Input label="Pergunta / Rótulo" value={newFieldLabel} onChange={e => setNewFieldLabel(e.target.value)} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label className="block text-sm font-medium mb-1">Tipo de Campo</label>
+                <select className="w-full p-2 border rounded bg-white dark:bg-slate-950 dark:border-slate-700" value={newFieldType} onChange={e => setNewFieldType(e.target.value as any)}>
+                    <option value="text">Texto Curto</option>
+                    <option value="long_text">Texto Longo</option>
+                    <option value="radio">Múltipla Escolha</option>
+                    <option value="checkbox">Caixas de Seleção</option>
+                    <option value="select">Lista Suspensa</option>
+                </select>
+            </div>
+            {['radio', 'checkbox', 'select'].includes(newFieldType) && (
+                <Input label="Opções (separar por vírgula)" value={newFieldOptions} onChange={e => setNewFieldOptions(e.target.value)} placeholder="Sim, Não, Talvez" />
+            )}
+        </div>
+        <Button onClick={onAdd} size="sm" variant="secondary" className="self-end">
+            <Plus className="w-4 h-4 mr-2"/> Adicionar Campo
+        </Button>
+    </div>
+  );
+
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in pb-12">
         <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold flex items-center gap-2 text-slate-900 dark:text-white">
                 <ClipboardList className="text-brand-600"/> Avaliação Física
             </h1>
-            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-                <button onClick={() => setActiveTab('new')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'new' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}>Nova Avaliação</button>
-                <button onClick={() => setActiveTab('history')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'history' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}>Histórico</button>
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg overflow-x-auto">
+                <button onClick={() => setActiveTab('new')} className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all ${activeTab === 'new' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}>Nova Avaliação</button>
+                <button onClick={() => setActiveTab('templates')} className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all ${activeTab === 'templates' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}>Gerenciar Modelos</button>
+                <button onClick={() => setActiveTab('history')} className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all ${activeTab === 'history' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}>Histórico</button>
             </div>
         </div>
 
+        {/* --- TAB: NEW ASSESSMENT --- */}
         {activeTab === 'new' && mode === 'select' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-                <button onClick={() => setMode('simple')} className="bg-white dark:bg-slate-900 p-8 rounded-xl border-2 border-slate-200 dark:border-slate-800 hover:border-brand-500 hover:shadow-lg transition-all text-left group">
-                    <div className="bg-brand-50 w-16 h-16 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                        <FileText className="w-8 h-8 text-brand-600" />
+            <div className="max-w-2xl mx-auto space-y-8 mt-8">
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm text-center">
+                    <h2 className="text-xl font-bold mb-4">1. Selecione o Aluno</h2>
+                    <select 
+                        className="w-full p-3 text-lg border-2 border-brand-100 rounded-xl bg-slate-50 focus:border-brand-500 outline-none"
+                        value={selectedStudent}
+                        onChange={e => setSelectedStudent(e.target.value)}
+                    >
+                        <option value="">-- Escolha um Aluno --</option>
+                        {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                </div>
+
+                {selectedStudent && (
+                    <div className="animate-in slide-in-from-bottom-4">
+                        <h2 className="text-xl font-bold mb-4 text-center">2. Escolha o Modelo</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Standard Model */}
+                            <button 
+                                onClick={() => { initSimpleForm(selectedStudent); setMode('simple'); }}
+                                className="bg-white dark:bg-slate-900 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-800 hover:border-brand-500 hover:shadow-lg transition-all text-left group"
+                            >
+                                <div className="bg-brand-50 w-12 h-12 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                    <FileText className="w-6 h-6 text-brand-600" />
+                                </div>
+                                <h3 className="font-bold text-lg text-slate-900 dark:text-white">Padrão VOLL</h3>
+                                <p className="text-sm text-slate-500 mt-1">Anamnese completa, dor, postura e testes físicos.</p>
+                            </button>
+
+                            {/* Custom Templates */}
+                            {templates.map(tpl => (
+                                <button 
+                                    key={tpl.id}
+                                    onClick={() => { setSelectedTemplate(tpl); initCustomForm(selectedStudent, tpl); setMode('custom'); }}
+                                    className="bg-white dark:bg-slate-900 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-800 hover:border-purple-500 hover:shadow-lg transition-all text-left group"
+                                >
+                                    <div className="bg-purple-50 w-12 h-12 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                        <Layout className="w-6 h-6 text-purple-600" />
+                                    </div>
+                                    <h3 className="font-bold text-lg text-slate-900 dark:text-white">{tpl.title}</h3>
+                                    <p className="text-sm text-slate-500 mt-1">{tpl.fields.length} campos personalizados.</p>
+                                </button>
+                            ))}
+
+                            {templates.length === 0 && (
+                                <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 rounded-xl text-slate-400">
+                                    <p className="text-sm text-center mb-2">Sem modelos personalizados.</p>
+                                    <Button variant="outline" size="sm" onClick={() => setActiveTab('templates')}>Criar Modelo</Button>
+                                </div>
+                            )}
+                        </div>
                     </div>
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Modelo Padrão VOLL</h3>
-                    <p className="text-slate-500">Avaliação completa pré-definida: Anamnese, Dor, Histórico, Postura e Testes Físicos.</p>
-                </button>
-                
-                <button onClick={() => setMode('custom')} className="bg-white dark:bg-slate-900 p-8 rounded-xl border-2 border-slate-200 dark:border-slate-800 hover:border-purple-500 hover:shadow-lg transition-all text-left group">
-                    <div className="bg-purple-50 w-16 h-16 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                        <Plus className="w-8 h-8 text-purple-600" />
-                    </div>
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Criar do Zero</h3>
-                    <p className="text-slate-500">Monte sua própria avaliação adicionando perguntas e campos personalizados.</p>
-                </button>
+                )}
             </div>
         )}
 
-        {/* --- SIMPLE FORM --- */}
+        {/* --- TAB: TEMPLATES --- */}
+        {activeTab === 'templates' && (
+            <div className="space-y-6">
+                {!isCreatingTemplate ? (
+                    <>
+                        <div className="flex justify-end">
+                            <Button onClick={() => setIsCreatingTemplate(true)}>
+                                <Plus className="w-4 h-4 mr-2"/> Criar Novo Modelo
+                            </Button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {templates.map(tpl => (
+                                <div key={tpl.id} className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+                                    <div>
+                                        <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-1">{tpl.title}</h3>
+                                        <p className="text-sm text-slate-500">{tpl.fields.length} campos configurados.</p>
+                                    </div>
+                                    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                                        <button onClick={() => handleDeleteTemplate(tpl.id)} className="text-red-500 hover:text-red-700 p-2"><Trash2 className="w-4 h-4"/></button>
+                                    </div>
+                                </div>
+                            ))}
+                            {templates.length === 0 && (
+                                <div className="col-span-3 text-center py-12 text-slate-500 border-2 border-dashed border-slate-200 rounded-xl">
+                                    Nenhum modelo criado.
+                                </div>
+                            )}
+                        </div>
+                    </>
+                ) : (
+                    <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm max-w-3xl mx-auto">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold">Criar Modelo de Avaliação</h2>
+                            <Button variant="ghost" onClick={() => { setIsCreatingTemplate(false); setTemplateFields([]); }}>Cancelar</Button>
+                        </div>
+                        
+                        <div className="space-y-6">
+                            <Input label="Título do Modelo" value={templateTitle} onChange={e => setTemplateTitle(e.target.value)} placeholder="Ex: Avaliação Postural Simplificada" />
+                            
+                            <div className="border-t pt-6">
+                                <h3 className="font-bold mb-4">Adicionar Campos</h3>
+                                <FieldBuilder onAdd={addFieldToTemplate} />
+                                
+                                <div className="space-y-2 mt-4">
+                                    {templateFields.map((field, idx) => (
+                                        <div key={field.id} className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg">
+                                            <div>
+                                                <span className="font-bold text-sm mr-2">{idx+1}.</span>
+                                                <span className="text-sm">{field.label}</span>
+                                                <span className="text-xs text-slate-500 ml-2 uppercase">({field.type})</span>
+                                            </div>
+                                            <button onClick={() => setTemplateFields(templateFields.filter(f => f.id !== field.id))} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4"/></button>
+                                        </div>
+                                    ))}
+                                    {templateFields.length === 0 && <p className="text-slate-400 text-sm italic text-center">Nenhum campo adicionado.</p>}
+                                </div>
+                            </div>
+
+                            <Button onClick={saveNewTemplate} className="w-full mt-4" disabled={templateFields.length === 0}>Salvar Modelo</Button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        )}
+
+        {/* --- FORM MODES (Simple & Custom) --- */}
         {activeTab === 'new' && mode === 'simple' && (
             <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                 <div className="flex justify-between mb-6">
@@ -335,10 +497,7 @@ export const StudentAssessmentPage: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 dark:bg-slate-950 p-4 rounded-lg">
                         <div>
                             <label className="text-xs font-bold text-slate-500 uppercase">Aluno</label>
-                            <select className="w-full p-2 border rounded" value={simpleForm.studentId} onChange={handleStudentSelect}>
-                                <option value="">Selecione...</option>
-                                {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                            </select>
+                            <Input value={simpleForm.studentName} readOnly className="bg-white" />
                         </div>
                         <div>
                             <label className="text-xs font-bold text-slate-500 uppercase">Idade</label>
@@ -359,11 +518,7 @@ export const StudentAssessmentPage: React.FC = () => {
                         </div>
                         <div className="md:col-span-2">
                             <label className="text-xs font-bold text-slate-500 uppercase">Avaliador</label>
-                            <select className="w-full p-2 border rounded" value={simpleForm.evaluatorId} onChange={handleEvaluatorSelect}>
-                                <option value="">Selecione...</option>
-                                {user?.role === 'owner' && <option value={user.id}>{user.name} (Dono)</option>}
-                                {instructors.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-                            </select>
+                            <Input value={simpleForm.evaluatorName} readOnly />
                         </div>
                     </div>
 
@@ -550,85 +705,75 @@ export const StudentAssessmentPage: React.FC = () => {
             </div>
         )}
 
-        {/* --- CUSTOM BUILDER FORM --- */}
-        {activeTab === 'new' && mode === 'custom' && (
+        {/* --- CUSTOM EVALUATION FORM (USING TEMPLATE) --- */}
+        {activeTab === 'new' && mode === 'custom' && selectedTemplate && (
             <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                 <div className="flex justify-between mb-6">
-                    <h2 className="text-xl font-bold">Criar Avaliação Personalizada</h2>
+                    <h2 className="text-xl font-bold">{selectedTemplate.title}</h2>
                     <Button variant="ghost" onClick={() => setMode('select')}>Cancelar</Button>
                 </div>
 
-                <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-950 rounded-lg">
-                    <h3 className="font-bold mb-4">1. Cabeçalho (Padrão)</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase">Aluno</label>
-                            <select className="w-full p-2 border rounded" value={simpleForm.studentId} onChange={handleStudentSelect}>
-                                <option value="">Selecione...</option>
-                                {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase">Título da Avaliação</label>
-                            <Input value={customTitle} onChange={e => setCustomTitle(e.target.value)} />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="mb-6">
-                    <h3 className="font-bold mb-4">2. Adicionar Campos</h3>
-                    <div className="flex gap-2 items-end bg-slate-100 p-4 rounded-lg">
-                        <div className="flex-1">
-                            <label className="text-xs block mb-1">Pergunta / Rótulo</label>
-                            <Input value={newFieldLabel} onChange={e => setNewFieldLabel(e.target.value)} className="mb-0" />
-                        </div>
-                        <div className="w-40">
-                            <label className="text-xs block mb-1">Tipo</label>
-                            <select className="w-full p-2 border rounded" value={newFieldType} onChange={e => setNewFieldType(e.target.value as any)}>
-                                <option value="text">Texto Curto</option>
-                                <option value="long_text">Texto Longo</option>
-                                <option value="select">Seleção</option>
-                                <option value="checkbox">Checkbox</option>
-                            </select>
-                        </div>
-                        {['select', 'radio', 'checkbox'].includes(newFieldType) && (
-                            <div className="flex-1">
-                                <label className="text-xs block mb-1">Opções (separar por vírgula)</label>
-                                <Input value={newFieldOptions} onChange={e => setNewFieldOptions(e.target.value)} className="mb-0" placeholder="Opção 1, Opção 2" />
-                            </div>
-                        )}
-                        <Button onClick={addCustomField}><Plus className="w-4 h-4"/></Button>
-                    </div>
+                <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-950 rounded-lg grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div><label className="text-xs font-bold text-slate-500">Aluno</label><Input value={simpleForm.studentName} readOnly /></div>
+                    <div><label className="text-xs font-bold text-slate-500">Data</label><Input type="date" value={simpleForm.date} onChange={e => setSimpleForm({...simpleForm, date: e.target.value})} /></div>
+                    <div><label className="text-xs font-bold text-slate-500">Avaliador</label><Input value={simpleForm.evaluatorName} readOnly /></div>
                 </div>
 
                 <div className="space-y-6">
-                    <h3 className="font-bold border-b pb-2">Preenchimento</h3>
-                    {customFields.length === 0 && <p className="text-slate-400 italic">Adicione campos acima para começar.</p>}
-                    
                     {customFields.map((field) => (
-                        <div key={field.id} className="p-4 border rounded-lg relative hover:bg-slate-50 transition-colors group">
-                            <button onClick={() => setCustomFields(customFields.filter(f => f.id !== field.id))} className="absolute top-2 right-2 text-red-400 opacity-0 group-hover:opacity-100"><Trash2 className="w-4 h-4"/></button>
-                            <label className="block font-medium mb-2">{field.label}</label>
+                        <div key={field.id} className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg">
+                            <label className="block font-medium mb-2 text-slate-800 dark:text-white">{field.label}</label>
                             
-                            {field.type === 'text' && <input className="w-full p-2 border rounded" value={field.value} onChange={e => handleCustomValueChange(field.id, e.target.value)} />}
-                            {field.type === 'long_text' && <textarea className="w-full p-2 border rounded h-24" value={field.value} onChange={e => handleCustomValueChange(field.id, e.target.value)} />}
+                            {field.type === 'text' && (
+                                <input className="w-full p-2 border rounded dark:bg-slate-950" value={field.value} onChange={e => {
+                                    setCustomFields(customFields.map(f => f.id === field.id ? {...f, value: e.target.value} : f));
+                                }} />
+                            )}
+                            
+                            {field.type === 'long_text' && (
+                                <textarea className="w-full p-2 border rounded h-24 dark:bg-slate-950" value={field.value} onChange={e => {
+                                    setCustomFields(customFields.map(f => f.id === field.id ? {...f, value: e.target.value} : f));
+                                }} />
+                            )}
+                            
                             {field.type === 'select' && (
-                                <select className="w-full p-2 border rounded" value={field.value} onChange={e => handleCustomValueChange(field.id, e.target.value)}>
+                                <select className="w-full p-2 border rounded dark:bg-slate-950" value={field.value} onChange={e => {
+                                    setCustomFields(customFields.map(f => f.id === field.id ? {...f, value: e.target.value} : f));
+                                }}>
                                     <option value="">Selecione...</option>
                                     {field.options?.map(opt => <option key={opt}>{opt}</option>)}
                                 </select>
                             )}
-                            {field.type === 'checkbox' && (
-                                <div className="flex flex-wrap gap-4">
+
+                            {field.type === 'radio' && (
+                                <div className="space-y-2">
                                     {field.options?.map(opt => (
                                         <label key={opt} className="flex items-center gap-2">
                                             <input 
-                                                type="checkbox" 
+                                                type="radio" 
+                                                name={field.id} 
+                                                checked={field.value === opt}
+                                                onChange={() => setCustomFields(customFields.map(f => f.id === field.id ? {...f, value: opt} : f))}
+                                            />
+                                            {opt}
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+
+                            {field.type === 'checkbox' && (
+                                <div className="space-y-2">
+                                    {field.options?.map(opt => (
+                                        <label key={opt} className="flex items-center gap-2">
+                                            <input 
+                                                type="checkbox"
                                                 checked={(field.value as string[]).includes(opt)}
                                                 onChange={e => {
                                                     const current = field.value as string[];
-                                                    if (e.target.checked) handleCustomValueChange(field.id, [...current, opt]);
-                                                    else handleCustomValueChange(field.id, current.filter(x => x !== opt));
+                                                    const newVal = e.target.checked 
+                                                        ? [...current, opt]
+                                                        : current.filter(x => x !== opt);
+                                                    setCustomFields(customFields.map(f => f.id === field.id ? {...f, value: newVal} : f));
                                                 }}
                                             />
                                             {opt}
@@ -640,11 +785,11 @@ export const StudentAssessmentPage: React.FC = () => {
                     ))}
                 </div>
 
-                <Button onClick={handleSaveCustom} className="w-full mt-8 py-4" disabled={customFields.length === 0}>Salvar Avaliação Personalizada</Button>
+                <Button onClick={handleSaveCustomAssessment} className="w-full mt-8 py-4">Salvar Avaliação</Button>
             </div>
         )}
 
-        {/* --- HISTORY VIEW --- */}
+        {/* --- HISTORY VIEW (UNCHANGED LOGIC, JUST RENDER) --- */}
         {activeTab === 'history' && !viewAssessment && (
             <div className="space-y-4 animate-in fade-in">
                 <div className="flex gap-4 mb-4">

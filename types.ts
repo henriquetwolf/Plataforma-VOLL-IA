@@ -233,6 +233,14 @@ export interface StudentAssessment {
   createdAt: string;
 }
 
+export interface AssessmentTemplate {
+  id: string;
+  studioId: string;
+  title: string;
+  fields: any[]; // The structure
+  createdAt: string;
+}
+
 // --- END ASSESSMENT TYPES ---
 
 export interface Suggestion {
