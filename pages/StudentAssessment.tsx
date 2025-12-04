@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchStudents } from '../services/studentService';
@@ -86,6 +87,49 @@ interface CustomField {
   options?: string[]; // Comma separated for builder
   value: any;
 }
+
+// --- COMPONENTS DEFINED OUTSIDE TO PREVENT RE-RENDER FOCUS LOSS ---
+
+const SectionHeader = ({ title, icon: Icon }: any) => (
+  <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg flex items-center gap-2 border border-slate-200 dark:border-slate-700 mt-6 mb-4">
+      {Icon && <Icon className="w-5 h-5 text-brand-600" />}
+      <h3 className="font-bold text-slate-800 dark:text-white uppercase text-sm tracking-wide">{title}</h3>
+  </div>
+);
+
+interface FieldBuilderProps {
+    label: string;
+    setLabel: (val: string) => void;
+    type: CustomField['type'];
+    setType: (val: CustomField['type']) => void;
+    options: string;
+    setOptions: (val: string) => void;
+    onAdd: () => void;
+}
+
+const FieldBuilder: React.FC<FieldBuilderProps> = ({ label, setLabel, type, setType, options, setOptions, onAdd }) => (
+  <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4 rounded-lg mb-4 grid gap-4">
+      <Input label="Pergunta / Rótulo" value={label} onChange={e => setLabel(e.target.value)} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+              <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-300">Tipo de Campo</label>
+              <select className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 dark:text-white outline-none focus:ring-2 focus:ring-brand-500" value={type} onChange={e => setType(e.target.value as any)}>
+                  <option value="text">Texto Curto</option>
+                  <option value="long_text">Texto Longo</option>
+                  <option value="radio">Múltipla Escolha</option>
+                  <option value="checkbox">Caixas de Seleção</option>
+                  <option value="select">Lista Suspensa</option>
+              </select>
+          </div>
+          {['radio', 'checkbox', 'select'].includes(type) && (
+              <Input label="Opções (separar por vírgula)" value={options} onChange={e => setOptions(e.target.value)} placeholder="Sim, Não, Talvez" />
+          )}
+      </div>
+      <Button onClick={onAdd} size="sm" variant="secondary" className="self-end">
+          <Plus className="w-4 h-4 mr-2"/> Adicionar Campo
+      </Button>
+  </div>
+);
 
 export const StudentAssessmentPage: React.FC = () => {
   const { user } = useAuth();
@@ -316,38 +360,6 @@ export const StudentAssessmentPage: React.FC = () => {
     }
   };
 
-  // --- RENDER HELPERS ---
-  const SectionHeader = ({ title, icon: Icon }: any) => (
-    <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg flex items-center gap-2 border border-slate-200 dark:border-slate-700 mt-6 mb-4">
-        {Icon && <Icon className="w-5 h-5 text-brand-600" />}
-        <h3 className="font-bold text-slate-800 dark:text-white uppercase text-sm tracking-wide">{title}</h3>
-    </div>
-  );
-
-  const FieldBuilder = ({ onAdd }: { onAdd: () => void }) => (
-    <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4 rounded-lg mb-4 grid gap-4">
-        <Input label="Pergunta / Rótulo" value={newFieldLabel} onChange={e => setNewFieldLabel(e.target.value)} />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label className="block text-sm font-medium mb-1">Tipo de Campo</label>
-                <select className="w-full p-2 border rounded bg-white dark:bg-slate-950 dark:border-slate-700" value={newFieldType} onChange={e => setNewFieldType(e.target.value as any)}>
-                    <option value="text">Texto Curto</option>
-                    <option value="long_text">Texto Longo</option>
-                    <option value="radio">Múltipla Escolha</option>
-                    <option value="checkbox">Caixas de Seleção</option>
-                    <option value="select">Lista Suspensa</option>
-                </select>
-            </div>
-            {['radio', 'checkbox', 'select'].includes(newFieldType) && (
-                <Input label="Opções (separar por vírgula)" value={newFieldOptions} onChange={e => setNewFieldOptions(e.target.value)} placeholder="Sim, Não, Talvez" />
-            )}
-        </div>
-        <Button onClick={onAdd} size="sm" variant="secondary" className="self-end">
-            <Plus className="w-4 h-4 mr-2"/> Adicionar Campo
-        </Button>
-    </div>
-  );
-
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in pb-12">
         <div className="flex justify-between items-center">
@@ -460,7 +472,16 @@ export const StudentAssessmentPage: React.FC = () => {
                             
                             <div className="border-t pt-6">
                                 <h3 className="font-bold mb-4">Adicionar Campos</h3>
-                                <FieldBuilder onAdd={addFieldToTemplate} />
+                                
+                                <FieldBuilder 
+                                    label={newFieldLabel} 
+                                    setLabel={setNewFieldLabel} 
+                                    type={newFieldType} 
+                                    setType={setNewFieldType} 
+                                    options={newFieldOptions} 
+                                    setOptions={setNewFieldOptions} 
+                                    onAdd={addFieldToTemplate} 
+                                />
                                 
                                 <div className="space-y-2 mt-4">
                                     {templateFields.map((field, idx) => (
