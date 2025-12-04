@@ -7,7 +7,7 @@ import { AppRoute, StudioProfile } from '../types';
 import { 
   Users, Sparkles, Compass, ArrowRight, Building2, Calculator, 
   Banknote, Activity, MessageSquare, Newspaper, Wand2, Star, 
-  BookUser, TrendingUp, CheckCircle2, Layers, LineChart, ClipboardList, User, MessageCircle
+  BookUser, TrendingUp, CheckCircle2, Layers, LineChart, ClipboardList, User, MessageCircle, FileText
 } from 'lucide-react';
 import { fetchProfile } from '../services/storage';
 
@@ -253,6 +253,13 @@ export const Dashboard: React.FC = () => {
         />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pl-2 md:pl-4 border-l-2 border-slate-100 dark:border-slate-800 ml-6 md:ml-8 lg:ml-8">
           <ActionCard 
+            to={AppRoute.STUDENT_ASSESSMENT}
+            title="Avaliação Física"
+            desc="Anamnese e testes físicos completos."
+            icon={ClipboardList}
+            color="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400"
+          />
+          <ActionCard 
             to={AppRoute.EVOLUTION}
             title={t('student_evolution')}
             desc={t('card_evolution_desc')}
@@ -272,7 +279,7 @@ export const Dashboard: React.FC = () => {
             to={AppRoute.SURVEY_MANAGER}
             title={t('surveys_title')}
             desc={t('card_surveys_desc')}
-            icon={ClipboardList}
+            icon={FileText}
             color="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400"
           />
           <ActionCard 

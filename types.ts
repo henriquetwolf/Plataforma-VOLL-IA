@@ -159,6 +159,7 @@ export enum AppRoute {
   STUDIO_SUGGESTIONS = '/suggestions',
   STUDIO_EVALUATIONS = '/evaluations',
   SURVEY_MANAGER = '/surveys', // Nova rota
+  STUDENT_ASSESSMENT = '/assessments', // Nova rota Avaliação Física
   
   // Novo Agente de Conteúdo
   CONTENT_AGENT = '/content-agent',
@@ -216,6 +217,23 @@ export interface SurveyResponse {
 }
 
 // --- END SURVEY TYPES ---
+
+// --- STUDENT ASSESSMENT TYPES ---
+
+export interface StudentAssessment {
+  id: string;
+  studioId: string;
+  studentId: string;
+  instructorId?: string;
+  studentName: string;
+  instructorName?: string;
+  type: 'simple' | 'custom';
+  title: string;
+  content: any; // JSONB data (Flexible structure)
+  createdAt: string;
+}
+
+// --- END ASSESSMENT TYPES ---
 
 export interface Suggestion {
   id: string;

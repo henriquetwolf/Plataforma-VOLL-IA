@@ -35,6 +35,7 @@ import { SurveyManager } from './pages/SurveyManager';
 import { ContentAgent } from './pages/ContentAgent'; 
 import { WhatsAppAgent } from './pages/WhatsAppAgent';
 import { StudentEvolutionPage } from './pages/StudentEvolution';
+import { StudentAssessmentPage } from './pages/StudentAssessment';
 import { AppRoute } from './types';
 
 const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
@@ -143,6 +144,7 @@ const AppRoutes = () => {
       <Route path={AppRoute.STUDENTS} element={<SharedRoute><Students /></SharedRoute>} />
       <Route path={AppRoute.REHAB} element={<SharedRoute><RehabAgent /></SharedRoute>} />
       <Route path={AppRoute.EVOLUTION} element={<SharedRoute><StudentEvolutionPage /></SharedRoute>} />
+      <Route path={AppRoute.STUDENT_ASSESSMENT} element={<SharedRoute><StudentAssessmentPage /></SharedRoute>} />
 
       {/* Rotas Exclusivas do Instrutor */}
       <Route path={AppRoute.INSTRUCTOR_DASHBOARD} element={<InstructorRoute><InstructorDashboard /></InstructorRoute>} />

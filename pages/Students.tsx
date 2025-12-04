@@ -3,14 +3,17 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
-import { Student, AppRoute, StudentEvolution, ClassEvaluation, SavedRehabLesson } from '../types';
+import { Student, AppRoute, StudentEvolution, ClassEvaluation, SavedRehabLesson, StudentAssessment } from '../types';
 import { fetchStudents, createStudentWithAutoAuth, updateStudent, deleteStudent, createStudentWithAuth, revokeStudentAccess, uploadStudentPhoto } from '../services/studentService';
 import { fetchRehabLessonsByStudent } from '../services/rehabService'; 
 import { fetchEvolutionsByStudent } from '../services/evolutionService';
 import { fetchStudentEvaluations } from '../services/evaluationService';
+import { fetchAssessmentsByStudent } from '../services/assessmentService';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Users, Plus, Trash2, Search, Pencil, Activity, X, Lock, Unlock, CheckCircle, Home, AlertCircle, Ban, MapPin, Phone, User, Camera, Filter, Mail, Eye, Calendar, TrendingUp, Star, ClipboardList, ChevronRight, FileText, LayoutGrid, List } from 'lucide-react';
+import { Users, Plus, Trash2, Search, Pencil, Activity, X, Lock, Unlock, CheckCircle, Home, AlertCircle, Ban, MapPin, Phone, User, Camera, Filter, Mail, Eye, Calendar, TrendingUp, Star, ClipboardList, ChevronRight, FileText, LayoutGrid, List, Printer } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 export const Students: React.FC = () => {
   const { user } = useAuth();
@@ -30,13 +33,15 @@ export const Students: React.FC = () => {
   // Estados de Detalhes
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [detailsTab, setDetailsTab] = useState<'profile' | 'rehab' | 'evolution' | 'ratings'>('profile');
+  const [detailsTab, setDetailsTab] = useState<'profile' | 'assessments' | 'rehab' | 'evolution' | 'ratings'>('profile');
   
   // Dados Carregados para Detalhes
   const [studentLessons, setStudentLessons] = useState<SavedRehabLesson[]>([]);
   const [studentEvolutions, setStudentEvolutions] = useState<StudentEvolution[]>([]);
   const [studentRatings, setStudentRatings] = useState<ClassEvaluation[]>([]);
+  const [studentAssessments, setStudentAssessments] = useState<StudentAssessment[]>([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [viewAssessmentDetail, setViewAssessmentDetail] = useState<StudentAssessment | null>(null);
   
   // Modal de Acesso (Reativação)
   const [accessModalOpen, setAccessModalOpen] = useState(false);
@@ -157,15 +162,17 @@ export const Students: React.FC = () => {
     setLoadingDetails(true);
     
     // Fetch all related data in parallel
-    const [lessons, evolutions, ratings] = await Promise.all([
+    const [lessons, evolutions, ratings, assessments] = await Promise.all([
         fetchRehabLessonsByStudent(student.id),
         fetchEvolutionsByStudent(student.id),
-        fetchStudentEvaluations(student.id)
+        fetchStudentEvaluations(student.id),
+        fetchAssessmentsByStudent(student.id)
     ]);
 
     setStudentLessons(lessons);
     setStudentEvolutions(evolutions);
     setStudentRatings(ratings);
+    setStudentAssessments(assessments);
     setLoadingDetails(false);
   };
 
@@ -305,6 +312,33 @@ export const Students: React.FC = () => {
     }
   };
 
+  const handlePrintAssessment = () => {
+    const input = document.getElementById('printable-assessment-detail');
+    if (input) {
+      html2canvas(input, { scale: 2 }).then((canvas) => {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const imgWidth = pdfWidth;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+
+        while (heightLeft >= 0) {
+          position = heightLeft - imgHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pdfHeight;
+        }
+        pdf.save('avaliacao_aluno.pdf');
+      });
+    }
+  };
+
   const filteredStudents = students.filter(student => {
     const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -319,6 +353,7 @@ export const Students: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* ... (Existing render of list/form/header remains unchanged) ... */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           {isInstructor && (
@@ -757,35 +792,41 @@ export const Students: React.FC = () => {
               </div>
 
               {/* Tabs Nav */}
-              <div className="flex border-b border-slate-100 dark:border-slate-800 px-6 gap-6 bg-white dark:bg-slate-900">
+              <div className="flex border-b border-slate-100 dark:border-slate-800 px-6 gap-6 bg-white dark:bg-slate-900 overflow-x-auto">
                   <button 
                     onClick={() => setDetailsTab('profile')}
-                    className={`py-4 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${detailsTab === 'profile' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}
+                    className={`py-4 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${detailsTab === 'profile' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}
                   >
                     <User className="w-4 h-4"/> Perfil & Clínico
                   </button>
                   <button 
-                    onClick={() => setDetailsTab('rehab')}
-                    className={`py-4 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${detailsTab === 'rehab' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}
+                    onClick={() => setDetailsTab('assessments')}
+                    className={`py-4 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${detailsTab === 'assessments' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}
                   >
-                    <Activity className="w-4 h-4"/> Histórico Aulas (Rehab)
+                    <ClipboardList className="w-4 h-4"/> Avaliações
+                  </button>
+                  <button 
+                    onClick={() => setDetailsTab('rehab')}
+                    className={`py-4 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${detailsTab === 'rehab' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}
+                  >
+                    <Activity className="w-4 h-4"/> Histórico Aulas
                   </button>
                   <button 
                     onClick={() => setDetailsTab('evolution')}
-                    className={`py-4 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${detailsTab === 'evolution' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}
+                    className={`py-4 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${detailsTab === 'evolution' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}
                   >
                     <TrendingUp className="w-4 h-4"/> Evolução
                   </button>
                   <button 
                     onClick={() => setDetailsTab('ratings')}
-                    className={`py-4 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${detailsTab === 'ratings' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}
+                    className={`py-4 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${detailsTab === 'ratings' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}
                   >
                     <Star className="w-4 h-4"/> Avaliações
                   </button>
               </div>
 
               {/* Content Area */}
-              <div className="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-slate-950">
+              <div className="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-slate-950 relative">
                 {loadingDetails ? (
                     <div className="h-full flex items-center justify-center text-slate-500">
                         Carregando informações...
@@ -849,7 +890,37 @@ export const Students: React.FC = () => {
                             </div>
                         )}
 
-                        {/* TAB 2: REHAB */}
+                        {/* TAB 2: AVALIAÇÕES (NEW) */}
+                        {detailsTab === 'assessments' && (
+                            <div className="space-y-4 animate-in fade-in">
+                                {studentAssessments.length === 0 ? (
+                                    <div className="text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+                                        <ClipboardList className="w-10 h-10 mx-auto mb-2 opacity-50"/>
+                                        <p>Nenhuma avaliação física registrada.</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid gap-4">
+                                        {studentAssessments.map(assessment => (
+                                            <div key={assessment.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:border-brand-300 transition-all flex justify-between items-center">
+                                                <div>
+                                                    <h4 className="font-bold text-lg text-slate-800 dark:text-white">{assessment.title}</h4>
+                                                    <p className="text-xs text-slate-500 flex items-center gap-2">
+                                                        <Calendar className="w-3 h-3"/> {new Date(assessment.createdAt).toLocaleDateString()}
+                                                        <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                                                        <User className="w-3 h-3"/> {assessment.instructorName || 'Instrutor'}
+                                                    </p>
+                                                </div>
+                                                <Button size="sm" variant="outline" onClick={() => setViewAssessmentDetail(assessment)}>
+                                                    <Eye className="w-4 h-4 mr-2"/> Visualizar
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* TAB 3: REHAB */}
                         {detailsTab === 'rehab' && (
                             <div className="space-y-4 animate-in fade-in">
                                 {studentLessons.length === 0 ? (
@@ -892,7 +963,7 @@ export const Students: React.FC = () => {
                             </div>
                         )}
 
-                        {/* TAB 3: EVOLUÇÃO */}
+                        {/* TAB 4: EVOLUÇÃO */}
                         {detailsTab === 'evolution' && (
                             <div className="space-y-4 animate-in fade-in">
                                 {studentEvolutions.length === 0 ? (
@@ -950,7 +1021,7 @@ export const Students: React.FC = () => {
                             </div>
                         )}
 
-                        {/* TAB 4: AVALIAÇÕES */}
+                        {/* TAB 5: AVALIAÇÕES DE AULA */}
                         {detailsTab === 'ratings' && (
                             <div className="space-y-4 animate-in fade-in">
                                 {studentRatings.length === 0 ? (
@@ -999,6 +1070,109 @@ export const Students: React.FC = () => {
                 )}
               </div>
            </div>
+        </div>
+      )}
+
+      {/* ASSESSMENT DETAIL MODAL (NESTED) */}
+      {viewAssessmentDetail && (
+        <div className="fixed inset-0 z-[60] bg-black/60 flex justify-center overflow-y-auto py-10 animate-in fade-in">
+            <div className="bg-white w-full max-w-4xl min-h-[297mm] shadow-2xl relative p-8 md:p-16">
+                <button onClick={() => setViewAssessmentDetail(null)} className="absolute top-4 right-4 bg-slate-100 p-2 rounded-full hover:bg-slate-200 print:hidden"><X className="w-6 h-6"/></button>
+                
+                <div className="print:hidden flex justify-end mb-8">
+                    <Button onClick={() => {
+                        const input = document.getElementById('printable-assessment-detail');
+                        if (input) {
+                            html2canvas(input, { scale: 2 }).then((canvas) => {
+                                const imgData = canvas.toDataURL('image/png');
+                                const pdf = new jsPDF('p', 'mm', 'a4');
+                                const pdfWidth = pdf.internal.pageSize.getWidth();
+                                const pdfHeight = pdf.internal.pageSize.getHeight();
+                                const imgWidth = pdfWidth;
+                                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                                let heightLeft = imgHeight;
+                                let position = 0;
+                                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                                heightLeft -= pdfHeight;
+                                while (heightLeft >= 0) {
+                                    position = heightLeft - imgHeight;
+                                    pdf.addPage();
+                                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                                    heightLeft -= pdfHeight;
+                                }
+                                pdf.save('avaliacao.pdf');
+                            });
+                        }
+                    }}><Printer className="w-4 h-4 mr-2"/> Imprimir / PDF</Button>
+                </div>
+
+                <div id="printable-assessment-detail">
+                    <div className="text-center border-b-2 border-slate-800 pb-4 mb-8">
+                        <h1 className="text-3xl font-bold uppercase tracking-widest">{viewAssessmentDetail.title}</h1>
+                        <p className="text-slate-500">Avaliação Física & Anamnese</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mb-8 bg-slate-50 p-4 border rounded">
+                        <p><strong>Aluno:</strong> {viewAssessmentDetail.content.studentName}</p>
+                        <p><strong>Data:</strong> {new Date(viewAssessmentDetail.createdAt).toLocaleDateString()}</p>
+                        <p><strong>Idade:</strong> {viewAssessmentDetail.content.studentAge}</p>
+                        <p><strong>Avaliador:</strong> {viewAssessmentDetail.content.evaluatorName}</p>
+                    </div>
+
+                    {viewAssessmentDetail.type === 'simple' ? (
+                        <div className="space-y-6 text-sm">
+                            <section>
+                                <h3 className="font-bold bg-slate-200 p-1 mb-2">1. Queixa Principal</h3>
+                                <p>{viewAssessmentDetail.content.complaint}</p>
+                                {viewAssessmentDetail.content.hasPain && (
+                                    <div className="ml-4 mt-2">
+                                        <p><strong>Dor:</strong> Sim - {viewAssessmentDetail.content.painLocation}</p>
+                                        <p><strong>Intensidade:</strong> {viewAssessmentDetail.content.painIntensity}/10</p>
+                                        <p><strong>Piora:</strong> {viewAssessmentDetail.content.worsensWith} | <strong>Melhora:</strong> {viewAssessmentDetail.content.improvesWith}</p>
+                                    </div>
+                                )}
+                            </section>
+                            <section>
+                                <h3 className="font-bold bg-slate-200 p-1 mb-2">2. Histórico & Clínico</h3>
+                                <ul className="list-disc pl-5">
+                                    {viewAssessmentDetail.content.historyInjuries && <li>Lesões: {viewAssessmentDetail.content.historyInjuriesDesc}</li>}
+                                    {viewAssessmentDetail.content.historySurgeries && <li>Cirurgias: {viewAssessmentDetail.content.historySurgeriesDesc}</li>}
+                                    {viewAssessmentDetail.content.clinicalConditions?.map((c:string) => <li key={c}>{c}</li>)}
+                                    {viewAssessmentDetail.content.clinicalOther && <li>Outros: {viewAssessmentDetail.content.clinicalOther}</li>}
+                                </ul>
+                            </section>
+                            <section>
+                                <h3 className="font-bold bg-slate-200 p-1 mb-2">3. Análise Física</h3>
+                                <p><strong>Postura:</strong> {viewAssessmentDetail.content.postureObs}</p>
+                                <p><strong>Mobilidade:</strong> {viewAssessmentDetail.content.mobilityFlexibility} - {viewAssessmentDetail.content.mobilityObs}</p>
+                                <p><strong>Força:</strong> {viewAssessmentDetail.content.strengthGlobal}/5 - {viewAssessmentDetail.content.strengthObs}</p>
+                            </section>
+                            <section>
+                                <h3 className="font-bold bg-slate-200 p-1 mb-2">4. Conclusão</h3>
+                                <p><strong>Objetivos Aluno:</strong> {viewAssessmentDetail.content.studentGoals}</p>
+                                <p><strong>Parecer Instrutor:</strong> {viewAssessmentDetail.content.instructorOpinion}</p>
+                                <p><strong>Info Adicional:</strong> {viewAssessmentDetail.content.additionalInfo}</p>
+                            </section>
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            {viewAssessmentDetail.content.fields?.map((field: any) => (
+                                <div key={field.id} className="border-b pb-2">
+                                    <p className="font-bold text-sm text-slate-600 mb-1">{field.label}</p>
+                                    <p className="text-slate-900">
+                                        {Array.isArray(field.value) ? field.value.join(', ') : field.value}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="mt-16 pt-8 border-t border-slate-300 flex justify-between text-xs text-slate-400">
+                        <p>Gerado por Plataforma VOLL IA</p>
+                        <p>Confidencial</p>
+                    </div>
+                </div>
+            </div>
         </div>
       )}
     </div>
