@@ -6,14 +6,15 @@ import { useNavigate } from 'react-router-dom';
 import { fetchPathologyData, fetchLessonPlan, fetchTreatmentPlan, regenerateSingleExercise, handleGeminiError } from '../services/geminiService';
 import { saveRehabLesson, fetchRehabLessons, deleteRehabLesson, saveTreatmentPlan, fetchTreatmentPlans, deleteTreatmentPlan } from '../services/rehabService';
 import { saveStudioExercise, fetchStudioExercises, deleteStudioExercise, updateStudioExercise, createStudioExercise, uploadExerciseImage } from '../services/exerciseService';
+import { fetchAssessmentsByStudent } from '../services/assessmentService';
 import { fetchStudents } from '../services/studentService';
 import { fetchProfile } from '../services/storage';
-import { PathologyResponse, LessonPlanResponse, LoadingState, SavedRehabLesson, LessonExercise, ChatMessage, Student, StudioExercise, AppRoute, TreatmentPlanResponse, SavedTreatmentPlan } from '../types';
+import { PathologyResponse, LessonPlanResponse, LoadingState, SavedRehabLesson, LessonExercise, ChatMessage, Student, StudioExercise, AppRoute, TreatmentPlanResponse, SavedTreatmentPlan, StudentAssessment } from '../types';
 import { AssessmentModal } from '../components/rehab/AssessmentModal';
 import { ResultCard, LessonPlanView } from '../components/rehab/RehabResults';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Search, History, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, User, ChevronRight, Folder, Dumbbell, Filter, Plus, Pencil, X, Upload, ImageIcon, Maximize2, Home, AlertTriangle, List, CheckSquare, Save, FileText, Download, Building2, Eye } from 'lucide-react';
+import { Search, History, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, User, ChevronRight, Folder, Dumbbell, Filter, Plus, Pencil, X, Upload, ImageIcon, Maximize2, Home, AlertTriangle, List, CheckSquare, Save, FileText, Download, Building2, Eye, ClipboardList } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -105,6 +106,10 @@ export const RehabAgent: React.FC = () => {
   const [refData, setRefData] = useState<PathologyResponse | null>(null);
   const [errorHtml, setErrorHtml] = useState<string | null>(null);
   
+  // Assessment Context State
+  const [studentAssessments, setStudentAssessments] = useState<StudentAssessment[]>([]);
+  const [selectedAssessmentIds, setSelectedAssessmentIds] = useState<Set<string>>(new Set());
+
   // Lesson & Treatment State
   const [planMode, setPlanMode] = useState<'single' | 'treatment'>('single');
   const [treatmentPlan, setTreatmentPlan] = useState<TreatmentPlanResponse | null>(null);
@@ -260,10 +265,26 @@ export const RehabAgent: React.FC = () => {
     }
   };
 
+  const getCombinedContext = () => {
+    let context = currentStudent?.observations || '';
+    
+    const selectedAssessments = studentAssessments.filter(a => selectedAssessmentIds.has(a.id));
+    if (selectedAssessments.length > 0) {
+        const assessmentContext = selectedAssessments.map(a => {
+            const date = new Date(a.createdAt).toLocaleDateString();
+            return `[Avaliação Física em ${date} - ${a.title}]: ${JSON.stringify(a.content)}`;
+        }).join('\n\n');
+        
+        context += `\n\n--- Histórico de Avaliações Físicas Recentes ---\n${assessmentContext}`;
+    }
+    
+    return context;
+  };
+
   const generateSingleLesson = async () => {
       setLessonStatus(LoadingState.LOADING);
       try {
-        const obs = currentStudent?.observations || '';
+        const obs = getCombinedContext();
         const data = await fetchLessonPlan(query, selectedEquipment, assessmentHistory, obs);
         if (data) { setLessonData(data); setLessonStatus(LoadingState.SUCCESS); }
       } catch (err: any) { setLessonStatus(LoadingState.ERROR); setErrorHtml(handleGeminiError(err)); }
@@ -272,7 +293,7 @@ export const RehabAgent: React.FC = () => {
   const generateTreatmentPlan = async () => {
       setLessonStatus(LoadingState.LOADING);
       try {
-        const obs = currentStudent?.observations || '';
+        const obs = getCombinedContext();
         const data = await fetchTreatmentPlan(query, selectedEquipment, assessmentHistory, obs);
         if (data) { setTreatmentPlan(data); setLessonStatus(LoadingState.SUCCESS); }
       } catch (err: any) { setLessonStatus(LoadingState.ERROR); setErrorHtml(handleGeminiError(err)); }
@@ -289,7 +310,7 @@ export const RehabAgent: React.FC = () => {
       setLessonStatus(LoadingState.LOADING);
       setLessonData(null); // Clear previous lesson while loading
       try {
-        const obs = currentStudent?.observations || '';
+        const obs = getCombinedContext();
         const fullQuery = `${query} - Fase ${sessionNumber} (${focus})`;
         const data = await fetchLessonPlan(fullQuery, selectedEquipment, assessmentHistory, obs, focus);
         if (data) { 
@@ -338,10 +359,29 @@ export const RehabAgent: React.FC = () => {
     if (confirm("Tem certeza que deseja remover este exercício do banco?")) { await deleteStudioExercise(id); loadBank(); }
   };
 
-  const handleStudentSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleStudentSelect = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = e.target.value;
     const student = students.find(s => s.id === id) || null;
     setCurrentStudent(student);
+    
+    // Load assessments for context
+    setStudentAssessments([]);
+    setSelectedAssessmentIds(new Set());
+    if (student) {
+        try {
+            const history = await fetchAssessmentsByStudent(student.id);
+            setStudentAssessments(history.slice(0, 5)); // Get last 5
+        } catch (e) {
+            console.error("Error fetching assessments", e);
+        }
+    }
+  };
+
+  const toggleAssessmentSelection = (id: string) => {
+      const newSet = new Set(selectedAssessmentIds);
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+      setSelectedAssessmentIds(newSet);
   };
 
   const openExerciseModal = (exercise?: StudioExercise) => {
@@ -631,25 +671,40 @@ export const RehabAgent: React.FC = () => {
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>
-                {currentStudent && currentStudent.observations && (
-                  <div className="mt-3 text-xs bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 p-3 rounded-lg border border-yellow-100 dark:border-yellow-800 flex items-start gap-2">
-                    <User className="w-4 h-4 mt-0.5"/>
-                    <div><strong>Observações:</strong> {currentStudent.observations}</div>
-                  </div>
+                {currentStudent && (
+                    <div className="mt-4 space-y-3">
+                        {currentStudent.observations && (
+                            <div className="text-xs bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 p-3 rounded-lg border border-yellow-100 dark:border-yellow-800 flex items-start gap-2">
+                                <User className="w-4 h-4 mt-0.5"/>
+                                <div><strong>Observações:</strong> {currentStudent.observations}</div>
+                            </div>
+                        )}
+                        
+                        {studentAssessments.length > 0 && (
+                            <div className="text-xs bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                                <p className="font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1">
+                                    <ClipboardList className="w-3 h-3" /> Usar Avaliações Físicas como Contexto:
+                                </p>
+                                <div className="space-y-1">
+                                    {studentAssessments.map(assessment => (
+                                        <label key={assessment.id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 p-1 rounded">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={selectedAssessmentIds.has(assessment.id)} 
+                                                onChange={() => toggleAssessmentSelection(assessment.id)}
+                                                className="rounded text-brand-600 focus:ring-brand-500"
+                                            />
+                                            <span className="text-slate-600 dark:text-slate-400">
+                                                {assessment.title} - {new Date(assessment.createdAt).toLocaleDateString()}
+                                            </span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 )}
              </div>
-          </div>
-
-          <div className="relative shadow-lg rounded-xl">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400"/>
-            <input 
-              className="w-full pl-12 pr-28 py-4 text-lg border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 bg-white dark:bg-slate-900" 
-              placeholder={t('main_complaint')}
-              value={query} 
-              onChange={(e) => setQuery(e.target.value)} 
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()} 
-            />
-            <Button className="absolute right-2 top-2 bottom-2" onClick={() => handleSearch()}>{t('consult')}</Button>
           </div>
 
           {/* Mode Selection and Equipment Filter */}
@@ -690,6 +745,18 @@ export const RehabAgent: React.FC = () => {
                       ))}
                   </div>
               </div>
+          </div>
+
+          <div className="relative shadow-lg rounded-xl">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400"/>
+            <input 
+              className="w-full pl-12 pr-28 py-4 text-lg border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 bg-white dark:bg-slate-900" 
+              placeholder={t('main_complaint')}
+              value={query} 
+              onChange={(e) => setQuery(e.target.value)} 
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()} 
+            />
+            <Button className="absolute right-2 top-2 bottom-2" onClick={() => handleSearch()}>{t('consult')}</Button>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -836,7 +903,7 @@ export const RehabAgent: React.FC = () => {
           {activeTab === 'lesson' && (
             <div className="animate-in fade-in">
               {lessonStatus === LoadingState.LOADING ? (
-                  <div className="text-center py-12"><Loader2 className="h-10 w-10 animate-spin mx-auto text-brand-500"/><p>Gerando Aula com IA...</p></div> 
+                  <div className="text-center py-12"><Loader2 className="h-10 w-10 animate-spin mx-auto text-brand-600"/><p>Gerando Aula com IA...</p></div> 
               ) : (
                 <>
                     {/* Treatment Plan View */}
