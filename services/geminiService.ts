@@ -496,6 +496,7 @@ export const generatePilatesContentStream = async function* (request: ContentReq
     const prompt = `
     Crie um texto para ${request.format} de Pilates.
     Tema: ${request.theme}. Objetivo: ${request.objective}. Público: ${request.audience}. Tom: ${request.tone}.
+    ${request.modificationPrompt ? `Refinamento solicitado: ${request.modificationPrompt}` : ''}
     `;
     
     const streamResult = await ai.models.generateContentStream({
@@ -558,14 +559,55 @@ export const generatePilatesVideo = async (script: string, onProgress: (msg: str
     }
 };
 
-export const generateContentPlan = async (goals: any, persona: StudioPersona, durationWeeks: number, frequency: number, startDate: string) => {
+// Updated signature to support detailed planner inputs
+export const generateContentPlan = async (
+    inputs: {
+        mainGoal: string;
+        audience: string;
+        message: string;
+        differentiators: string;
+        objections: string;
+        tone: string;
+        events: string;
+        frequency: number;
+        startDate: string;
+    },
+    persona: StudioPersona | null
+) => {
     const prompt = `
-    Crie um Plano de Conteúdo para Instagram de Pilates.
-    Duração: ${durationWeeks} semanas. Frequência: ${frequency} posts/semana.
-    Data Início: ${startDate}.
+    Crie um Plano de Conteúdo de 4 Semanas para Instagram de Pilates.
+    
+    ESTRATÉGIA:
+    - Meta Principal: ${inputs.mainGoal}
+    - Público Alvo: ${inputs.audience}
+    - Mensagem Principal: ${inputs.message}
+    - Diferenciais do Studio: ${inputs.differentiators}
+    - Objeções a quebrar: ${inputs.objections}
+    - Tom de Voz: ${inputs.tone}
+    - Eventos Especiais no período: ${inputs.events}
+    
+    PERSONA DO STUDIO:
+    ${JSON.stringify(persona || {})}
+    
+    CONFIGURAÇÃO:
+    - Frequência: ${inputs.frequency} posts por semana.
+    - Data Início: ${inputs.startDate}
     
     Retorne JSON:
-    [ { "week": "Semana 1", "theme": "Tema", "ideas": [ { "day": "Segunda-feira", "format": "Reels", "theme": "Título", "objective": "Educação" } ] } ]
+    [ 
+      { 
+        "week": "Semana 1", 
+        "theme": "Tema da Semana", 
+        "ideas": [ 
+          { 
+            "day": "Segunda-feira", 
+            "format": "Reels/Carrossel/Post", 
+            "theme": "Título do Post", 
+            "objective": "Objetivo específico deste post" 
+          } 
+        ] 
+      } 
+    ]
     `;
     
     const response = await ai.models.generateContent({
@@ -574,6 +616,31 @@ export const generateContentPlan = async (goals: any, persona: StudioPersona, du
         config: { responseMimeType: 'application/json' }
     });
     return cleanAndParseJSON(response.text || '[]');
+};
+
+export const generatePlannerSuggestion = async (
+  field: string,
+  contextStr: string,
+  type: 'strategy' | 'random'
+): Promise<string[]> => {
+  let prompt = '';
+  if (type === 'strategy') {
+    prompt = `Sugira 3 opções de "${field}" para um plano de conteúdo de Pilates, baseado nesta estratégia do estúdio: ${contextStr}. Retorne apenas as opções em JSON array de strings.`;
+  } else {
+    prompt = `Sugira 3 opções criativas de "${field}" para um plano de conteúdo de Instagram de um Studio de Pilates. Retorne apenas as opções em JSON array de strings.`;
+  }
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: { responseMimeType: 'application/json' }
+    });
+    return cleanAndParseJSON(response.text || '[]') || [];
+  } catch (e) {
+    console.error(e);
+    return ["Erro ao gerar sugestões."];
+  }
 };
 
 // --- Evaluation Analysis ---

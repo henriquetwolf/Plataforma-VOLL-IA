@@ -609,6 +609,17 @@ export interface StrategicContentPlan {
         targetAudience: string[];
         keyThemes: string[];
     };
+    inputs?: {
+        name: string;
+        mainGoal: string;
+        audience: string;
+        message: string;
+        differentiators: string;
+        objections: string;
+        tone: string;
+        events: string;
+        frequency: number;
+    };
     weeks: {
         week: string; // "Semana 1"
         theme: string;
