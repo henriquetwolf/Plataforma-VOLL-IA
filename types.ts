@@ -170,6 +170,9 @@ export enum AppRoute {
   // Novo Agente de Ação
   ACTION_AGENT = '/action-agent',
 
+  // Novo Agente de Marketing
+  MARKETING_AGENT = '/marketing-agent',
+
   ROOT = '/'
 }
 
@@ -709,6 +712,81 @@ export interface SavedActionPlan {
   content: string; // HTML report
   inputs: ActionInput;
   createdAt: string;
+}
+
+// --- Marketing Agent Types ---
+
+export type MarketingMode = 'single' | 'plan' | 'story';
+
+export interface MarketingFormData {
+  mode: MarketingMode;
+  goal: string; 
+  customGoal?: string; 
+  audience: string;
+  topic: string;
+  format: string; 
+  style: string;
+}
+
+export interface ReelOption {
+  style: string;
+  title: string;
+  purpose: string;
+  captionShort: string;
+  captionLong: string;
+  script: string[];
+  audioSuggestion: string;
+  duration: string;
+}
+
+export interface ContentItem {
+  day: string;
+  format: string;
+  idea: string;
+}
+
+export interface WeekPlan {
+  weekNumber: number;
+  theme: string;
+  posts: ContentItem[];
+}
+
+export interface StoryFrame {
+  order: number;
+  type: 'video' | 'static' | 'poll' | 'box' | 'repost';
+  action: string;
+  spokenText?: string;
+  directAction: string;
+  emotion: string;
+}
+
+export interface StorySequence {
+  category: string;
+  reasoning: string;
+  frames: StoryFrame[];
+}
+
+export interface GeneratedContent {
+  suggestedFormat: string;
+  reasoning: string;
+  hashtags: string[];
+  tips: string;
+  captionShort?: string;
+  captionLong?: string;
+  visualContent?: string[];
+  generatedImage?: string;
+  isReels?: boolean;
+  reelsOptions?: ReelOption[];
+  isPlan?: boolean;
+  weeks?: WeekPlan[];
+  isStory?: boolean;
+  storySequence?: StorySequence;
+}
+
+export interface SavedContent extends GeneratedContent {
+  id: string;
+  date: string;
+  topic: string;
 }
 
 // --- Class Evaluation Types ---

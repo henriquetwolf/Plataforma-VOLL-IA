@@ -1,12 +1,12 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { 
   StrategicPlan, CalculatorInputs, FinancialModel, CompensationResult, 
   PathologyResponse, LessonPlanResponse, LessonExercise, ChatMessage, 
   TriageStep, TriageStatus, RecipeResponse, WorkoutResponse, Suggestion, 
   NewsletterAudience, ContentRequest, StudioPersona, ClassEvaluation,
   StudioInfo, StudentEvolution, TreatmentPlanResponse, WhatsAppScriptRequest,
-  ActionInput, ActionIdea
+  ActionInput, ActionIdea, MarketingFormData, GeneratedContent
 } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -57,8 +57,176 @@ export const handleGeminiError = (error: any): string => {
   return "Ocorreu um erro ao comunicar com a IA. Tente novamente.";
 };
 
-// --- Studio Profile ---
+// ... (Outros serviços existentes mantidos sem alteração) ...
 
+// --- MARKETING AGENT ---
+
+export const generateTopicSuggestions = async (goal: string, audience: string): Promise<string[]> => {
+  const prompt = `
+  Como um especialista em marketing para Studios de Pilates, sugira 5 tópicos criativos e específicos para posts no Instagram.
+  Objetivo: ${goal}
+  Público: ${audience}
+  
+  Retorne APENAS um array JSON de strings com os títulos dos tópicos.
+  Exemplo: ["Benefícios do Pilates na gravidez", "Como aliviar dor nas costas"]
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: { responseMimeType: 'application/json' }
+    });
+    return cleanAndParseJSON(response.text || '[]') || [];
+  } catch (e) {
+    console.error("Error generating topics:", e);
+    return [];
+  }
+};
+
+export const generateMarketingContent = async (formData: MarketingFormData): Promise<GeneratedContent | null> => {
+  const isPlan = formData.mode === 'plan';
+  const isStory = formData.mode === 'story';
+  
+  // Base schema properties common to all
+  const baseProperties: any = {
+    suggestedFormat: { type: Type.STRING },
+    reasoning: { type: Type.STRING },
+    hashtags: { type: Type.ARRAY, items: { type: Type.STRING } },
+    tips: { type: Type.STRING },
+  };
+
+  let responseSchema: any = {
+    type: Type.OBJECT,
+    properties: baseProperties,
+    required: ['suggestedFormat', 'reasoning', 'hashtags', 'tips']
+  };
+
+  // Adjust schema based on mode
+  if (isPlan) {
+    responseSchema.properties.isPlan = { type: Type.BOOLEAN };
+    responseSchema.properties.weeks = {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          weekNumber: { type: Type.INTEGER },
+          theme: { type: Type.STRING },
+          posts: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                day: { type: Type.STRING },
+                format: { type: Type.STRING },
+                idea: { type: Type.STRING }
+              }
+            }
+          }
+        }
+      }
+    };
+  } else if (isStory) {
+    responseSchema.properties.isStory = { type: Type.BOOLEAN };
+    responseSchema.properties.storySequence = {
+      type: Type.OBJECT,
+      properties: {
+        category: { type: Type.STRING },
+        reasoning: { type: Type.STRING },
+        frames: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              order: { type: Type.INTEGER },
+              type: { type: Type.STRING },
+              action: { type: Type.STRING },
+              spokenText: { type: Type.STRING },
+              directAction: { type: Type.STRING },
+              emotion: { type: Type.STRING }
+            }
+          }
+        }
+      }
+    };
+  } else {
+    // Single Post
+    responseSchema.properties.captionShort = { type: Type.STRING };
+    responseSchema.properties.captionLong = { type: Type.STRING };
+    responseSchema.properties.visualContent = { type: Type.ARRAY, items: { type: Type.STRING } };
+    
+    // Check if it might be reels to add reels options
+    responseSchema.properties.isReels = { type: Type.BOOLEAN };
+    responseSchema.properties.reelsOptions = {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          style: { type: Type.STRING },
+          title: { type: Type.STRING },
+          purpose: { type: Type.STRING },
+          captionShort: { type: Type.STRING },
+          captionLong: { type: Type.STRING },
+          script: { type: Type.ARRAY, items: { type: Type.STRING } },
+          audioSuggestion: { type: Type.STRING },
+          duration: { type: Type.STRING }
+        }
+      }
+    };
+  }
+
+  let prompt = `
+  Atue como um Especialista em Marketing Digital para Studios de Pilates.
+  Gere conteúdo para Instagram com base nestes dados:
+  
+  Modo: ${formData.mode}
+  Objetivo: ${formData.customGoal || formData.goal}
+  Público: ${formData.audience}
+  Tópico: ${formData.topic}
+  Formato Preferido: ${formData.format}
+  Estilo: ${formData.style}
+  `;
+
+  if (isPlan) {
+    prompt += `
+    Crie um planejamento de 4 semanas.
+    Para cada semana, defina um tema macro.
+    Sugira 3 posts por semana (Dias alternados).
+    Preencha 'isPlan' como true.
+    `;
+  } else if (isStory) {
+    prompt += `
+    Crie uma sequência estratégica de Stories (3 a 6 frames).
+    Foco em retenção e interação.
+    Use gatilhos mentais adequados ao objetivo.
+    Preencha 'isStory' como true e detalhe a 'storySequence'.
+    `;
+  } else {
+    prompt += `
+    Crie um post único completo.
+    Se o formato for Reels ou Vídeo, forneça roteiro detalhado em 'reelsOptions' (pelo menos 2 opções diferentes).
+    Se for Estático/Carrossel, foque em 'visualContent' e legendas.
+    Preencha 'isReels' como true se for vídeo.
+    `;
+  }
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: responseSchema
+      }
+    });
+    return cleanAndParseJSON(response.text || '{}');
+  } catch (e) {
+    console.error("Marketing Gen Error:", e);
+    return null;
+  }
+};
+
+// ... (Restante do arquivo mantido)
 export const generateStudioDescription = async (name: string, owner: string, specialties: string[]): Promise<string> => {
   const prompt = `Escreva uma biografia curta e profissional (max 300 caracteres) para o perfil de um Studio de Pilates chamado "${name}", proprietário "${owner}", especialidades: ${specialties.join(', ')}. Tom acolhedor e profissional.`;
   const response = await ai.models.generateContent({
@@ -67,8 +235,6 @@ export const generateStudioDescription = async (name: string, owner: string, spe
   });
   return response.text || '';
 };
-
-// --- Strategic Planning ---
 
 export const generateMissionOptions = async (name: string): Promise<string[]> => {
   const prompt = `Gere 3 opções de Missão para um studio de pilates chamado "${name}". Retorne apenas as frases em formato JSON array de strings.`;
@@ -159,8 +325,6 @@ export const generateTailoredMissions = async (studioName: string, specialties: 
     return cleanAndParseJSON(response.text || '[]') || [];
 };
 
-// --- Financial Agent ---
-
 export const generateFinancialAnalysis = async (
     inputs: CalculatorInputs,
     model: FinancialModel,
@@ -194,8 +358,6 @@ export const generateFinancialAnalysis = async (
     });
     return cleanHtmlOutput(response.text || '');
 };
-
-// --- Rehab Agent / Guia Clínico ---
 
 export const fetchTriageQuestion = async (query: string, history: ChatMessage[], studentName?: string): Promise<TriageStep> => {
     const prompt = `
@@ -332,8 +494,6 @@ export const regenerateSingleExercise = async (query: string, oldExercise: Lesso
     return cleanAndParseJSON(response.text || '{}');
 };
 
-// --- Student App ---
-
 export const generateHealthyRecipe = async (goal: string, restrictions: string): Promise<RecipeResponse | null> => {
     const prompt = `
     Atue como Nutricionista Esportiva e Chef. Crie uma receita saudável e saborosa.
@@ -408,8 +568,6 @@ export const generateHomeWorkout = async (name: string, observations: string, eq
     return cleanAndParseJSON(response.text || '{}');
 };
 
-// --- Studio Suggestions ---
-
 export const generateActionPlanFromSuggestions = async (suggestions: Suggestion[], context: string): Promise<string> => {
     const suggestionsText = suggestions.map(s => `- "${s.content}" (${s.studentName})`).join('\n');
     const prompt = `
@@ -467,8 +625,6 @@ export const generateSuggestionTrends = async (suggestions: (Suggestion & { stud
     return cleanHtmlOutput(response.text || '');
 };
 
-// --- Newsletter ---
-
 export const generateNewsletter = async (senderName: string, audience: NewsletterAudience, topic: string, style: string): Promise<{ title: string; content: string } | null> => {
     const audienceText = audience === 'students' ? 'Alunos do Studio' : audience === 'instructors' ? 'Equipe de Instrutores' : 'Todos';
     
@@ -490,8 +646,6 @@ export const generateNewsletter = async (senderName: string, audience: Newslette
     });
     return cleanAndParseJSON(response.text || '{}');
 };
-
-// --- Content Agent ---
 
 export const generatePilatesContentStream = async function* (request: ContentRequest, systemInstruction: string) {
     const prompt = `
@@ -560,7 +714,6 @@ export const generatePilatesVideo = async (script: string, onProgress: (msg: str
     }
 };
 
-// Updated signature to support detailed planner inputs
 export const generateContentPlan = async (
     inputs: {
         mainGoal: string;
@@ -644,8 +797,6 @@ export const generatePlannerSuggestion = async (
   }
 };
 
-// --- Evaluation Analysis ---
-
 export const generateEvaluationAnalysis = async (
   evaluations: ClassEvaluation[],
   filterContext: string
@@ -684,8 +835,6 @@ export const generateEvaluationAnalysis = async (
     return `<p>Erro ao gerar análise: ${handleGeminiError(e)}</p>`;
   }
 };
-
-// --- Evolution Report ---
 
 export const generateEvolutionReport = async (
   evolutions: StudentEvolution[],
@@ -728,8 +877,6 @@ export const generateEvolutionReport = async (
   }
 };
 
-// --- WhatsApp Script Generator ---
-
 export const generateWhatsAppScript = async (
   request: WhatsAppScriptRequest
 ): Promise<string> => {
@@ -763,8 +910,6 @@ export const generateWhatsAppScript = async (
     return "Erro ao gerar mensagem. Tente novamente.";
   }
 };
-
-// --- ACTION AGENT GENERATORS ---
 
 export const generateActionIdeas = async (input: ActionInput): Promise<ActionIdea[]> => {
   const prompt = `
