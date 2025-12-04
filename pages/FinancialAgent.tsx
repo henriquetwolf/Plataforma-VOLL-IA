@@ -5,13 +5,14 @@ import { useLanguage } from '../context/LanguageContext';
 import { CalculatorInputs, FinancialModel, CompensationResult, SavedFinancialSimulation } from '../types';
 import { calculateStudioRevenue, calculateProfessionalRevenue, calculateCompensation } from '../services/calculatorService';
 import { generateFinancialAnalysis } from '../services/geminiService';
-import { fetchSimulations, saveSimulation, deleteSimulation } from '../services/financialService'; // Novo serviço
+import { fetchSimulations, saveSimulation, deleteSimulation } from '../services/financialService'; 
 import { CalculatorForm } from '../components/calculator/CalculatorForm';
 import { ResultsTable } from '../components/calculator/ResultsTable';
 import { ResultsChart } from '../components/calculator/ResultsChart';
 import { SavedFinancialList } from '../components/calculator/SavedFinancialList';
 import { Button } from '../components/ui/Button';
-import { Calculator, TrendingUp, Sparkles, Loader2, Download, Save, History } from 'lucide-react';
+import { Calculator, TrendingUp, Sparkles, Loader2, Download, Save, History, Building2 } from 'lucide-react';
+import { fetchProfile } from '../services/storage';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -65,11 +66,23 @@ export const FinancialAgent: React.FC = () => {
     const [savedSimulations, setSavedSimulations] = useState<SavedFinancialSimulation[]>([]);
     const [showHistory, setShowHistory] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    
+    // Brand Data for Report
+    const [studioLogo, setStudioLogo] = useState<string | null>(null);
+    const [studioName, setStudioName] = useState<string>('');
 
-    // Carregar histórico do Supabase ao iniciar
+    // Carregar histórico e perfil
     useEffect(() => {
         loadHistory();
-    }, []);
+        if (user?.id) {
+            fetchProfile(user.id).then(p => {
+                if (p) {
+                    setStudioName(p.studioName);
+                    setStudioLogo(p.logoUrl || null);
+                }
+            });
+        }
+    }, [user]);
 
     const loadHistory = async () => {
         const data = await fetchSimulations();
@@ -153,7 +166,6 @@ export const FinancialAgent: React.FC = () => {
         setFinancialModel(sim.financialModel);
         setAiAnalysis(sim.aiAnalysis || '');
         setShowHistory(false);
-        // Scroll para o topo
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -172,8 +184,8 @@ export const FinancialAgent: React.FC = () => {
         const element = document.getElementById('financial-report-content');
         if (!element) return;
         
-        // Esconder botões temporariamente
-        element.classList.add('printing-pdf');
+        // Hide buttons for print
+        element.classList.add('printing-mode');
 
         try {
             const canvas = await html2canvas(element, {
@@ -207,7 +219,7 @@ export const FinancialAgent: React.FC = () => {
             console.error(error);
             alert("Erro ao gerar PDF");
         } finally {
-            element.classList.remove('printing-pdf');
+            element.classList.remove('printing-mode');
         }
     };
 
@@ -223,7 +235,9 @@ export const FinancialAgent: React.FC = () => {
     }
 
     return (
-        <div id="financial-report-content" className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 bg-slate-50 dark:bg-slate-950 p-2 md:p-6">
+        <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4">
+            
+            {/* Screen Header */}
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -235,15 +249,16 @@ export const FinancialAgent: React.FC = () => {
                      <Button variant="outline" onClick={() => setShowHistory(true)}>
                         <History className="h-4 w-4 mr-2" /> {t('history')}
                      </Button>
-                    <div className="bg-brand-50 dark:bg-brand-900/20 px-4 py-2 rounded-lg border border-brand-100 dark:border-brand-800">
-                        <p className="text-xs text-brand-600 dark:text-brand-400 font-bold uppercase">{t('projected_revenue')}</p>
-                        <p className="text-xl font-bold text-brand-700 dark:text-brand-300">R$ {metrics.targetRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                    </div>
+                     <Button variant="secondary" onClick={handleDownloadPDF} disabled={results.length === 0}>
+                        <Download className="h-4 w-4 mr-2" /> {t('download_pdf')}
+                     </Button>
                 </div>
             </header>
 
+            {/* Main Content Area */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Coluna Esquerda: Inputs */}
+                
+                {/* Inputs Column (Left) */}
                 <div className="lg:col-span-1 space-y-6">
                     <CalculatorForm 
                         inputs={inputs} 
@@ -253,65 +268,94 @@ export const FinancialAgent: React.FC = () => {
                     />
                 </div>
 
-                {/* Coluna Direita: Resultados */}
-                <div className="lg:col-span-2 space-y-6">
-                    
-                    {/* Gráfico */}
-                    <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                        <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-6 flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-brand-500" /> {t('compare_models')}
-                        </h3>
-                        {results.length > 0 ? (
-                            <ResultsChart results={results} />
-                        ) : (
-                            <div className="h-[300px] flex items-center justify-center text-slate-400">
-                                {t('loading')}...
+                {/* Report Column (Right) - This part will be printed */}
+                <div className="lg:col-span-2">
+                    <div 
+                        id="financial-report-content" 
+                        className="bg-white text-slate-800 p-8 md:p-10 rounded-xl shadow-lg border border-slate-200"
+                    >
+                        {/* Report Header */}
+                        <div className="flex justify-between items-start border-b-4 border-brand-500 pb-6 mb-8">
+                            <div>
+                                <h1 className="text-3xl font-extrabold text-slate-900 mb-1">Análise Financeira</h1>
+                                <h2 className="text-lg font-medium text-brand-600">{studioName || 'Seu Studio'}</h2>
+                                <p className="text-sm text-slate-500 mt-2">Data: {new Date().toLocaleDateString()}</p>
                             </div>
-                        )}
-                    </div>
-
-                    {/* Tabela */}
-                    <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                         <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-4">{t('cost_details')}</h3>
-                         {results.length > 0 ? (
-                            <ResultsTable results={results} />
-                         ) : (
-                            <p className="text-slate-500 text-center py-8">{t('loading')}...</p>
-                         )}
-                    </div>
-
-                    {/* Análise IA */}
-                    <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm border-l-4 border-l-purple-500">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
-                            <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
-                                <Sparkles className="h-5 w-5 text-purple-500" /> {t('ai_analysis')}
-                            </h3>
-                            <Button onClick={handleGenerateAnalysis} disabled={isAiLoading || results.length === 0} className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto">
-                                {isAiLoading ? <Loader2 className="animate-spin h-4 w-4 mr-2"/> : <Sparkles className="h-4 w-4 mr-2"/>}
-                                {isAiLoading ? t('loading') : t('generate_analysis_btn')}
-                            </Button>
+                            {studioLogo ? (
+                                <img src={studioLogo} alt="Logo" className="h-16 w-16 object-contain" />
+                            ) : (
+                                <Building2 className="h-12 w-12 text-slate-300" />
+                            )}
                         </div>
-                        
-                        {aiAnalysis ? (
-                            <div className="space-y-4">
-                                <div 
-                                    className="prose prose-sm prose-slate dark:prose-invert max-w-none bg-slate-50 dark:bg-slate-800/50 p-6 rounded-lg border border-slate-100 dark:border-slate-700"
-                                    dangerouslySetInnerHTML={{ __html: aiAnalysis }}
-                                />
-                                <div className="flex gap-2 pt-2 justify-end print:hidden">
-                                     <Button variant="outline" onClick={handleSaveSimulation} isLoading={isSaving}>
-                                        <Save className="h-4 w-4 mr-2" /> {t('save_simulation_btn')}
-                                     </Button>
-                                     <Button variant="secondary" onClick={handleDownloadPDF}>
-                                        <Download className="h-4 w-4 mr-2" /> {t('download_pdf')}
-                                     </Button>
+
+                        {/* Summary Metrics */}
+                        <div className="grid grid-cols-2 gap-4 mb-8 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                            <div>
+                                <p className="text-xs text-slate-500 uppercase font-bold">Faturamento Projetado</p>
+                                <p className="text-xl font-bold text-slate-900">R$ {metrics.targetRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500 uppercase font-bold">Capacidade Máxima</p>
+                                <p className="text-xl font-bold text-slate-900">{metrics.maxCapacity} alunos</p>
+                            </div>
+                        </div>
+
+                        {/* Chart Section */}
+                        <div className="mb-8">
+                            <h3 className="font-bold text-lg text-slate-900 mb-4 flex items-center gap-2 border-b pb-2">
+                                <TrendingUp className="h-5 w-5 text-brand-600" /> Comparativo de Cenários
+                            </h3>
+                            {results.length > 0 ? (
+                                <div className="p-4 border rounded-lg bg-white">
+                                    <ResultsChart results={results} />
+                                </div>
+                            ) : (
+                                <p className="text-center text-slate-400 py-8">Aguardando dados...</p>
+                            )}
+                        </div>
+
+                        {/* Table Section */}
+                        <div className="mb-8">
+                             <h3 className="font-bold text-lg text-slate-900 mb-4 border-b pb-2">{t('cost_details')}</h3>
+                             {results.length > 0 ? (
+                                <ResultsTable results={results} />
+                             ) : (
+                                <p className="text-center text-slate-400 py-8">Aguardando dados...</p>
+                             )}
+                        </div>
+
+                        {/* AI Analysis Section */}
+                        <div className="mb-6">
+                            <div className="flex justify-between items-center mb-4 border-b pb-2">
+                                <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+                                    <Sparkles className="h-5 w-5 text-purple-600" /> Parecer do Consultor IA
+                                </h3>
+                                <div className="print:hidden">
+                                    <Button size="sm" onClick={handleGenerateAnalysis} disabled={isAiLoading || results.length === 0} className="bg-purple-600 hover:bg-purple-700 text-white">
+                                        {isAiLoading ? <Loader2 className="animate-spin h-3 w-3"/> : 'Gerar'}
+                                    </Button>
                                 </div>
                             </div>
-                        ) : (
-                            <div className="text-center py-8 text-slate-400 bg-slate-50 dark:bg-slate-800/30 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">
-                                <p>Clique em "{t('generate_analysis_btn')}" para receber uma consultoria financeira da IA sobre os cenários acima.</p>
-                            </div>
-                        )}
+                            
+                            {aiAnalysis ? (
+                                <div 
+                                    className="prose prose-sm max-w-none text-justify bg-purple-50/50 p-6 rounded-lg border border-purple-100 
+                                    prose-headings:text-purple-800 prose-headings:font-bold prose-p:text-slate-700"
+                                    dangerouslySetInnerHTML={{ __html: aiAnalysis }}
+                                />
+                            ) : (
+                                <div className="text-center py-6 text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                                    <p>Clique em "Gerar" para receber a análise detalhada.</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer Actions (Hidden in Print) */}
+                        <div className="flex justify-end gap-2 pt-4 border-t print:hidden">
+                             <Button variant="outline" onClick={handleSaveSimulation} isLoading={isSaving}>
+                                <Save className="h-4 w-4 mr-2" /> {t('save_simulation_btn')}
+                             </Button>
+                        </div>
                     </div>
                 </div>
             </div>

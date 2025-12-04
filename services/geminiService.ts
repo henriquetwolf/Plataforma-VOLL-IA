@@ -109,9 +109,23 @@ export const generateActionsSmart = async (objectives: any[]): Promise<{ quarter
 };
 
 export const generateFullReport = async (planData: StrategicPlan): Promise<string> => {
-  const prompt = `Atue como consultor de negócios. Gere um relatório HTML detalhado (sem tags <html> ou <body>, use <h2>, <h3>, <p>, <ul>) do Planejamento Estratégico para o studio "${planData.studioName}". 
-  Dados: ${JSON.stringify(planData)}. 
-  Inclua análise da SWOT cruzada e dicas de execução.`;
+  const prompt = `
+  Atue como um consultor sênior de negócios.
+  Gere um relatório de Planejamento Estratégico em HTML limpo e bem estruturado para o studio "${planData.studioName}".
+  
+  Dados: ${JSON.stringify(planData)}
+  
+  REGRAS DE FORMATAÇÃO HTML:
+  1. Use tags <h2> para títulos de seção principais (Visão, Missão, SWOT, Objetivos).
+  2. Use tags <h3> para subtítulos.
+  3. Use <p> para parágrafos com espaçamento adequado.
+  4. Use <ol> ou <ul> para listas.
+  5. Não use tags <html>, <head> ou <body>. Apenas o conteúdo.
+  6. Para a seção SWOT, agrupe em listas claras.
+  7. Para o Plano de Ação, use uma estrutura clara por trimestre.
+  
+  Inclua uma análise cruzada da SWOT e dicas finais de execução.
+  `;
   
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
@@ -143,7 +157,7 @@ export const generateFinancialAnalysis = async (
 ): Promise<string> => {
     const prompt = `
     Atue como consultor financeiro especialista em studios de pilates.
-    Analise os dados abaixo e forneça um parecer curto e direto (HTML formatado) sobre a viabilidade da contratação e saúde financeira.
+    Analise os dados abaixo e forneça um parecer executivo em HTML.
     
     DADOS:
     - Receita Alvo Studio: R$ ${targetRevenue} (Potencial: R$ ${potentialRevenue})
@@ -151,10 +165,11 @@ export const generateFinancialAnalysis = async (
     - Cenários Calculados: ${JSON.stringify(results.map(r => ({ nome: r.scenarioName, custo: r.costToStudio, margem: r.contributionMargin, viavel: r.isViable })))}
     - Modelo Financeiro Desejado (Teto Folha): ${model.payroll}%
     
-    Responda:
-    1. Qual o melhor regime de contratação para o estúdio neste cenário?
-    2. O custo do profissional está saudável em relação à receita que ele gera?
-    3. Sugestão prática para melhorar a margem.
+    FORMATO HTML:
+    - Use <h2> para o Veredito Principal.
+    - Use <h3> para separar "Análise de Viabilidade", "Comparativo de Contratos" e "Recomendações".
+    - Use <ul> para listar pontos chave.
+    - Seja direto e profissional.
     `;
     
     const response = await ai.models.generateContent({
@@ -344,16 +359,18 @@ export const generateHomeWorkout = async (name: string, observations: string, eq
 export const generateActionPlanFromSuggestions = async (suggestions: Suggestion[], context: string): Promise<string> => {
     const suggestionsText = suggestions.map(s => `- "${s.content}" (${s.studentName})`).join('\n');
     const prompt = `
-    Atue como Gestor de Studio. Analise estas sugestões dos alunos:
+    Atue como Gestor de Studio de Pilates.
+    Analise estas sugestões dos alunos:
     ${suggestionsText}
     
     Contexto do Dono: ${context}
     
-    Crie um Plano de Ação em HTML (sem tags html/body) estruturado com:
-    1. Resumo das Demandas
-    2. Ações Imediatas (Baixo custo/rápido)
-    3. Ações de Médio Prazo
-    4. Resposta Sugerida aos Alunos (Texto comunicando as melhorias)
+    Crie um Plano de Ação em HTML estruturado.
+    
+    FORMATO HTML:
+    - <h2> para Títulos de Seção (Resumo, Ações Imediatas, Médio Prazo, Resposta aos Alunos).
+    - <ul> e <li> para listar as ações.
+    - Use negrito para destacar responsaveis e prazos.
     `;
     
     const response = await ai.models.generateContent({
@@ -363,28 +380,23 @@ export const generateActionPlanFromSuggestions = async (suggestions: Suggestion[
     return response.text || '';
 };
 
-// New function for detailed analysis
 export const generateSuggestionTrends = async (suggestions: (Suggestion & { studioName?: string })[]): Promise<string> => {
-    // Adiciona o nome do studio ao texto se disponível
     const suggestionsText = suggestions.map(s => {
       const studioInfo = s.studioName ? `[Studio: ${s.studioName}]` : '';
       return `- "${s.content}" ${studioInfo} (${new Date(s.createdAt).toLocaleDateString()})`;
     }).join('\n');
 
     const prompt = `
-    Atue como um Consultor de Experiência do Cliente para Redes de Pilates.
-    Analise esta lista de sugestões enviadas pelos alunos (possivelmente de múltiplos studios):
-    
+    Atue como um Consultor de Experiência do Cliente.
+    Analise esta lista de sugestões:
     ${suggestionsText}
     
-    Gere um relatório analítico executivo em HTML (sem tags html/body) contendo:
-    1. **Visão Geral**: Resumo dos principais tópicos abordados globalmente.
-    2. **Análise por Categoria**: Agrupe por Infraestrutura, Aulas, Atendimento, etc.
-    3. **Tendências e Padrões**: Identifique problemas recorrentes (ex: ar condicionado, horários). Se houver dados de múltiplos studios, destaque se um problema é geral ou específico de um local.
-    4. **Top Prioridades**: O que deve ser resolvido com urgência.
-    5. **Oportunidades de Inovação**: Ideias criativas dadas pelos alunos.
+    Gere um relatório analítico em HTML.
     
-    Seja objetivo, profissional e foque na melhoria da retenção de alunos.
+    FORMATO HTML:
+    - <h2> para os títulos principais (Visão Geral, Categorias, Prioridades).
+    - <ul> para listas de insights.
+    - Se houver padrões negativos, sugira soluções práticas.
     `;
     
     const response = await ai.models.generateContent({
@@ -409,7 +421,7 @@ export const generateNewsletter = async (senderName: string, audience: Newslette
     Retorne JSON:
     {
       "title": "Título chamativo",
-      "content": "Conteúdo em HTML formatado (parágrafos, negritos, listas)"
+      "content": "Conteúdo em HTML formatado com <p>, <ul>, <li> e <strong> onde apropriado. Não use Markdown."
     }
     `;
     
@@ -546,20 +558,17 @@ export const generateEvaluationAnalysis = async (
   }));
 
   const prompt = `
-    Atue como um Gestor de Qualidade Sênior de um Studio de Pilates.
-    Analise estas ${evaluations.length} avaliações de aulas (${filterContext}).
+    Atue como um Gestor de Qualidade Sênior.
+    Analise estas avaliações de aulas: ${filterContext}.
+    DADOS: ${JSON.stringify(dataSummary)}
+
+    Gere um relatório executivo em HTML.
     
-    DADOS:
-    ${JSON.stringify(dataSummary)}
-
-    Gere um relatório executivo em HTML (sem markdown, use tags <h2>, <h3>, <p>, <ul>, <li>, <strong>) com:
-    1. **Resumo Geral**: Média de nota, sentimento predominante e ritmo.
-    2. **Pontos Fortes**: O que os alunos mais elogiam?
-    3. **Pontos de Atenção**: Reclamações recorrentes ou padrões de desconforto/ritmo inadequado.
-    4. **Análise por Instrutor** (se houver dados suficientes): Destaque performances individuais positivas ou áreas de melhoria.
-    5. **Plano de Ação Sugerido**: 3 a 5 ações práticas para o dono do estúdio melhorar a retenção.
-
-    Seja direto, profissional e construtivo.
+    FORMATO HTML OBRIGATÓRIO:
+    - Use <h2> para títulos das seções: "Resumo Executivo", "Pontos Fortes", "Pontos de Atenção", "Análise de Instrutores", "Plano de Ação".
+    - Use <ul> e <li> para listar itens.
+    - Use <p> para descrições.
+    - Não use Markdown (###), use tags HTML.
   `;
 
   try {
@@ -593,19 +602,17 @@ export const generateEvolutionReport = async (
   }));
 
   const prompt = `
-    Atue como Coordenador Técnico de Pilates. Analise este histórico de evoluções de alunos (${context}).
+    Atue como Coordenador Técnico de Pilates. Analise a evolução do aluno.
+    Contexto: ${context}
+    DADOS: ${JSON.stringify(summary)}
+
+    Gere um relatório de progresso técnico em HTML.
     
-    DADOS:
-    ${JSON.stringify(summary)}
-
-    Gere um relatório de progresso técnico em HTML (sem tags html/body) contendo:
-    1. **Visão Geral**: Resumo do período e consistência.
-    2. **Análise de Progresso**: Tendências observadas em Força, Mobilidade e Estabilidade. O aluno está evoluindo? Estagnado?
-    3. **Pontos de Dor/Limitação**: Padrões recorrentes de queixas (se houver).
-    4. **Observações dos Instrutores**: Destaques qualitativos importantes.
-    5. **Recomendações**: Sugestões para as próximas aulas (foco técnico).
-
-    Use uma linguagem profissional e encorajadora.
+    FORMATO HTML:
+    - <h2> para Seções (Visão Geral, Progresso Técnico, Pontos de Dor, Recomendações).
+    - <ul> para listas.
+    - <p> para texto corrido.
+    - Use linguagem técnica e encorajadora.
   `;
 
   try {

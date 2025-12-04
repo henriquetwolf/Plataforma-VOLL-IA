@@ -6,7 +6,8 @@ import { fetchEvaluationsByStudio, deleteEvaluation, saveEvaluationAnalysis, fet
 import { generateEvaluationAnalysis } from '../services/geminiService';
 import { ClassEvaluation, SavedEvaluationAnalysis } from '../types';
 import { Button } from '../components/ui/Button';
-import { Star, MessageSquare, Calendar, User, Activity, AlertTriangle, ThumbsUp, Trash2, Filter, Loader2, XCircle, Sparkles, FileText, Download, Save, ChevronRight, X } from 'lucide-react';
+import { Star, MessageSquare, Calendar, User, Activity, AlertTriangle, ThumbsUp, Trash2, Filter, Loader2, XCircle, Sparkles, FileText, Download, Save, ChevronRight, X, Building2 } from 'lucide-react';
+import { fetchProfile } from '../services/storage';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -22,6 +23,7 @@ export const StudioEvaluations: React.FC = () => {
   const [savedAnalyses, setSavedAnalyses] = useState<SavedEvaluationAnalysis[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [studioName, setStudioName] = useState('');
   
   // Filters
   const [filterInstructor, setFilterInstructor] = useState('');
@@ -41,6 +43,8 @@ export const StudioEvaluations: React.FC = () => {
         setEvaluations(data);
         const analyses = await fetchEvaluationAnalyses(user.id);
         setSavedAnalyses(analyses);
+        const profile = await fetchProfile(user.id);
+        if (profile) setStudioName(profile.studioName);
       }
       setLoading(false);
     };
@@ -55,8 +59,7 @@ export const StudioEvaluations: React.FC = () => {
       if (result.success) {
         setEvaluations(prev => prev.filter(e => e.id !== id));
       } else {
-        console.error("Erro ao excluir:", result.error);
-        alert(`Erro ao excluir: ${result.error}\n\nVerifique se o SQL de permissões (DROP/CREATE POLICY) foi rodado no Supabase.`);
+        alert(`Erro ao excluir: ${result.error}`);
       }
       setDeletingId(null);
     }
@@ -130,7 +133,6 @@ export const StudioEvaluations: React.FC = () => {
 
     if (result.success) {
         alert(t('save') + " com sucesso!");
-        // Refresh Saved list
         const updated = await fetchEvaluationAnalyses(user.id);
         setSavedAnalyses(updated);
         setShowAnalysisModal(false);
@@ -146,9 +148,6 @@ export const StudioEvaluations: React.FC = () => {
     if (!element) return;
 
     try {
-      // Adicionar classe para melhorar a renderização do PDF
-      element.classList.add('pdf-mode');
-      
       const canvas = await html2canvas(element, { 
           scale: 2, 
           useCORS: true, 
@@ -176,7 +175,6 @@ export const StudioEvaluations: React.FC = () => {
       }
 
       pdf.save(`${filename}.pdf`);
-      element.classList.remove('pdf-mode');
     } catch (error) {
       console.error(error);
       alert('Erro ao gerar PDF.');
@@ -323,7 +321,7 @@ export const StudioEvaluations: React.FC = () => {
         </div>
       )}
 
-      {/* Analysis Modal */}
+      {/* Analysis Modal - Report Style */}
       {showAnalysisModal && analysisResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
@@ -344,14 +342,37 @@ export const StudioEvaluations: React.FC = () => {
                     </div>
                 </div>
                 
-                <div className="overflow-y-auto p-8 bg-slate-100 dark:bg-slate-900">
-                    <div id="analysis-content" className="bg-white p-12 shadow-lg max-w-3xl mx-auto min-h-[600px] text-slate-800">
-                        <div className="border-b-2 border-purple-500 pb-4 mb-6">
-                            <h1 className="text-3xl font-bold text-slate-900">{t('quality_report')}</h1>
-                            <p className="text-slate-500 mt-2">Análise baseada em {activeTab === 'list' ? filteredEvaluations.length : 'várias'} avaliações.</p>
-                            <p className="text-xs text-slate-400 mt-1">Gerado em: {new Date().toLocaleDateString()}</p>
+                <div className="overflow-y-auto p-4 md:p-8 bg-slate-200 dark:bg-slate-950 flex justify-center">
+                    {/* A4 Report Simulation */}
+                    <div 
+                        id="analysis-content" 
+                        className="bg-white p-12 shadow-2xl max-w-[210mm] w-full min-h-[297mm] text-slate-800 flex flex-col"
+                    >
+                        <div className="flex justify-between items-start border-b-4 border-purple-500 pb-6 mb-8">
+                            <div>
+                                <div className="flex items-center gap-2 text-purple-600 mb-1 font-bold uppercase text-xs tracking-wider">
+                                    <Sparkles className="w-4 h-4" /> Análise de Qualidade
+                                </div>
+                                <h1 className="text-3xl font-extrabold text-slate-900 leading-tight">Relatório de Avaliações</h1>
+                                <h2 className="text-lg text-slate-500 font-medium">{studioName}</h2>
+                            </div>
+                            <div className="text-right">
+                                <Building2 className="h-10 w-10 text-slate-200 mb-1 ml-auto" />
+                                <span className="text-xs text-slate-400">Gerado: {new Date().toLocaleDateString()}</span>
+                            </div>
                         </div>
-                        <div dangerouslySetInnerHTML={{ __html: analysisResult }} className="prose prose-slate max-w-none" />
+
+                        <div 
+                            className="flex-1 prose prose-slate max-w-none 
+                            prose-h2:text-2xl prose-h2:font-bold prose-h2:text-purple-700 prose-h2:border-b prose-h2:border-purple-100 prose-h2:pb-2 prose-h2:mt-8 prose-h2:mb-4
+                            prose-ul:list-disc prose-li:marker:text-purple-500 prose-p:text-justify prose-p:leading-relaxed"
+                            dangerouslySetInnerHTML={{ __html: analysisResult }} 
+                        />
+
+                        <div className="mt-16 pt-8 border-t border-slate-100 flex justify-between items-center text-slate-400 text-xs">
+                            <p>Plataforma VOLL IA - Gestão de Qualidade</p>
+                            <p>Confidencial</p>
+                        </div>
                     </div>
                 </div>
             </div>

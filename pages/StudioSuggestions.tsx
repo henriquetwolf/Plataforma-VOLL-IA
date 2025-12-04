@@ -6,9 +6,10 @@ import { fetchSuggestionsByStudio, saveSuggestionActionPlan, fetchSuggestionActi
 import { generateActionPlanFromSuggestions, generateSuggestionTrends } from '../services/geminiService';
 import { Suggestion, SuggestionActionPlan } from '../types';
 import { Button } from '../components/ui/Button';
-import { MessageSquare, CheckSquare, Sparkles, FileText, Download, Save, Trash2, ChevronRight, Loader2, Calendar, Filter, X } from 'lucide-react';
+import { MessageSquare, CheckSquare, Sparkles, FileText, Download, Save, Trash2, ChevronRight, Loader2, Calendar, Filter, X, Building2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { fetchProfile } from '../services/storage';
 
 export const StudioSuggestions: React.FC = () => {
   const { user } = useAuth();
@@ -32,11 +33,13 @@ export const StudioSuggestions: React.FC = () => {
 
   // Plans State
   const [savedPlans, setSavedPlans] = useState<SuggestionActionPlan[]>([]);
+  const [studioName, setStudioName] = useState('');
 
   useEffect(() => {
     if (user?.id) {
       loadSuggestions();
       loadSavedPlans();
+      fetchProfile(user.id).then(p => { if(p) setStudioName(p.studioName) });
     }
   }, [user]);
 
@@ -202,35 +205,19 @@ export const StudioSuggestions: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
             
-            {/* Filters */}
+            {/* Filters (Existing) */}
             <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-3 items-center">
                 <div className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
                     <Filter className="w-4 h-4"/> {t('filters')}:
                 </div>
                 <div className="flex items-center gap-2 flex-1 w-full">
-                    <input 
-                        type="date" 
-                        value={filterStartDate} 
-                        onChange={e => setFilterStartDate(e.target.value)}
-                        className="p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-sm flex-1"
-                        placeholder="Início"
-                    />
+                    <input type="date" value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} className="p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-sm flex-1"/>
                     <span className="text-slate-400">-</span>
-                    <input 
-                        type="date" 
-                        value={filterEndDate} 
-                        onChange={e => setFilterEndDate(e.target.value)}
-                        className="p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-sm flex-1"
-                        placeholder="Fim"
-                    />
+                    <input type="date" value={filterEndDate} onChange={e => setFilterEndDate(e.target.value)} className="p-2 border rounded-lg bg-slate-50 dark:bg-slate-950 text-sm flex-1"/>
                 </div>
                 <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => { setFilterStartDate(''); setFilterEndDate(''); }}>
-                        {t('clear')}
-                    </Button>
-                    <Button size="sm" variant="secondary" onClick={handleGenerateAnalysis} isLoading={isAnalyzing} disabled={filteredSuggestions.length === 0}>
-                        <FileText className="w-4 h-4 mr-2" /> {t('analyze_list')} ({filteredSuggestions.length})
-                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => { setFilterStartDate(''); setFilterEndDate(''); }}>{t('clear')}</Button>
+                    <Button size="sm" variant="secondary" onClick={handleGenerateAnalysis} isLoading={isAnalyzing} disabled={filteredSuggestions.length === 0}><FileText className="w-4 h-4 mr-2" /> {t('analyze_list')} ({filteredSuggestions.length})</Button>
                 </div>
             </div>
 
@@ -246,9 +233,7 @@ export const StudioSuggestions: React.FC = () => {
                 <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[600px] overflow-y-auto">
                   {filteredSuggestions.map(s => (
                     <div key={s.id} className={`p-4 flex gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer ${selectedIds.has(s.id) ? 'bg-brand-50/50 dark:bg-brand-900/10' : ''}`} onClick={() => toggleSelection(s.id)}>
-                      <div className="pt-1">
-                        <input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleSelection(s.id)} className="w-5 h-5 rounded text-brand-600 focus:ring-brand-500 cursor-pointer" />
-                      </div>
+                      <div className="pt-1"><input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleSelection(s.id)} className="w-5 h-5 rounded text-brand-600 focus:ring-brand-500 cursor-pointer" /></div>
                       <div className="flex-1">
                         <p className="text-slate-800 dark:text-slate-200 text-sm font-medium">"{s.content}"</p>
                         <div className="flex justify-between mt-2 text-xs text-slate-500">
@@ -268,19 +253,10 @@ export const StudioSuggestions: React.FC = () => {
               <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-brand-600" /> {t('generate_action_plan')}
               </h3>
-              
               <div className="mb-4">
-                <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
-                  {selectedIds.size} sugestão(ões) selecionada(s).
-                </p>
-                <textarea
-                  className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 focus:ring-2 focus:ring-brand-500 outline-none h-32 resize-none"
-                  placeholder="Adicione suas observações ou contexto para a IA (ex: 'Estamos com orçamento limitado para reformas')..."
-                  value={ownerObservations}
-                  onChange={e => setOwnerObservations(e.target.value)}
-                />
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">{selectedIds.size} sugestão(ões) selecionada(s).</p>
+                <textarea className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 focus:ring-2 focus:ring-brand-500 outline-none h-32 resize-none" placeholder="Observações para a IA..." value={ownerObservations} onChange={e => setOwnerObservations(e.target.value)} />
               </div>
-
               <Button onClick={handleGeneratePlan} isLoading={isGenerating} disabled={selectedIds.size === 0} className="w-full">
                 <Sparkles className="w-4 h-4 mr-2" /> {t('generate_action_plan')}
               </Button>
@@ -289,12 +265,12 @@ export const StudioSuggestions: React.FC = () => {
         </div>
       )}
 
-      {/* Action Plan Modal */}
+      {/* Action Plan Modal (A4 Style) */}
       {currentPlan && activeTab === 'inbox' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
              <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
-               <h3 className="font-bold text-lg">{t('action_plan_generated')}</h3>
+               <h3 className="font-bold text-lg flex items-center gap-2"><CheckSquare className="w-5 h-5 text-green-600"/> {t('action_plan_generated')}</h3>
                <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => downloadPDF('generated-plan-content', 'Plano_Acao')}>
                     <Download className="w-4 h-4 mr-2"/> {t('download_pdf')}
@@ -305,20 +281,49 @@ export const StudioSuggestions: React.FC = () => {
                   <button onClick={() => setCurrentPlan(null)} className="p-2 hover:bg-slate-200 rounded-lg"><X className="w-4 h-4"/></button>
                </div>
              </div>
-             <div className="overflow-y-auto p-8 bg-slate-100 dark:bg-slate-900">
-                <div id="generated-plan-content" className="bg-white p-12 shadow-lg max-w-3xl mx-auto min-h-[600px] text-slate-800">
-                   <div className="border-b-2 border-brand-500 pb-4 mb-6">
-                      <h1 className="text-3xl font-bold text-slate-900">{t('action_plan_generated')}</h1>
-                      <p className="text-slate-500 mt-2">Baseado em {selectedIds.size} sugestões dos alunos.</p>
+             
+             <div className="overflow-y-auto p-4 md:p-8 bg-slate-200 dark:bg-slate-950 flex justify-center">
+                {/* A4 Page Simulation */}
+                <div 
+                    id="generated-plan-content" 
+                    className="bg-white p-12 shadow-2xl max-w-[210mm] w-full min-h-[297mm] text-slate-800 flex flex-col"
+                >
+                   <div className="flex justify-between items-start border-b-4 border-green-500 pb-6 mb-8">
+                      <div>
+                          <div className="flex items-center gap-2 text-green-600 mb-1 font-bold uppercase text-xs tracking-wider">
+                              <CheckSquare className="w-4 h-4" /> Gestão de Melhorias
+                          </div>
+                          <h1 className="text-3xl font-extrabold text-slate-900 leading-tight">Plano de Ação</h1>
+                          <h2 className="text-lg text-slate-500 font-medium">{studioName}</h2>
+                      </div>
+                      <div className="text-right">
+                          <Building2 className="h-10 w-10 text-slate-200 mb-1 ml-auto" />
+                          <span className="text-xs text-slate-400">Data: {new Date().toLocaleDateString()}</span>
+                      </div>
                    </div>
-                   <div dangerouslySetInnerHTML={{ __html: currentPlan }} className="prose prose-slate max-w-none" />
+
+                   <div className="mb-6 p-4 bg-slate-50 rounded-lg border border-slate-100 text-sm text-slate-600 italic">
+                      "Este plano foi elaborado com base na análise de {selectedIds.size} sugestões dos alunos, visando melhorias práticas e rápidas."
+                   </div>
+
+                   <div 
+                        className="flex-1 prose prose-slate max-w-none 
+                        prose-h2:text-2xl prose-h2:font-bold prose-h2:text-green-700 prose-h2:border-b prose-h2:border-slate-100 prose-h2:pb-2 prose-h2:mt-8 prose-h2:mb-4
+                        prose-ul:list-disc prose-li:marker:text-green-500 prose-p:text-justify prose-p:leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: currentPlan }} 
+                   />
+
+                   <div className="mt-16 pt-8 border-t border-slate-100 flex justify-between items-center text-slate-400 text-xs">
+                        <p>Plataforma VOLL IA - Satisfação do Cliente</p>
+                        <p>Uso Interno</p>
+                   </div>
                 </div>
              </div>
           </div>
         </div>
       )}
 
-      {/* Detailed Analysis Modal */}
+      {/* Detailed Analysis Modal (A4 Style) */}
       {analysisReport && activeTab === 'inbox' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
@@ -333,20 +338,49 @@ export const StudioSuggestions: React.FC = () => {
                   <button onClick={() => setAnalysisReport(null)} className="p-2 hover:bg-slate-200 rounded-lg"><X className="w-4 h-4"/></button>
                </div>
              </div>
-             <div className="overflow-y-auto p-8 bg-slate-100 dark:bg-slate-900">
-                <div id="analysis-report-content" className="bg-white p-12 shadow-lg max-w-3xl mx-auto min-h-[600px] text-slate-800">
-                   <div className="border-b-2 border-purple-500 pb-4 mb-6">
-                      <h1 className="text-3xl font-bold text-slate-900">{t('trends_report')}</h1>
-                      <p className="text-slate-500 mt-2">Baseado em {filteredSuggestions.length} sugestões filtradas.</p>
-                      <p className="text-xs text-slate-400 mt-1">Período: {filterStartDate || 'Início'} até {filterEndDate || 'Hoje'}</p>
+             
+             <div className="overflow-y-auto p-4 md:p-8 bg-slate-200 dark:bg-slate-950 flex justify-center">
+                {/* A4 Page Simulation */}
+                <div 
+                    id="analysis-report-content" 
+                    className="bg-white p-12 shadow-2xl max-w-[210mm] w-full min-h-[297mm] text-slate-800 flex flex-col"
+                >
+                   <div className="flex justify-between items-start border-b-4 border-purple-500 pb-6 mb-8">
+                      <div>
+                          <div className="flex items-center gap-2 text-purple-600 mb-1 font-bold uppercase text-xs tracking-wider">
+                              <FileText className="w-4 h-4" /> Análise de Feedback
+                          </div>
+                          <h1 className="text-3xl font-extrabold text-slate-900 leading-tight">Relatório de Tendências</h1>
+                          <h2 className="text-lg text-slate-500 font-medium">{studioName}</h2>
+                      </div>
+                      <div className="text-right">
+                          <Building2 className="h-10 w-10 text-slate-200 mb-1 ml-auto" />
+                          <span className="text-xs text-slate-400">Data: {new Date().toLocaleDateString()}</span>
+                      </div>
                    </div>
-                   <div dangerouslySetInnerHTML={{ __html: analysisReport }} className="prose prose-slate max-w-none" />
+
+                   <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-100 text-sm text-purple-800">
+                      Análise realizada com base em {filteredSuggestions.length} sugestões coletadas entre {filterStartDate || 'o início'} e {filterEndDate || 'hoje'}.
+                   </div>
+
+                   <div 
+                        className="flex-1 prose prose-slate max-w-none 
+                        prose-h2:text-2xl prose-h2:font-bold prose-h2:text-purple-700 prose-h2:border-b prose-h2:border-slate-100 prose-h2:pb-2 prose-h2:mt-8 prose-h2:mb-4
+                        prose-ul:list-disc prose-li:marker:text-purple-500 prose-p:text-justify prose-p:leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: analysisReport }} 
+                   />
+
+                   <div className="mt-16 pt-8 border-t border-slate-100 flex justify-between items-center text-slate-400 text-xs">
+                        <p>Plataforma VOLL IA - Satisfação do Cliente</p>
+                        <p>Confidencial</p>
+                   </div>
                 </div>
              </div>
           </div>
         </div>
       )}
 
+      {/* Saved Plans List (Existing) */}
       {activeTab === 'plans' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {savedPlans.length === 0 ? (
@@ -362,11 +396,10 @@ export const StudioSuggestions: React.FC = () => {
                 </div>
                 <h3 className="font-bold text-lg mb-1">{plan.title}</h3>
                 <p className="text-sm text-slate-500 mb-4">{new Date(plan.createdAt).toLocaleDateString()} • {plan.selectedSuggestions.length} sugestões analisadas</p>
-                
                 <Button variant="outline" className="w-full" onClick={() => {
                   setCurrentPlan(plan.aiActionPlan);
-                  setSelectedIds(new Set(plan.selectedSuggestions.map(s => s.id))); // Visual reference only
-                  setActiveTab('inbox'); // Hack to reuse modal, ideally should be a separate modal
+                  setSelectedIds(new Set(plan.selectedSuggestions.map(s => s.id)));
+                  setActiveTab('inbox');
                 }}>
                   {t('view_details')}
                 </Button>
