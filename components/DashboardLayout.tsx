@@ -110,7 +110,6 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         { type: 'header', label: `2. ${t('strategy')}` },
         { type: 'link', label: t('planning_ai'), icon: Compass, path: AppRoute.STRATEGY },
         { type: 'link', label: 'Agente de Ação', icon: Rocket, path: AppRoute.ACTION_AGENT },
-        { type: 'link', label: 'Avaliação Física', icon: ClipboardList, path: AppRoute.STUDENT_ASSESSMENT },
         { type: 'link', label: 'Guia Clínico', icon: Activity, path: AppRoute.REHAB },
         { type: 'link', label: t('content_agent'), icon: Wand2, path: AppRoute.CONTENT_AGENT },
         { type: 'link', label: 'WhatsApp', icon: MessageCircle, path: AppRoute.WHATSAPP_AGENT },
@@ -119,6 +118,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         { type: 'link', label: t('newsletter'), icon: Newspaper, path: AppRoute.NEWSLETTER_AGENT },
 
         { type: 'header', label: `3. ${t('tracking')}` },
+        { type: 'link', label: 'Avaliação Física', icon: ClipboardList, path: AppRoute.STUDENT_ASSESSMENT },
         { type: 'link', label: t('student_evolution'), icon: TrendingUp, path: AppRoute.EVOLUTION },
         { type: 'link', label: t('class_ratings'), icon: Star, path: AppRoute.STUDIO_EVALUATIONS },
         { type: 'link', label: 'Pesquisas', icon: FileText, path: AppRoute.SURVEY_MANAGER }, 
