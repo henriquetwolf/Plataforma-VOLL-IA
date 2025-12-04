@@ -4,16 +4,16 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 import { fetchPathologyData, fetchLessonPlan, fetchTreatmentPlan, regenerateSingleExercise, handleGeminiError } from '../services/geminiService';
-import { saveRehabLesson, fetchRehabLessons, deleteRehabLesson } from '../services/rehabService';
+import { saveRehabLesson, fetchRehabLessons, deleteRehabLesson, saveTreatmentPlan, fetchTreatmentPlans, deleteTreatmentPlan } from '../services/rehabService';
 import { saveStudioExercise, fetchStudioExercises, deleteStudioExercise, updateStudioExercise, createStudioExercise, uploadExerciseImage } from '../services/exerciseService';
 import { fetchStudents } from '../services/studentService';
 import { fetchProfile } from '../services/storage';
-import { PathologyResponse, LessonPlanResponse, LoadingState, SavedRehabLesson, LessonExercise, ChatMessage, Student, StudioExercise, AppRoute, TreatmentPlanResponse } from '../types';
+import { PathologyResponse, LessonPlanResponse, LoadingState, SavedRehabLesson, LessonExercise, ChatMessage, Student, StudioExercise, AppRoute, TreatmentPlanResponse, SavedTreatmentPlan } from '../types';
 import { AssessmentModal } from '../components/rehab/AssessmentModal';
 import { ResultCard, LessonPlanView } from '../components/rehab/RehabResults';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Search, History, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, User, ChevronRight, Folder, Dumbbell, Filter, Plus, Pencil, X, Upload, ImageIcon, Maximize2, Home, AlertTriangle, List, CheckSquare } from 'lucide-react';
+import { Search, History, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, User, ChevronRight, Folder, Dumbbell, Filter, Plus, Pencil, X, Upload, ImageIcon, Maximize2, Home, AlertTriangle, List, CheckSquare, Save } from 'lucide-react';
 
 const COMMON_SUGGESTIONS = [
   "Hérnia de Disco L5-S1", "Dor Lombar Crônica", "Ombro Rígido", "Condromalácia", "Cervicalgia", "Fascite Plantar"
@@ -95,6 +95,7 @@ export const RehabAgent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'reference' | 'lesson' | 'bank'>('reference');
   const [query, setQuery] = useState('');
   const [savedLessons, setSavedLessons] = useState<SavedRehabLesson[]>([]);
+  const [savedPlans, setSavedPlans] = useState<SavedTreatmentPlan[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -170,8 +171,12 @@ export const RehabAgent: React.FC = () => {
 
   const loadHistory = async () => { 
     const targetId = user?.isInstructor ? user.studioId : user?.id;
-    const data = await fetchRehabLessons(targetId); 
-    setSavedLessons(data.map(d => ({ ...d, patientName: d.patientName || 'Sem Nome' }))); 
+    const [lessons, plans] = await Promise.all([
+        fetchRehabLessons(targetId),
+        fetchTreatmentPlans(targetId)
+    ]);
+    setSavedLessons(lessons.map(d => ({ ...d, patientName: d.patientName || 'Sem Nome' }))); 
+    setSavedPlans(plans.map(d => ({ ...d, patientName: d.patientName || 'Sem Nome' })));
   };
   
   const loadStudents = async () => { 
@@ -277,6 +282,25 @@ export const RehabAgent: React.FC = () => {
     if (result.success) { alert("Salvo!"); loadHistory(); } else { alert("Erro ao salvar."); }
   };
 
+  const handleSaveTreatmentPlan = async () => {
+      const ownerId = user?.isInstructor ? user.studioId : user?.id;
+      if (!ownerId || !treatmentPlan) return;
+      
+      if (!currentStudent) {
+          alert("Selecione um aluno antes de salvar.");
+          return;
+      }
+
+      const result = await saveTreatmentPlan(ownerId, currentStudent.name, treatmentPlan.pathologyName, treatmentPlan, assessmentHistory, currentStudent.id);
+      
+      if (result.success) {
+          alert("Planejamento salvo com sucesso!");
+          loadHistory();
+      } else {
+          alert("Erro ao salvar planejamento: " + result.error);
+      }
+  };
+
   const handleSaveToBank = async (exercise: LessonExercise, comments: string) => {
     const ownerId = user?.isInstructor ? user.studioId : user?.id;
     if (!ownerId) return false;
@@ -352,7 +376,7 @@ export const RehabAgent: React.FC = () => {
     }
   };
 
-  const studentsWithLessons = Array.from(new Set(savedLessons.map(l => l.patientName))).sort() as string[];
+  const studentsWithLessons = Array.from(new Set([...savedLessons.map(l => l.patientName), ...savedPlans.map(p => p.patientName)])).sort() as string[];
   
   // Filter Bank Exercises
   const filteredBankExercises = savedExercises.filter(ex => {
@@ -401,7 +425,9 @@ export const RehabAgent: React.FC = () => {
                 <p className="text-slate-500 col-span-3 text-center py-12">Nenhum histórico encontrado.</p>
                 ) : (
                 filteredStudents.map(studentName => {
-                    const count = savedLessons.filter(l => l.patientName === studentName).length;
+                    const lessonsCount = savedLessons.filter(l => l.patientName === studentName).length;
+                    const plansCount = savedPlans.filter(p => p.patientName === studentName).length;
+                    const count = lessonsCount + plansCount;
                     return (
                     <button 
                         key={studentName || 'unknown'}
@@ -417,7 +443,7 @@ export const RehabAgent: React.FC = () => {
                         </span>
                         </div>
                         <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate">{studentName || 'Sem Nome'}</h3>
-                        <p className="text-sm text-slate-500 mt-1">Ver planos salvos</p>
+                        <p className="text-sm text-slate-500 mt-1">Ver arquivos</p>
                     </button>
                     );
                 })
@@ -427,7 +453,7 @@ export const RehabAgent: React.FC = () => {
         )}
 
         {selectedStudentFilter !== null && (
-          <div className="grid gap-4 animate-in fade-in slide-in-from-right-8">
+          <div className="grid gap-6 animate-in fade-in slide-in-from-right-8">
             <div className="mb-4">
                 <Input 
                     placeholder="Filtrar por patologia..." 
@@ -435,38 +461,85 @@ export const RehabAgent: React.FC = () => {
                     onChange={e => setHistorySearchTerm(e.target.value)} 
                 />
             </div>
-            {savedLessons
-                .filter(l => l.patientName === selectedStudentFilter)
-                .filter(l => l.pathologyName.toLowerCase().includes(historySearchTerm.toLowerCase()))
-                .map(l => (
-              <div key={l.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex justify-between items-center hover:border-brand-300 transition-colors">
-                <div>
-                  <h3 className="font-bold text-lg text-brand-700 dark:text-brand-400">{l.pathologyName}</h3>
-                  <p className="text-sm text-slate-500">Criado em: {new Date(l.createdAt).toLocaleDateString()}</p>
+
+            {/* Section: Treatment Plans */}
+            <h3 className="font-bold text-slate-600 dark:text-slate-400 text-sm uppercase">Planejamentos (4 Aulas)</h3>
+            <div className="grid gap-3">
+                {savedPlans
+                    .filter(p => p.patientName === selectedStudentFilter)
+                    .filter(p => p.pathologyName.toLowerCase().includes(historySearchTerm.toLowerCase()))
+                    .map(p => (
+                    <div key={p.id} className="bg-purple-50 dark:bg-purple-900/10 p-4 rounded-xl border border-purple-100 dark:border-purple-800 flex justify-between items-center hover:border-purple-300 transition-colors">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <List className="w-4 h-4 text-purple-600"/>
+                                <h3 className="font-bold text-lg text-purple-800 dark:text-purple-300">{p.pathologyName}</h3>
+                            </div>
+                            <p className="text-sm text-purple-600/80">Criado em: {new Date(p.createdAt).toLocaleDateString()}</p>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button variant="ghost" onClick={() => { 
+                                setTreatmentPlan(p);
+                                setQuery(p.pathologyName);
+                                if (p.assessmentContext) setAssessmentHistory(p.assessmentContext); // Restore context!
+                                setLessonData(null);
+                                setLessonStatus(LoadingState.SUCCESS); 
+                                setRefStatus(LoadingState.IDLE);
+                                setRefData(null);
+                                setActiveTab('lesson'); 
+                                setShowHistory(false); 
+                                setSelectedStudentFilter(null);
+                                setPlanMode('treatment');
+                            }}>
+                                Abrir Planejamento
+                            </Button>
+                            <button onClick={async () => { if(confirm("Apagar este planejamento?")) { await deleteTreatmentPlan(p.id); loadHistory(); } }} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
+                                <Trash2 className="w-4 h-4"/>
+                            </button>
+                        </div>
+                    </div>
+                ))}
+                {savedPlans.filter(p => p.patientName === selectedStudentFilter).length === 0 && (
+                    <p className="text-sm text-slate-400 italic">Nenhum planejamento salvo.</p>
+                )}
+            </div>
+
+            {/* Section: Individual Lessons */}
+            <h3 className="font-bold text-slate-600 dark:text-slate-400 text-sm uppercase mt-4">Aulas Individuais Salvas</h3>
+            <div className="grid gap-3">
+                {savedLessons
+                    .filter(l => l.patientName === selectedStudentFilter)
+                    .filter(l => l.pathologyName.toLowerCase().includes(historySearchTerm.toLowerCase()))
+                    .map(l => (
+                <div key={l.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex justify-between items-center hover:border-brand-300 transition-colors">
+                    <div>
+                    <h3 className="font-bold text-lg text-brand-700 dark:text-brand-400">{l.pathologyName}</h3>
+                    <p className="text-sm text-slate-500">Criado em: {new Date(l.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <div className="flex gap-2">
+                    <Button variant="ghost" onClick={() => { 
+                        setLessonData(l); 
+                        setQuery(l.pathologyName); 
+                        setLessonStatus(LoadingState.SUCCESS); 
+                        setRefStatus(LoadingState.IDLE);
+                        setRefData(null);
+                        setTreatmentPlan(null);
+                        setActiveTab('lesson'); 
+                        setShowHistory(false); 
+                        setSelectedStudentFilter(null); 
+                    }}>
+                        Abrir Aula
+                    </Button>
+                    <button onClick={async () => { if(confirm("Apagar este plano?")) { await deleteRehabLesson(l.id); loadHistory(); } }} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
+                        <Trash2 className="w-4 h-4"/>
+                    </button>
+                    </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="ghost" onClick={() => { 
-                    setLessonData(l); 
-                    setQuery(l.pathologyName); 
-                    setLessonStatus(LoadingState.SUCCESS); 
-                    setRefStatus(LoadingState.IDLE);
-                    setRefData(null);
-                    setTreatmentPlan(null);
-                    setActiveTab('lesson'); 
-                    setShowHistory(false); 
-                    setSelectedStudentFilter(null); 
-                  }}>
-                    Abrir Plano
-                  </Button>
-                  <button onClick={async () => { if(confirm("Apagar este plano?")) { await deleteRehabLesson(l.id); loadHistory(); } }} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
-                    <Trash2 className="w-4 h-4"/>
-                  </button>
-                </div>
-              </div>
-            ))}
-            {savedLessons.filter(l => l.patientName === selectedStudentFilter).length === 0 && (
-                <p className="text-center text-slate-500 py-8">Nenhum plano encontrado nesta pasta.</p>
-            )}
+                ))}
+                {savedLessons.filter(l => l.patientName === selectedStudentFilter).length === 0 && (
+                    <p className="text-sm text-slate-400 italic">Nenhuma aula salva.</p>
+                )}
+            </div>
           </div>
         )}
       </div>
@@ -649,9 +722,15 @@ export const RehabAgent: React.FC = () => {
                     {/* Treatment Plan View */}
                     {treatmentPlan && !lessonData && (
                         <div className="space-y-6">
-                            <div className="bg-purple-50 border border-purple-100 p-6 rounded-xl">
-                                <h2 className="text-2xl font-bold text-purple-800 mb-2">Planejamento de Tratamento: {treatmentPlan.pathologyName}</h2>
-                                <p className="text-purple-700">{treatmentPlan.overview}</p>
+                            <div className="bg-purple-50 border border-purple-100 p-6 rounded-xl flex justify-between items-start">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-purple-800 mb-2">Planejamento de Tratamento: {treatmentPlan.pathologyName}</h2>
+                                    <p className="text-purple-700 mb-1">{treatmentPlan.overview}</p>
+                                    {currentStudent && <p className="text-xs text-purple-600 font-medium mt-2">Aluno: {currentStudent.name}</p>}
+                                </div>
+                                <Button onClick={handleSaveTreatmentPlan} variant="secondary" className="bg-white text-purple-700 border border-purple-200 hover:bg-purple-100">
+                                    <Save className="w-4 h-4 mr-2"/> Salvar Planejamento
+                                </Button>
                             </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

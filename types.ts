@@ -498,6 +498,13 @@ export interface SavedRehabLesson extends LessonPlanResponse {
   treatmentPhase?: number; // 1-4
 }
 
+export interface SavedTreatmentPlan extends TreatmentPlanResponse {
+  id: string;
+  patientName: string;
+  createdAt: string;
+  assessmentContext?: ChatMessage[]; // Store history to allow generation of specific lessons later
+}
+
 export interface StudioExercise {
   id: string;
   studioId: string;
