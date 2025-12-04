@@ -5,7 +5,7 @@ import {
   PathologyResponse, LessonPlanResponse, LessonExercise, ChatMessage, 
   TriageStep, TriageStatus, RecipeResponse, WorkoutResponse, Suggestion, 
   NewsletterAudience, ContentRequest, StudioPersona, ClassEvaluation,
-  StudioInfo, StudentEvolution
+  StudioInfo, StudentEvolution, TreatmentPlanResponse
 } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -194,7 +194,7 @@ export const generateFinancialAnalysis = async (
     return cleanHtmlOutput(response.text || '');
 };
 
-// --- Rehab Agent ---
+// --- Rehab Agent / Guia Clínico ---
 
 export const fetchTriageQuestion = async (query: string, history: ChatMessage[], studentName?: string): Promise<TriageStep> => {
     const prompt = `
@@ -231,7 +231,7 @@ export const fetchPathologyData = async (query: string, equipment: string[], his
       "indicated": [{ "name": "Nome Exercício", "apparatus": "Aparelho", "reason": "Por que é bom", "details": "Dica de execução" }],
       "contraindicated": [{ "name": "Nome Exercício", "apparatus": "Aparelho", "reason": "Por que evitar", "details": "Risco associado" }]
     }
-    Liste 3 indicados e 3 contraindicados.
+    Liste apenas os principais contra-indicados. Para indicados, liste 3 exemplos.
     `;
     
     const response = await ai.models.generateContent({
@@ -242,14 +242,53 @@ export const fetchPathologyData = async (query: string, equipment: string[], his
     return cleanAndParseJSON(response.text || '{}');
 };
 
-export const fetchLessonPlan = async (query: string, equipment: string[], history?: ChatMessage[], obs?: string): Promise<LessonPlanResponse | null> => {
+export const fetchTreatmentPlan = async (query: string, equipment: string[], history?: ChatMessage[], obs?: string): Promise<TreatmentPlanResponse | null> => {
     const context = history ? `Baseado na triagem: ${history.map(h => h.role + ': ' + h.text).join('\n')}` : '';
     const observations = obs ? `Observações do aluno: ${obs}` : '';
     
     const prompt = `
+    Crie um Planejamento de Tratamento de 4 sessões progressivas de Pilates.
+    Foco Clínico: ${query}.
+    Equipamentos disponíveis: ${equipment.join(', ')}.
+    ${context}
+    ${observations}
+    
+    Retorne JSON estrito:
+    {
+      "pathologyName": "${query}",
+      "overview": "Resumo da estratégia de tratamento para as 4 sessões.",
+      "sessions": [
+        { "sessionNumber": 1, "goal": "Objetivo Fase 1", "focus": "Ex: Mobilidade e Alívio", "apparatusFocus": "Aparelhos sugeridos" },
+        { "sessionNumber": 2, "goal": "Objetivo Fase 2", "focus": "Ex: Estabilidade", "apparatusFocus": "Aparelhos sugeridos" },
+        { "sessionNumber": 3, "goal": "Objetivo Fase 3", "focus": "Ex: Fortalecimento", "apparatusFocus": "Aparelhos sugeridos" },
+        { "sessionNumber": 4, "goal": "Objetivo Fase 4", "focus": "Ex: Integração/Funcional", "apparatusFocus": "Aparelhos sugeridos" }
+      ]
+    }
+    `;
+    
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: { responseMimeType: 'application/json' }
+    });
+    return cleanAndParseJSON(response.text || '{}');
+};
+
+export const fetchLessonPlan = async (query: string, equipment: string[], history?: ChatMessage[], obs?: string, sessionFocus?: string): Promise<LessonPlanResponse | null> => {
+    const context = history ? `Baseado na triagem: ${history.map(h => h.role + ': ' + h.text).join('\n')}` : '';
+    const observations = obs ? `Observações do aluno: ${obs}` : '';
+    const focusContext = sessionFocus ? `Foco específico desta sessão: ${sessionFocus}` : '';
+    
+    const prompt = `
     Crie um plano de aula de Pilates (50 min) seguro e eficiente.
-    Foco: ${query}.
-    Equipamentos: ${equipment.join(', ')}.
+    Foco Geral: ${query}.
+    ${focusContext}
+    
+    IMPORTANT RESTRAINTS:
+    1. Equipamentos disponíveis no studio: ${equipment.join(', ')}.
+    2. USE APENAS 1 ou 2 tipos de equipamentos principais nesta aula para evitar trocas excessivas (Ex: Apenas Mat + Reformer OU Cadillac + Chair).
+    3. Gere no MÍNIMO 10 exercícios e no MÁXIMO 12.
+    
     ${context}
     ${observations}
     
@@ -262,7 +301,7 @@ export const fetchLessonPlan = async (query: string, equipment: string[], histor
         { "name": "Nome", "reps": "Repetições/Tempo", "apparatus": "Aparelho usado", "instructions": "Instrução técnica resumida", "focus": "Mobilidade/Fortalecimento/etc" }
       ]
     }
-    Gere 6 a 8 exercícios progressivos (Aquecimento -> Principal -> Volta à calma).
+    Ordene os exercícios logicamente (Aquecimento -> Principal -> Volta à calma).
     `;
     
     const response = await ai.models.generateContent({
@@ -277,7 +316,8 @@ export const regenerateSingleExercise = async (query: string, oldExercise: Lesso
     const prompt = `
     Substitua este exercício de Pilates: "${oldExercise.name}" (${oldExercise.apparatus}).
     Motivo: Preciso de uma variação ou alternativa para o caso "${query}".
-    Equipamentos disponíveis: ${equipment.join(', ')}.
+    
+    IMPORTANTE: Mantenha o mesmo aparelho (${oldExercise.apparatus}) se possível, ou use um destes: ${equipment.join(', ')}.
     
     Retorne JSON (apenas 1 objeto):
     { "name": "Novo Nome", "reps": "Reps", "apparatus": "Aparelho", "instructions": "Instrução", "focus": "Foco" }

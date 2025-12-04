@@ -3,17 +3,17 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
-import { fetchPathologyData, fetchLessonPlan, regenerateSingleExercise, handleGeminiError } from '../services/geminiService';
+import { fetchPathologyData, fetchLessonPlan, fetchTreatmentPlan, regenerateSingleExercise, handleGeminiError } from '../services/geminiService';
 import { saveRehabLesson, fetchRehabLessons, deleteRehabLesson } from '../services/rehabService';
 import { saveStudioExercise, fetchStudioExercises, deleteStudioExercise, updateStudioExercise, createStudioExercise, uploadExerciseImage } from '../services/exerciseService';
 import { fetchStudents } from '../services/studentService';
 import { fetchProfile } from '../services/storage';
-import { PathologyResponse, LessonPlanResponse, LoadingState, SavedRehabLesson, LessonExercise, ChatMessage, Student, StudioExercise, AppRoute } from '../types';
+import { PathologyResponse, LessonPlanResponse, LoadingState, SavedRehabLesson, LessonExercise, ChatMessage, Student, StudioExercise, AppRoute, TreatmentPlanResponse } from '../types';
 import { AssessmentModal } from '../components/rehab/AssessmentModal';
 import { ResultCard, LessonPlanView } from '../components/rehab/RehabResults';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Search, History, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, User, ChevronRight, Folder, Dumbbell, Filter, Plus, Pencil, X, Upload, ImageIcon, Maximize2, Home, AlertTriangle } from 'lucide-react';
+import { Search, History, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, User, ChevronRight, Folder, Dumbbell, Filter, Plus, Pencil, X, Upload, ImageIcon, Maximize2, Home, AlertTriangle, List, CheckSquare } from 'lucide-react';
 
 const COMMON_SUGGESTIONS = [
   "Hérnia de Disco L5-S1", "Dor Lombar Crônica", "Ombro Rígido", "Condromalácia", "Cervicalgia", "Fascite Plantar"
@@ -98,17 +98,26 @@ export const RehabAgent: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [historySearchTerm, setHistorySearchTerm] = useState(''); // New history filter
   const [selectedStudentFilter, setSelectedStudentFilter] = useState<string | null>(null);
   const [refStatus, setRefStatus] = useState<LoadingState>(LoadingState.IDLE);
   const [refData, setRefData] = useState<PathologyResponse | null>(null);
   const [errorHtml, setErrorHtml] = useState<string | null>(null);
+  
+  // Lesson & Treatment State
+  const [planMode, setPlanMode] = useState<'single' | 'treatment'>('single');
+  const [treatmentPlan, setTreatmentPlan] = useState<TreatmentPlanResponse | null>(null);
   const [lessonStatus, setLessonStatus] = useState<LoadingState>(LoadingState.IDLE);
   const [lessonData, setLessonData] = useState<LessonPlanResponse | null>(null);
+  
   const [isAssessmentOpen, setIsAssessmentOpen] = useState(false);
   const [assessmentHistory, setAssessmentHistory] = useState<ChatMessage[] | undefined>(undefined);
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>(["Mat (Solo)", "Reformer", "Cadillac", "Chair", "Barrel"]);
+  
+  // Bank State
   const [savedExercises, setSavedExercises] = useState<StudioExercise[]>([]);
   const [bankEquipmentFilter, setBankEquipmentFilter] = useState('All');
+  const [bankFocusFilter, setBankFocusFilter] = useState(''); // New Focus Filter
   const [isExerciseModalOpen, setIsExerciseModalOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState<StudioExercise | null>(null);
   const [exerciseFormData, setExerciseFormData] = useState<Partial<StudioExercise>>({});
@@ -190,12 +199,21 @@ export const RehabAgent: React.FC = () => {
       alert("Por favor, selecione um aluno para iniciar a triagem.");
       return;
     }
-    setQuery(q); setRefData(null); setLessonData(null); setRefStatus(LoadingState.IDLE); setLessonStatus(LoadingState.IDLE); setErrorHtml(null); setAssessmentHistory(undefined);
+    setQuery(q); 
+    setRefData(null); 
+    setLessonData(null); 
+    setTreatmentPlan(null); // Clear treatment plan
+    setRefStatus(LoadingState.IDLE); 
+    setLessonStatus(LoadingState.IDLE); 
+    setErrorHtml(null); 
+    setAssessmentHistory(undefined);
     setIsAssessmentOpen(true);
   };
 
   const handleAssessmentComplete = (history: ChatMessage[]) => {
-    setAssessmentHistory(history); setIsAssessmentOpen(false); fetchReferenceData(query, history);
+    setAssessmentHistory(history); 
+    setIsAssessmentOpen(false); 
+    fetchReferenceData(query, history);
   };
 
   const fetchReferenceData = async (q: string, history?: ChatMessage[]) => {
@@ -208,14 +226,47 @@ export const RehabAgent: React.FC = () => {
 
   const handleTabChange = async (tab: 'reference' | 'lesson' | 'bank') => {
     setActiveTab(tab);
-    if (tab === 'lesson' && !lessonData && query && lessonStatus === LoadingState.IDLE) {
+    
+    // Auto-fetch logic ONLY if lessonData is missing AND we have a query
+    if (tab === 'lesson' && !lessonData && !treatmentPlan && query && lessonStatus === LoadingState.IDLE) {
+      if (planMode === 'single') {
+          generateSingleLesson();
+      } else {
+          generateTreatmentPlan();
+      }
+    }
+  };
+
+  const generateSingleLesson = async () => {
       setLessonStatus(LoadingState.LOADING);
       try {
         const obs = currentStudent?.observations || '';
         const data = await fetchLessonPlan(query, selectedEquipment, assessmentHistory, obs);
         if (data) { setLessonData(data); setLessonStatus(LoadingState.SUCCESS); }
       } catch (err: any) { setLessonStatus(LoadingState.ERROR); setErrorHtml(handleGeminiError(err)); }
-    }
+  };
+
+  const generateTreatmentPlan = async () => {
+      setLessonStatus(LoadingState.LOADING);
+      try {
+        const obs = currentStudent?.observations || '';
+        const data = await fetchTreatmentPlan(query, selectedEquipment, assessmentHistory, obs);
+        if (data) { setTreatmentPlan(data); setLessonStatus(LoadingState.SUCCESS); }
+      } catch (err: any) { setLessonStatus(LoadingState.ERROR); setErrorHtml(handleGeminiError(err)); }
+  };
+
+  const generateSessionLesson = async (sessionNumber: number, focus: string) => {
+      setLessonStatus(LoadingState.LOADING);
+      try {
+        const obs = currentStudent?.observations || '';
+        const fullQuery = `${query} - Fase ${sessionNumber}`;
+        const data = await fetchLessonPlan(fullQuery, selectedEquipment, assessmentHistory, obs, focus);
+        if (data) { 
+            setLessonData(data); 
+            setLessonStatus(LoadingState.SUCCESS); 
+            // We stay in 'lesson' tab but now showing the specific lesson
+        }
+      } catch (err: any) { setLessonStatus(LoadingState.ERROR); setErrorHtml(handleGeminiError(err)); }
   };
 
   const handleSaveLesson = async (customName: string, patientName: string, updatedExercises: LessonExercise[], studentId?: string) => {
@@ -275,16 +326,11 @@ export const RehabAgent: React.FC = () => {
           if (url) {
               imageUrl = url; 
           } else {
-              // Falha no upload: pergunta ao usuário
-              const proceed = window.confirm(
-                "Aviso: Falha ao subir imagem. Provavelmente o 'Storage Bucket' não está configurado no Supabase.\n\nDeseja salvar o exercício mesmo sem a imagem?"
-              );
-              
+              const proceed = window.confirm("Falha ao subir imagem. Deseja salvar sem imagem?");
               if (!proceed) {
                 setIsExerciseSaving(false);
-                return; // Para o salvamento
+                return;
               }
-              // Se sim, continua sem mudar a URL da imagem
           }
       }
       
@@ -306,12 +352,22 @@ export const RehabAgent: React.FC = () => {
     }
   };
 
-  const studentsWithLessons = Array.from(new Set(savedLessons.map(l => l.patientName))).sort();
-  const filteredBankExercises = bankEquipmentFilter === 'All' ? savedExercises : savedExercises.filter(ex => ex.equipment === bankEquipmentFilter);
+  const studentsWithLessons = Array.from(new Set(savedLessons.map(l => l.patientName))).sort() as string[];
+  
+  // Filter Bank Exercises
+  const filteredBankExercises = savedExercises.filter(ex => {
+      const matchEquip = bankEquipmentFilter === 'All' || ex.equipment === bankEquipmentFilter;
+      const matchFocus = !bankFocusFilter || ex.focus.toLowerCase().includes(bankFocusFilter.toLowerCase()) || ex.name.toLowerCase().includes(bankFocusFilter.toLowerCase());
+      return matchEquip && matchFocus;
+  });
+  
   const bankEquipments = Array.from(new Set([...EQUIPMENTS, ...savedExercises.map(e => e.equipment)])).sort();
 
   // RENDER HELPERS for HISTORY View
-  const renderHistory = () => (
+  const renderHistory = () => {
+      const filteredStudents = studentsWithLessons.filter((name: string) => name.toLowerCase().includes(historySearchTerm.toLowerCase()));
+
+      return (
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-2">
@@ -332,38 +388,57 @@ export const RehabAgent: React.FC = () => {
         </div>
 
         {selectedStudentFilter === null && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 animate-in fade-in">
-            {studentsWithLessons.length === 0 ? (
-              <p className="text-slate-500 col-span-3 text-center py-12">Nenhum plano salvo ainda.</p>
-            ) : (
-              studentsWithLessons.map(studentName => {
-                const count = savedLessons.filter(l => l.patientName === studentName).length;
-                return (
-                  <button 
-                    key={studentName || 'unknown'}
-                    onClick={() => setSelectedStudentFilter(studentName)}
-                    className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-400 hover:shadow-md transition-all text-left group"
-                  >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="p-3 bg-brand-50 dark:bg-brand-900/20 rounded-lg text-brand-600 dark:text-brand-400 group-hover:bg-brand-100 dark:group-hover:bg-brand-900/40 transition-colors">
-                        <Folder className="w-6 h-6" />
-                      </div>
-                      <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold px-2 py-1 rounded-full">
-                        {count}
-                      </span>
-                    </div>
-                    <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate">{studentName || 'Sem Nome'}</h3>
-                    <p className="text-sm text-slate-500 mt-1">Ver planos salvos</p>
-                  </button>
-                );
-              })
-            )}
-          </div>
+          <>
+            <div className="mb-4">
+                <Input 
+                    placeholder="Filtrar por nome do aluno..." 
+                    value={historySearchTerm} 
+                    onChange={e => setHistorySearchTerm(e.target.value)} 
+                />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 animate-in fade-in">
+                {filteredStudents.length === 0 ? (
+                <p className="text-slate-500 col-span-3 text-center py-12">Nenhum histórico encontrado.</p>
+                ) : (
+                filteredStudents.map(studentName => {
+                    const count = savedLessons.filter(l => l.patientName === studentName).length;
+                    return (
+                    <button 
+                        key={studentName || 'unknown'}
+                        onClick={() => setSelectedStudentFilter(studentName)}
+                        className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-brand-400 hover:shadow-md transition-all text-left group"
+                    >
+                        <div className="flex items-start justify-between mb-4">
+                        <div className="p-3 bg-brand-50 dark:bg-brand-900/20 rounded-lg text-brand-600 dark:text-brand-400 group-hover:bg-brand-100 dark:group-hover:bg-brand-900/40 transition-colors">
+                            <Folder className="w-6 h-6" />
+                        </div>
+                        <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold px-2 py-1 rounded-full">
+                            {count}
+                        </span>
+                        </div>
+                        <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate">{studentName || 'Sem Nome'}</h3>
+                        <p className="text-sm text-slate-500 mt-1">Ver planos salvos</p>
+                    </button>
+                    );
+                })
+                )}
+            </div>
+          </>
         )}
 
         {selectedStudentFilter !== null && (
           <div className="grid gap-4 animate-in fade-in slide-in-from-right-8">
-            {savedLessons.filter(l => l.patientName === selectedStudentFilter).map(l => (
+            <div className="mb-4">
+                <Input 
+                    placeholder="Filtrar por patologia..." 
+                    value={historySearchTerm} 
+                    onChange={e => setHistorySearchTerm(e.target.value)} 
+                />
+            </div>
+            {savedLessons
+                .filter(l => l.patientName === selectedStudentFilter)
+                .filter(l => l.pathologyName.toLowerCase().includes(historySearchTerm.toLowerCase()))
+                .map(l => (
               <div key={l.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex justify-between items-center hover:border-brand-300 transition-colors">
                 <div>
                   <h3 className="font-bold text-lg text-brand-700 dark:text-brand-400">{l.pathologyName}</h3>
@@ -376,6 +451,7 @@ export const RehabAgent: React.FC = () => {
                     setLessonStatus(LoadingState.SUCCESS); 
                     setRefStatus(LoadingState.IDLE);
                     setRefData(null);
+                    setTreatmentPlan(null);
                     setActiveTab('lesson'); 
                     setShowHistory(false); 
                     setSelectedStudentFilter(null); 
@@ -394,13 +470,13 @@ export const RehabAgent: React.FC = () => {
           </div>
         )}
       </div>
-  );
+  )};
 
   if (showHistory) return renderHistory();
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in">
-      {(refData || lessonData || activeTab === 'bank') && (
+      {(refData || lessonData || treatmentPlan || activeTab === 'bank') && (
         <header className="flex justify-between items-center border-b pb-6">
           <div className="flex items-center gap-3">
             {user?.isInstructor && (
@@ -409,17 +485,17 @@ export const RehabAgent: React.FC = () => {
                 </Button>
             )}
             <div className="p-2 bg-brand-100 rounded-lg"><Activity className="h-6 w-6 text-brand-600"/></div>
-            <div><h1 className="text-2xl font-bold text-slate-900 dark:text-white">{t('rehab_agent_title')}</h1></div>
+            <div><h1 className="text-2xl font-bold text-slate-900 dark:text-white">Guia Clínico</h1></div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => { setRefData(null); setLessonData(null); setQuery(''); setActiveTab('reference'); }}>{t('new')}</Button>
+            <Button variant="outline" onClick={() => { setRefData(null); setLessonData(null); setTreatmentPlan(null); setQuery(''); setActiveTab('reference'); }}>{t('new')}</Button>
             <Button variant="outline" onClick={() => setShowHistory(true)}>{t('view_history')}</Button>
           </div>
         </header>
       )}
 
       {/* Landing Search View */}
-      {(!refData && !lessonData && activeTab !== 'bank') && (
+      {(!refData && !lessonData && !treatmentPlan && activeTab !== 'bank') && (
         <div className="max-w-3xl mx-auto space-y-6 pt-8">
           <div className="text-center mb-8">
              <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">{t('clinical_guide')}</h2>
@@ -461,9 +537,52 @@ export const RehabAgent: React.FC = () => {
             />
             <Button className="absolute right-2 top-2 bottom-2" onClick={() => handleSearch()}>{t('consult')}</Button>
           </div>
+
+          {/* Mode Selection and Equipment Filter */}
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+              
+              {/* Mode Toggle */}
+              <div>
+                  <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-3 text-sm uppercase">Modo de Geração</h3>
+                  <div className="flex gap-4">
+                      <label className={`flex-1 p-4 rounded-xl border cursor-pointer transition-all ${planMode === 'single' ? 'bg-brand-50 border-brand-500 ring-1 ring-brand-500' : 'bg-slate-50 border-slate-200'}`}>
+                          <input type="radio" name="planMode" value="single" checked={planMode === 'single'} onChange={() => setPlanMode('single')} className="hidden"/>
+                          <div className="flex items-center gap-2 mb-1">
+                              <Activity className={`w-5 h-5 ${planMode === 'single' ? 'text-brand-600' : 'text-slate-400'}`}/>
+                              <span className={`font-bold ${planMode === 'single' ? 'text-brand-700' : 'text-slate-600'}`}>Aula Única</span>
+                          </div>
+                          <p className="text-xs text-slate-500">Gera um plano de aula imediato para a queixa.</p>
+                      </label>
+                      <label className={`flex-1 p-4 rounded-xl border cursor-pointer transition-all ${planMode === 'treatment' ? 'bg-purple-50 border-purple-500 ring-1 ring-purple-500' : 'bg-slate-50 border-slate-200'}`}>
+                          <input type="radio" name="planMode" value="treatment" checked={planMode === 'treatment'} onChange={() => setPlanMode('treatment')} className="hidden"/>
+                          <div className="flex items-center gap-2 mb-1">
+                              <List className={`w-5 h-5 ${planMode === 'treatment' ? 'text-purple-600' : 'text-slate-400'}`}/>
+                              <span className={`font-bold ${planMode === 'treatment' ? 'text-purple-700' : 'text-slate-600'}`}>Tratamento (4 Sessões)</span>
+                          </div>
+                          <p className="text-xs text-slate-500">Planejamento progressivo de 4 fases.</p>
+                      </label>
+                  </div>
+              </div>
+
+              {/* Equipment Selection */}
+              <div>
+                  <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-3 text-sm uppercase">Aparelhos Disponíveis</h3>
+                  <div className="flex flex-wrap gap-2">
+                      {EQUIPMENTS.map(eq => (
+                          <button 
+                              key={eq}
+                              onClick={() => toggleEquipment(eq)}
+                              className={`px-3 py-1.5 rounded-full text-sm border transition-all ${selectedEquipment.includes(eq) ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'}`}
+                          >
+                              {eq}
+                          </button>
+                      ))}
+                  </div>
+              </div>
+          </div>
           
           {/* Quick Access Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm cursor-pointer hover:border-brand-400 transition-all group" onClick={() => setShowHistory(true)}>
               <div className="flex items-center justify-between">
                 <div className="flex items-start gap-4">
@@ -490,12 +609,12 @@ export const RehabAgent: React.FC = () => {
       {/* Loading & Content Views (Reference, Lesson, Bank) */}
       {(refStatus === LoadingState.ERROR || lessonStatus === LoadingState.ERROR) && errorHtml && (refData || lessonData) && <div dangerouslySetInnerHTML={{ __html: errorHtml }} />}
 
-      {(refData || lessonData || activeTab === 'bank') && (
+      {(refData || lessonData || treatmentPlan || activeTab === 'bank') && (
         <div className="space-y-6">
           {/* Tabs */}
           <div className="flex flex-wrap justify-center p-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit mx-auto gap-1">
             <button onClick={() => handleTabChange('reference')} className={`px-6 py-2 rounded-md text-sm font-medium ${activeTab === 'reference' ? 'bg-white dark:bg-slate-700 shadow text-slate-900 dark:text-white' : 'text-slate-500'}`}>{t('reference')}</button>
-            <button onClick={() => handleTabChange('lesson')} className={`px-6 py-2 rounded-md text-sm font-medium ${activeTab === 'lesson' ? 'bg-white dark:bg-slate-700 shadow text-slate-900 dark:text-white' : 'text-slate-500'}`}>{t('lesson_plan')}</button>
+            <button onClick={() => handleTabChange('lesson')} className={`px-6 py-2 rounded-md text-sm font-medium ${activeTab === 'lesson' ? 'bg-white dark:bg-slate-700 shadow text-slate-900 dark:text-white' : 'text-slate-500'}`}>{treatmentPlan ? 'Tratamento' : t('lesson_plan')}</button>
             <button onClick={() => handleTabChange('bank')} className={`px-6 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'bank' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}><Dumbbell className="w-4 h-4"/> {t('exercise_bank')}</button>
           </div>
           
@@ -505,7 +624,11 @@ export const RehabAgent: React.FC = () => {
               {refData ? (
                 <>
                   <div className="bg-brand-50 dark:bg-brand-900/20 p-6 rounded-xl border border-brand-100 dark:border-brand-800 mb-6"><h2 className="text-3xl font-bold mb-3 text-brand-800 dark:text-brand-300">{refData.pathologyName}</h2><p className="text-lg text-brand-700 dark:text-brand-400">{refData.summary}</p></div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><ResultCard title={t('indicated')} type="indicated" items={refData.indicated} /><ResultCard title={t('contraindicated')} type="contraindicated" items={refData.contraindicated} /></div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Only showing Contraindicated per user request */}
+                      <ResultCard title={t('contraindicated')} type="contraindicated" items={refData.contraindicated} />
+                      {/* Could show indicated here if requested, but hidden for now */}
+                  </div>
                 </>
               ) : (
                 <div className="text-center py-12 text-slate-500 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
@@ -516,28 +639,88 @@ export const RehabAgent: React.FC = () => {
             </div>
           )}
           
-          {/* Lesson View */}
+          {/* Lesson View (Single or Treatment) */}
           {activeTab === 'lesson' && (
             <div className="animate-in fade-in">
-              {lessonStatus === LoadingState.LOADING ? <div className="text-center py-12"><Loader2 className="h-10 w-10 animate-spin mx-auto text-brand-500"/><p>Gerando aula...</p></div> : lessonData ? (
-                <LessonPlanView 
-                  plan={lessonData} 
-                  studentId={currentStudent?.id}
-                  studentName={(lessonData as any).patientName || currentStudent?.name}
-                  onSaveLesson={handleSaveLesson} 
-                  onSaveToBank={handleSaveToBank}
-                  onRegenerateExercise={async (idx, ex) => { 
-                    const newEx = await regenerateSingleExercise(query, ex, selectedEquipment); 
-                    const newExs = [...lessonData.exercises]; 
-                    newExs[idx] = newEx; 
-                    setLessonData({...lessonData, exercises: newExs}); 
-                  }} 
-                />
+              {lessonStatus === LoadingState.LOADING ? (
+                  <div className="text-center py-12"><Loader2 className="h-10 w-10 animate-spin mx-auto text-brand-500"/><p>Gerando com IA...</p></div> 
               ) : (
-                <div className="text-center py-12 text-slate-500 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
-                   <p className="mb-4">Nenhum plano de aula ativo.</p>
-                   {query && <Button variant="outline" onClick={() => handleTabChange('lesson')}>Gerar Aula para "{query}"</Button>}
-                </div>
+                <>
+                    {/* Treatment Plan View */}
+                    {treatmentPlan && !lessonData && (
+                        <div className="space-y-6">
+                            <div className="bg-purple-50 border border-purple-100 p-6 rounded-xl">
+                                <h2 className="text-2xl font-bold text-purple-800 mb-2">Planejamento de Tratamento: {treatmentPlan.pathologyName}</h2>
+                                <p className="text-purple-700">{treatmentPlan.overview}</p>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {treatmentPlan.sessions.map(session => (
+                                    <div key={session.sessionNumber} className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm hover:border-purple-300 transition-all">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <span className="bg-purple-100 text-purple-700 text-xs font-bold px-3 py-1 rounded-full uppercase">Sessão {session.sessionNumber}</span>
+                                        </div>
+                                        <h3 className="font-bold text-lg mb-2">{session.goal}</h3>
+                                        <div className="text-sm text-slate-600 space-y-1 mb-4">
+                                            <p><strong>Foco:</strong> {session.focus}</p>
+                                            <p><strong>Aparelhos:</strong> {session.apparatusFocus}</p>
+                                        </div>
+                                        <Button 
+                                            variant="outline" 
+                                            className="w-full"
+                                            onClick={() => generateSessionLesson(session.sessionNumber, session.focus)}
+                                        >
+                                            Gerar Aula {session.sessionNumber}
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Single Lesson View (Used by both Single Mode and Treatment Mode Drill-down) */}
+                    {lessonData && (
+                        <div>
+                            {treatmentPlan && (
+                                <button onClick={() => setLessonData(null)} className="mb-4 text-sm text-slate-500 hover:text-brand-600 flex items-center gap-1">
+                                    <ArrowLeft className="w-4 h-4"/> Voltar ao Planejamento
+                                </button>
+                            )}
+                            <LessonPlanView 
+                                plan={lessonData} 
+                                studentId={currentStudent?.id}
+                                studentName={(lessonData as any).patientName || currentStudent?.name}
+                                onSaveLesson={handleSaveLesson} 
+                                onSaveToBank={handleSaveToBank}
+                                onRegenerateExercise={async (idx, ex) => { 
+                                    // Update State Correctly using functional update
+                                    setLessonStatus(LoadingState.LOADING);
+                                    const newEx = await regenerateSingleExercise(query, ex, selectedEquipment); 
+                                    
+                                    setLessonData(prev => {
+                                        if(!prev) return null;
+                                        const newExs = [...prev.exercises]; 
+                                        newExs[idx] = newEx; 
+                                        return {...prev, exercises: newExs};
+                                    });
+                                    setLessonStatus(LoadingState.SUCCESS);
+                                }} 
+                            />
+                        </div>
+                    )}
+
+                    {!lessonData && !treatmentPlan && (
+                        <div className="text-center py-12 text-slate-500 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
+                            <p className="mb-4">Nenhum plano ativo.</p>
+                            {query && (
+                                <div className="flex justify-center gap-4">
+                                    <Button variant="outline" onClick={generateSingleLesson}>Gerar Aula Única</Button>
+                                    <Button variant="secondary" onClick={generateTreatmentPlan}>Gerar Tratamento Completo</Button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </>
               )}
             </div>
           )}
@@ -550,7 +733,7 @@ export const RehabAgent: React.FC = () => {
                   <h3 className="font-bold text-lg text-slate-900 dark:text-white">{t('exercise_bank')}</h3>
                   <p className="text-sm text-slate-500">{filteredBankExercises.length} exercícios salvos</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
                     <Filter className="w-4 h-4 text-slate-400" />
                     <select 
@@ -561,6 +744,14 @@ export const RehabAgent: React.FC = () => {
                       <option value="All">Todos Equipamentos</option>
                       {bankEquipments.map(eq => <option key={eq} value={eq}>{eq}</option>)}
                     </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input 
+                        className="mb-0 w-40 h-10" 
+                        placeholder="Buscar Foco/Nome..." 
+                        value={bankFocusFilter} 
+                        onChange={e => setBankFocusFilter(e.target.value)}
+                    />
                   </div>
                   <Button onClick={() => openExerciseModal()} size="sm" className="ml-2">
                     <Plus className="w-4 h-4 mr-2" /> {t('create_exercise')}

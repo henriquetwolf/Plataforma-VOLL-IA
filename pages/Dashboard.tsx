@@ -193,7 +193,7 @@ export const Dashboard: React.FC = () => {
           />
           <ActionCard 
             to={AppRoute.REHAB}
-            title={t('pilates_rehab')}
+            title="Guia Clínico"
             desc={t('card_rehab_desc')}
             icon={Activity}
             color="bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-400"

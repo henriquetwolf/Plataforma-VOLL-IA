@@ -2,8 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { PathologyResponse, LessonPlanResponse, LessonExercise, Student } from '../../types';
 import { Button } from '../ui/Button';
-import { CheckCircle, AlertOctagon, Info, Save, RefreshCw, Printer, User, Bookmark, X, MessageCircle, Mail } from 'lucide-react';
+import { CheckCircle, AlertOctagon, Info, Save, RefreshCw, Printer, User, Bookmark, X, MessageCircle, Mail, PlayCircle, Download } from 'lucide-react';
 import { fetchStudents } from '../../services/studentService';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 // --- REFERENCE CARD ---
 interface ResultCardProps {
@@ -111,6 +113,11 @@ export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, studentId, stu
   const [exercises, setExercises] = useState(plan.exercises);
   const [customTitle, setCustomTitle] = useState(`${plan.pathologyName} - Aula 1`);
   
+  // Update internal exercises if plan changes from parent
+  useEffect(() => {
+    setExercises(plan.exercises);
+  }, [plan]);
+
   // States for Saving Exercise
   const [exerciseToSave, setExerciseToSave] = useState<LessonExercise | null>(null);
   const [isSavingExercise, setIsSavingExercise] = useState(false);
@@ -161,6 +168,50 @@ export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, studentId, stu
     }
   };
 
+  const handlePrintPDF = async () => {
+    const element = document.getElementById('printable-lesson-plan');
+    if (!element) return;
+
+    try {
+        const originalBg = element.style.backgroundColor;
+        element.style.backgroundColor = "#ffffff";
+
+        const canvas = await html2canvas(element, { 
+            scale: 2, 
+            useCORS: true, 
+            backgroundColor: '#ffffff',
+            width: element.offsetWidth,
+            height: element.offsetHeight
+        });
+        
+        element.style.backgroundColor = originalBg;
+
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = 210;
+        const pdfHeight = 297;
+        const imgWidth = pdfWidth;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+
+        while (heightLeft >= 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pdfHeight;
+        }
+
+        pdf.save(`${customTitle.replace(/\s+/g, '_')}.pdf`);
+    } catch (error) {
+        alert('Erro ao gerar PDF.');
+    }
+  };
+
   const handleWhatsAppShare = () => {
     let text = `*Plano de Aula: ${customTitle}*\n`;
     if (patientName) text += `*Aluno(a):* ${patientName}\n`;
@@ -180,21 +231,8 @@ export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, studentId, stu
     window.open(url, '_blank');
   };
 
-  const handleEmailShare = () => {
-    const subject = `Plano de Aula: ${customTitle}`;
-    let body = `Aluno(a): ${patientName || 'N/A'}\n\n`;
-    body += `Foco: ${plan.pathologyName}\n`;
-    body += `Objetivo: ${plan.goal}\n`;
-    body += `Duração: ${plan.duration}\n\n`;
-    body += `--- SEQUÊNCIA DE EXERCÍCIOS ---\n`;
-
-    exercises.forEach((ex, idx) => {
-      body += `\n${idx + 1}. ${ex.name} (${ex.apparatus})\n`;
-      body += `   Série: ${ex.reps} | Foco: ${ex.focus}\n`;
-      body += `   Instrução: ${ex.instructions}\n`;
-    });
-
-    const url = `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const openYouTubeSearch = (query: string) => {
+    const url = `https://www.youtube.com/results?search_query=pilates+exercise+${encodeURIComponent(query)}`;
     window.open(url, '_blank');
   };
 
@@ -239,82 +277,86 @@ export const LessonPlanView: React.FC<LessonPlanProps> = ({ plan, studentId, stu
              >
                 <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp
              </Button>
-             <Button 
-                onClick={handleEmailShare}
-                className="h-[38px] bg-red-600 hover:bg-red-700 text-white border-transparent px-3"
-                title="Enviar por Email"
-             >
-                <Mail className="h-4 w-4 mr-2" /> Email
-             </Button>
              <Button onClick={handleSave} className="h-[38px]" disabled={!selectedStudentId}>
                <Save className="h-4 w-4 mr-2" /> Salvar
              </Button>
-             <Button variant="outline" onClick={() => window.print()} className="h-[38px]">
-               <Printer className="h-4 w-4" />
+             <Button variant="outline" onClick={handlePrintPDF} className="h-[38px]">
+               <Download className="h-4 w-4 mr-2" /> PDF
              </Button>
           </div>
         </div>
 
-        {/* Printable Header */}
-        <div className="mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{customTitle}</h2>
-          <div className="mt-2 text-sm text-slate-600 dark:text-slate-400 grid grid-cols-2 gap-4">
-            <p><strong>Objetivo:</strong> {plan.goal}</p>
-            <p><strong>Duração:</strong> {plan.duration}</p>
-            {patientName && <p className="print:block hidden"><strong>Aluno:</strong> {patientName}</p>}
-          </div>
-        </div>
-
-        {/* Exercises List */}
-        <div className="space-y-4">
-          {exercises.map((ex, idx) => (
-            <div key={idx} className="flex gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700 group break-inside-avoid">
-              <div className="flex-shrink-0 w-8 h-8 bg-brand-100 dark:bg-brand-900 text-brand-600 dark:text-brand-400 rounded-full flex items-center justify-center font-bold text-sm">
-                {idx + 1}
-              </div>
-              <div className="flex-1">
-                <div className="flex justify-between items-start">
-                  <h4 className="font-bold text-slate-800 dark:text-white text-lg">{ex.name}</h4>
-                  <span className="text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 px-2 py-1 rounded text-slate-600 dark:text-slate-300 font-medium">
-                    {ex.apparatus}
-                  </span>
-                </div>
-                <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-slate-400 font-medium text-xs uppercase">Série / Reps</span>
-                    <p className="text-slate-700 dark:text-slate-300">{ex.reps}</p>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-medium text-xs uppercase">Foco</span>
-                    <p className="text-slate-700 dark:text-slate-300">{ex.focus}</p>
-                  </div>
-                </div>
-                <div className="mt-3 text-sm text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800 p-3 rounded border border-slate-100 dark:border-slate-700 italic">
-                  "{ex.instructions}"
-                </div>
-              </div>
-              
-              {/* Actions */}
-              <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity print:hidden">
-                {onSaveToBank && (
-                  <button
-                    onClick={() => setExerciseToSave(ex)}
-                    className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
-                    title="Salvar no Banco de Exercícios"
-                  >
-                    <Bookmark className="h-4 w-4" />
-                  </button>
-                )}
-                <button 
-                  onClick={() => onRegenerateExercise(idx, ex)}
-                  className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded transition-colors"
-                  title="Trocar exercício"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </button>
-              </div>
+        {/* Printable Area Wrapper */}
+        <div id="printable-lesson-plan" className="bg-white p-4">
+            <div className="mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{customTitle}</h2>
+            <div className="mt-2 text-sm text-slate-600 dark:text-slate-400 grid grid-cols-2 gap-4">
+                <p><strong>Objetivo:</strong> {plan.goal}</p>
+                <p><strong>Duração:</strong> {plan.duration}</p>
+                {patientName && <p><strong>Aluno:</strong> {patientName}</p>}
             </div>
-          ))}
+            </div>
+
+            {/* Exercises List */}
+            <div className="space-y-4">
+            {exercises.map((ex, idx) => (
+                <div key={idx} className="flex gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700 group break-inside-avoid">
+                <div className="flex-shrink-0 w-8 h-8 bg-brand-100 dark:bg-brand-900 text-brand-600 dark:text-brand-400 rounded-full flex items-center justify-center font-bold text-sm">
+                    {idx + 1}
+                </div>
+                <div className="flex-1">
+                    <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-slate-800 dark:text-white text-lg">{ex.name}</h4>
+                        <button 
+                            onClick={() => openYouTubeSearch(ex.name)} 
+                            className="text-red-500 hover:text-red-700 transition-colors"
+                            title="Ver vídeo no YouTube"
+                        >
+                            <PlayCircle className="w-5 h-5" />
+                        </button>
+                    </div>
+                    <span className="text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 px-2 py-1 rounded text-slate-600 dark:text-slate-300 font-medium">
+                        {ex.apparatus}
+                    </span>
+                    </div>
+                    <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span className="text-slate-400 font-medium text-xs uppercase">Série / Reps</span>
+                        <p className="text-slate-700 dark:text-slate-300">{ex.reps}</p>
+                    </div>
+                    <div>
+                        <span className="text-slate-400 font-medium text-xs uppercase">Foco</span>
+                        <p className="text-slate-700 dark:text-slate-300">{ex.focus}</p>
+                    </div>
+                    </div>
+                    <div className="mt-3 text-sm text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800 p-3 rounded border border-slate-100 dark:border-slate-700 italic">
+                    "{ex.instructions}"
+                    </div>
+                </div>
+                
+                {/* Actions */}
+                <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity print:hidden" data-html2canvas-ignore="true">
+                    {onSaveToBank && (
+                    <button
+                        onClick={() => setExerciseToSave(ex)}
+                        className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                        title="Salvar no Banco de Exercícios"
+                    >
+                        <Bookmark className="h-4 w-4" />
+                    </button>
+                    )}
+                    <button 
+                    onClick={() => onRegenerateExercise(idx, ex)}
+                    className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded transition-colors"
+                    title="Trocar exercício"
+                    >
+                    <RefreshCw className="h-4 w-4" />
+                    </button>
+                </div>
+                </div>
+            ))}
+            </div>
         </div>
       </div>
 

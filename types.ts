@@ -466,6 +466,7 @@ export interface LessonExercise {
   instructions: string;
   focus: string;
   userNotes?: string;
+  videoUrl?: string; // Added for YouTube link
 }
 
 export interface LessonPlanResponse {
@@ -475,11 +476,26 @@ export interface LessonPlanResponse {
   exercises: LessonExercise[]; 
 }
 
+// New Types for Treatment Planning
+export interface TreatmentSession {
+  sessionNumber: number;
+  goal: string;
+  focus: string;
+  apparatusFocus: string;
+}
+
+export interface TreatmentPlanResponse {
+  pathologyName: string;
+  overview: string;
+  sessions: TreatmentSession[];
+}
+
 export interface SavedRehabLesson extends LessonPlanResponse {
   id: string;
   patientName: string;
   customName: string;
   createdAt: string;
+  treatmentPhase?: number; // 1-4
 }
 
 export interface StudioExercise {
