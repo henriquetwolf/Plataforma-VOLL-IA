@@ -3,13 +3,13 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppRoute } from '../../types';
-import { Users, Activity, ArrowRight, User, Building2, Newspaper, CheckCircle2, ClipboardList, TrendingUp } from 'lucide-react';
+import { Users, Activity, ArrowRight, User, Building2, Newspaper, CheckCircle2, ClipboardList, TrendingUp, LogOut } from 'lucide-react';
 import { fetchProfile } from '../../services/storage';
 import { getInstructorProfile } from '../../services/instructorService';
 import { StudioProfile } from '../../types';
 
 export const InstructorDashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [studioProfile, setStudioProfile] = useState<StudioProfile | null>(null);
   const [instructor, setInstructor] = useState<any>(null);
@@ -41,46 +41,45 @@ export const InstructorDashboard: React.FC = () => {
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4">
       {/* Header Personalizado do Instrutor */}
-      <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
-           <User size={150} />
-        </div>
+      <div className="flex flex-col sm:flex-row justify-between items-center bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 gap-4 sm:gap-0">
         
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-5 w-full md:w-auto">
-            {/* Instructor Photo */}
-            <div className="h-20 w-20 md:h-24 md:w-24 shrink-0 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 text-white flex items-center justify-center text-3xl font-bold shadow-lg overflow-hidden border-4 border-white dark:border-slate-800">
+        {/* Lado Esquerdo: Foto do Instrutor + Saudação */}
+        <div className="flex items-center gap-5 w-full sm:w-auto">
+          <div className="h-16 w-16 shrink-0 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 font-bold text-2xl overflow-hidden border-2 border-slate-100 dark:border-slate-700 shadow-sm">
               {instructor?.photo_url ? (
                 <img src={instructor.photo_url} alt={user?.name} className="w-full h-full object-cover" />
               ) : (
                 <span className="uppercase">{user?.name?.charAt(0)}</span>
               )}
-            </div>
-            
-            {/* Text Info */}
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">
-                Olá, {user?.name.split(' ')[0]}!
-              </h1>
-              <div className="flex flex-wrap items-center gap-2 mt-2 text-slate-600 dark:text-slate-400">
-                <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full text-xs md:text-sm font-medium">
-                   <User className="w-3 h-3 md:w-4 md:h-4" /> Portal do Instrutor
-                </span>
-                {studioProfile && (
-                  <span className="flex items-center gap-1 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 px-3 py-1 rounded-full text-xs md:text-sm font-medium border border-brand-100 dark:border-brand-800">
-                     <Building2 className="w-3 h-3 md:w-4 md:h-4"/> {studioProfile.studioName}
-                  </span>
-                )}
-              </div>
-            </div>
           </div>
           
-          {/* Studio Logo (Right aligned) */}
-          {studioProfile?.logoUrl && (
-            <div className="shrink-0 bg-white p-2 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
-               <img src={studioProfile.logoUrl} alt="Logo Studio" className="h-16 w-auto object-contain" />
-            </div>
-          )}
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+              Olá, {user?.name.split(' ')[0]}!
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">Bem-vindo ao Portal do Instrutor.</p>
+          </div>
+        </div>
+
+        {/* Lado Direito: Logo do Studio + Logout */}
+        <div className="flex items-center gap-4 w-full sm:w-auto justify-end">
+            {studioProfile?.logoUrl && (
+                <div className="h-12 w-auto bg-white rounded-lg p-1 border border-slate-100 shadow-sm flex items-center">
+                    <img 
+                        src={studioProfile.logoUrl} 
+                        alt="Logo Studio" 
+                        className="h-full w-auto object-contain"
+                    />
+                </div>
+            )}
+            
+            <button 
+                onClick={logout} 
+                className="text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-3 rounded-xl transition-colors border border-transparent hover:border-red-100"
+                title="Sair"
+            >
+                <LogOut className="w-6 h-6"/>
+            </button>
         </div>
       </div>
 

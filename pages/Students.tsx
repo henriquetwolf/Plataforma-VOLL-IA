@@ -26,7 +26,7 @@ import { Input } from '../components/ui/Input';
 import { 
   User, ClipboardList, Activity, TrendingUp, Star, MapPin, AlertCircle, 
   Calendar, Eye, CheckCircle, Plus, Search, Mail, Phone, Trash2, 
-  Pencil, X, ChevronRight, Loader2, Camera, Lock, Unlock, ArrowLeft 
+  Pencil, X, ChevronRight, Loader2, Camera, Lock, Unlock, ArrowLeft, LayoutGrid, List
 } from 'lucide-react';
 
 export const Students: React.FC = () => {
@@ -38,6 +38,7 @@ export const Students: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Details View State
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -611,6 +612,25 @@ export const Students: React.FC = () => {
                     onChange={e => setSearchTerm(e.target.value)}
                 />
             </div>
+            
+            {/* View Mode Toggle */}
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                <button 
+                    onClick={() => setViewMode('grid')} 
+                    className={`p-1.5 rounded transition-colors ${viewMode === 'grid' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-brand-400' : 'text-slate-500'}`}
+                    title="Grade"
+                >
+                    <LayoutGrid className="w-4 h-4"/>
+                </button>
+                <button 
+                    onClick={() => setViewMode('list')} 
+                    className={`p-1.5 rounded transition-colors ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-brand-400' : 'text-slate-500'}`}
+                    title="Lista"
+                >
+                    <List className="w-4 h-4"/>
+                </button>
+            </div>
+
             {!showForm && (
                 <Button onClick={() => openForm()}>
                     <Plus className="w-4 h-4 mr-2" /> {t('new_student_btn')}
@@ -687,61 +707,133 @@ export const Students: React.FC = () => {
                     <p className="text-slate-500">Nenhum aluno encontrado.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredStudents.map(student => (
-                        <div key={student.id} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden hover:shadow-md transition-all group relative flex flex-col">
-                            <div className="p-5 flex items-start gap-4">
-                                <div className="flex-shrink-0 cursor-pointer" onClick={() => setSelectedStudent(student)}>
-                                    {student.photoUrl ? (
-                                        <img src={student.photoUrl} alt={student.name} className="w-16 h-16 rounded-full object-cover border-2 border-slate-100 dark:border-slate-700" />
-                                    ) : (
-                                        <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 font-bold text-xl border-2 border-slate-200 dark:border-slate-700">
-                                            {student.name.charAt(0)}
+                <>
+                    {/* GRID VIEW */}
+                    {viewMode === 'grid' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {filteredStudents.map(student => (
+                                <div key={student.id} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden hover:shadow-md transition-all group relative flex flex-col">
+                                    <div className="p-5 flex items-start gap-4">
+                                        <div className="flex-shrink-0 cursor-pointer" onClick={() => setSelectedStudent(student)}>
+                                            {student.photoUrl ? (
+                                                <img src={student.photoUrl} alt={student.name} className="w-16 h-16 rounded-full object-cover border-2 border-slate-100 dark:border-slate-700" />
+                                            ) : (
+                                                <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 font-bold text-xl border-2 border-slate-200 dark:border-slate-700">
+                                                    {student.name.charAt(0)}
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
-                                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setSelectedStudent(student)}>
-                                    <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate">{student.name}</h3>
-                                    <p className="text-sm text-slate-500 truncate">{student.email}</p>
-                                    <div className="flex items-center gap-2 mt-2">
-                                        {student.authUserId ? (
-                                            <span className="inline-flex items-center gap-1 text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">
-                                                <Unlock className="w-3 h-3"/> Acesso App
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold">
-                                                <Lock className="w-3 h-3"/> Sem Acesso
-                                            </span>
-                                        )}
+                                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setSelectedStudent(student)}>
+                                            <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate">{student.name}</h3>
+                                            <p className="text-sm text-slate-500 truncate">{student.email}</p>
+                                            <div className="flex items-center gap-2 mt-2">
+                                                {student.authUserId ? (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">
+                                                        <Unlock className="w-3 h-3"/> Acesso App
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold">
+                                                        <Lock className="w-3 h-3"/> Sem Acesso
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="mt-auto border-t border-slate-100 dark:border-slate-800 flex divide-x divide-slate-100 dark:divide-slate-800">
+                                        <button 
+                                            onClick={() => setSelectedStudent(student)}
+                                            className="flex-1 py-3 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <Eye className="w-4 h-4"/> Ver Detalhes
+                                        </button>
+                                        <button 
+                                            onClick={() => openForm(student)}
+                                            className="px-4 py-3 text-slate-400 hover:text-brand-600 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                            title="Editar"
+                                        >
+                                            <Pencil className="w-4 h-4"/>
+                                        </button>
+                                        <button 
+                                            onClick={() => handleDelete(student.id)}
+                                            className="px-4 py-3 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                            title="Excluir"
+                                        >
+                                            <Trash2 className="w-4 h-4"/>
+                                        </button>
                                     </div>
                                 </div>
-                            </div>
-                            
-                            <div className="mt-auto border-t border-slate-100 dark:border-slate-800 flex divide-x divide-slate-100 dark:divide-slate-800">
-                                <button 
-                                    onClick={() => setSelectedStudent(student)}
-                                    className="flex-1 py-3 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"
-                                >
-                                    <Eye className="w-4 h-4"/> Ver Detalhes
-                                </button>
-                                <button 
-                                    onClick={() => openForm(student)}
-                                    className="px-4 py-3 text-slate-400 hover:text-brand-600 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                                    title="Editar"
-                                >
-                                    <Pencil className="w-4 h-4"/>
-                                </button>
-                                <button 
-                                    onClick={() => handleDelete(student.id)}
-                                    className="px-4 py-3 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                                    title="Excluir"
-                                >
-                                    <Trash2 className="w-4 h-4"/>
-                                </button>
-                            </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
+                    )}
+
+                    {/* LIST VIEW */}
+                    {viewMode === 'list' && (
+                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-xs font-bold">
+                                    <tr>
+                                        <th className="px-6 py-4">Aluno</th>
+                                        <th className="px-6 py-4">Contato</th>
+                                        <th className="px-6 py-4 text-center">Acesso</th>
+                                        <th className="px-6 py-4 text-right">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {filteredStudents.map(student => (
+                                        <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3 cursor-pointer" onClick={() => setSelectedStudent(student)}>
+                                                    <div className="flex-shrink-0 w-10 h-10">
+                                                        {student.photoUrl ? (
+                                                            <img src={student.photoUrl} alt={student.name} className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-slate-700" />
+                                                        ) : (
+                                                            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 font-bold">
+                                                                {student.name.charAt(0)}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-bold text-slate-900 dark:text-white">{student.name}</div>
+                                                        {student.city && <div className="text-xs text-slate-500">{student.city}</div>}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="text-slate-600 dark:text-slate-300 flex items-center gap-2"><Mail className="w-3 h-3"/> {student.email}</div>
+                                                {student.phone && <div className="text-xs text-slate-500 flex items-center gap-2 mt-1"><Phone className="w-3 h-3"/> {student.phone}</div>}
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                {student.authUserId ? (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">
+                                                        <Unlock className="w-3 h-3"/> Acesso App
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold">
+                                                        <Lock className="w-3 h-3"/> Sem Acesso
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button onClick={() => setSelectedStudent(student)} className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded transition-colors" title="Ver Detalhes">
+                                                        <Eye className="w-4 h-4"/>
+                                                    </button>
+                                                    <button onClick={() => openForm(student)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Editar">
+                                                        <Pencil className="w-4 h-4"/>
+                                                    </button>
+                                                    <button onClick={() => handleDelete(student.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Excluir">
+                                                        <Trash2 className="w-4 h-4"/>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </>
             )}
           </>
       )}
