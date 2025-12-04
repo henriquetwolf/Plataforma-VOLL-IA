@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { MarketingFormData, GeneratedContent, SavedContent, ContentRequest, LogoConfig, StudioPersona } from '../types';
@@ -363,7 +365,7 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate }:
                                 <CalendarDays className="w-5 h-5"/> Semana {week.weekNumber}: {week.theme}
                             </h4>
                             <div className="grid md:grid-cols-3 gap-4">
-                                {week.posts.map((post: any, idx: number) => (
+                                {week.posts && week.posts.map((post: any, idx: number) => (
                                     <div key={idx} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
                                         <div className="flex justify-between mb-2">
                                             <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">{post.day}</span>

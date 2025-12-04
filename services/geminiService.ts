@@ -1,4 +1,6 @@
 
+
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
   StrategicPlan, CalculatorInputs, FinancialModel, CompensationResult, 
@@ -38,115 +40,122 @@ const cleanAndParseJSON = (text: string) => {
   }
 };
 
-// ... (Rest of existing helpers and functions until generateMarketingContent)
-
 export const generateMarketingContent = async (formData: MarketingFormData): Promise<GeneratedContent | null> => {
   const isPlan = formData.mode === 'plan';
   const isStory = formData.mode === 'story';
   const isCarousel = formData.format === 'carousel';
   
-  // Base schema properties common to all
-  const baseProperties: any = {
-    suggestedFormat: { type: Type.STRING },
-    reasoning: { type: Type.STRING },
-    hashtags: { type: Type.ARRAY, items: { type: Type.STRING } },
-    tips: { type: Type.STRING },
-    captionShort: { type: Type.STRING },
-    captionLong: { type: Type.STRING },
-  };
+  let responseSchema: any;
 
-  let responseSchema: any = {
-    type: Type.OBJECT,
-    properties: baseProperties,
-    required: ['suggestedFormat', 'reasoning', 'hashtags', 'tips', 'captionShort', 'captionLong']
-  };
-
-  // Adjust schema based on mode
   if (isPlan) {
-    responseSchema.properties.isPlan = { type: Type.BOOLEAN };
-    responseSchema.properties.weeks = {
-      type: Type.ARRAY,
-      items: {
+    responseSchema = {
         type: Type.OBJECT,
         properties: {
-          weekNumber: { type: Type.INTEGER },
-          theme: { type: Type.STRING },
-          posts: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                day: { type: Type.STRING },
-                format: { type: Type.STRING },
-                idea: { type: Type.STRING }
-              }
+            suggestedFormat: { type: Type.STRING },
+            reasoning: { type: Type.STRING },
+            tips: { type: Type.STRING },
+            isPlan: { type: Type.BOOLEAN },
+            weeks: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        weekNumber: { type: Type.INTEGER },
+                        theme: { type: Type.STRING },
+                        posts: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    day: { type: Type.STRING },
+                                    format: { type: Type.STRING },
+                                    idea: { type: Type.STRING }
+                                }
+                            }
+                        }
+                    }
+                }
             }
-          }
-        }
-      }
-    };
-  } else if (isStory) {
-    responseSchema.properties.isStory = { type: Type.BOOLEAN };
-    responseSchema.properties.storySequence = {
-      type: Type.OBJECT,
-      properties: {
-        category: { type: Type.STRING },
-        reasoning: { type: Type.STRING },
-        frames: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              order: { type: Type.INTEGER },
-              type: { type: Type.STRING },
-              action: { type: Type.STRING },
-              spokenText: { type: Type.STRING },
-              directAction: { type: Type.STRING },
-              emotion: { type: Type.STRING }
-            }
-          }
-        }
-      }
+        },
+        required: ['suggestedFormat', 'reasoning', 'tips', 'isPlan', 'weeks']
     };
   } else {
-    // Single Post
-    responseSchema.properties.visualContent = { type: Type.ARRAY, items: { type: Type.STRING } };
-    
-    // Check if it might be reels to add reels options
-    responseSchema.properties.isReels = { type: Type.BOOLEAN };
-    responseSchema.properties.reelsOptions = {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          style: { type: Type.STRING },
-          title: { type: Type.STRING },
-          purpose: { type: Type.STRING },
-          captionShort: { type: Type.STRING },
-          captionLong: { type: Type.STRING },
-          script: { type: Type.ARRAY, items: { type: Type.STRING } },
-          audioSuggestion: { type: Type.STRING },
-          duration: { type: Type.STRING }
-        }
-      }
+    // Single / Story / Carousel Schema
+    const baseProperties: any = {
+        suggestedFormat: { type: Type.STRING },
+        reasoning: { type: Type.STRING },
+        hashtags: { type: Type.ARRAY, items: { type: Type.STRING } },
+        tips: { type: Type.STRING },
+        captionShort: { type: Type.STRING },
+        captionLong: { type: Type.STRING },
     };
 
-    if (isCarousel) {
-      responseSchema.properties.carouselCards = {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            order: { type: Type.INTEGER },
-            textOverlay: { type: Type.STRING },
-            visualPrompt: { type: Type.STRING },
-          },
-          required: ['order', 'textOverlay', 'visualPrompt']
-        }
-      };
+    responseSchema = {
+        type: Type.OBJECT,
+        properties: baseProperties,
+        required: ['suggestedFormat', 'reasoning', 'hashtags', 'tips', 'captionShort', 'captionLong']
+    };
+
+    if (isStory) {
+        responseSchema.properties.isStory = { type: Type.BOOLEAN };
+        responseSchema.properties.storySequence = {
+            type: Type.OBJECT,
+            properties: {
+                category: { type: Type.STRING },
+                reasoning: { type: Type.STRING },
+                frames: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            order: { type: Type.INTEGER },
+                            type: { type: Type.STRING },
+                            action: { type: Type.STRING },
+                            spokenText: { type: Type.STRING },
+                            directAction: { type: Type.STRING },
+                            emotion: { type: Type.STRING }
+                        }
+                    }
+                }
+            }
+        };
     } else {
-      // Static Post needs visual prompt for single image
-      responseSchema.properties.visualPrompt = { type: Type.STRING };
+        // Single Post
+        responseSchema.properties.visualContent = { type: Type.ARRAY, items: { type: Type.STRING } };
+        responseSchema.properties.isReels = { type: Type.BOOLEAN };
+        responseSchema.properties.reelsOptions = {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    style: { type: Type.STRING },
+                    title: { type: Type.STRING },
+                    purpose: { type: Type.STRING },
+                    captionShort: { type: Type.STRING },
+                    captionLong: { type: Type.STRING },
+                    script: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    audioSuggestion: { type: Type.STRING },
+                    duration: { type: Type.STRING }
+                }
+            }
+        };
+
+        if (isCarousel) {
+            responseSchema.properties.carouselCards = {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        order: { type: Type.INTEGER },
+                        textOverlay: { type: Type.STRING },
+                        visualPrompt: { type: Type.STRING },
+                    },
+                    required: ['order', 'textOverlay', 'visualPrompt']
+                }
+            };
+        } else {
+            responseSchema.properties.visualPrompt = { type: Type.STRING };
+        }
     }
   }
 
@@ -160,10 +169,6 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
   Tópico: ${formData.topic}
   Formato Preferido: ${formData.format}
   Estilo Visual: ${formData.style}
-  
-  REGRAS:
-  1. SEMPRE retorne 'captionShort' (curta e direta) E 'captionLong' (storytelling detalhado).
-  2. Use hashtags relevantes para Pilates e Brasil.
   `;
 
   if (isPlan) {
@@ -180,6 +185,7 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
     Foco em retenção e interação.
     Use gatilhos mentais adequados ao objetivo.
     Preencha 'isStory' como true e detalhe a 'storySequence'.
+    SEMPRE retorne 'captionShort' (resumo) E 'captionLong' (detalhe estratégico).
     `;
   } else if (isCarousel) {
     prompt += `
@@ -188,10 +194,12 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
     Para cada card, forneça:
     - 'textOverlay': Texto curto para escrever na imagem.
     - 'visualPrompt': Descrição visual extremamente detalhada, fotorealista, 8k, iluminação cinematográfica, para gerar a imagem do card com IA (sem texto na descrição).
+    SEMPRE retorne 'captionShort' (curta e direta) E 'captionLong' (storytelling detalhado).
     `;
   } else {
     prompt += `
     Crie um post único completo.
+    SEMPRE retorne 'captionShort' (curta e direta) E 'captionLong' (storytelling detalhado).
     Se o formato for Reels ou Vídeo, forneça roteiro detalhado em 'reelsOptions' (pelo menos 2 opções diferentes) e marque 'isReels' como true.
     Se for Estático (Post), forneça 'visualPrompt' com uma descrição detalhada, fotorealista, 8k, iluminação de estúdio profissional, para gerar a imagem.
     `;
@@ -222,7 +230,6 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
   }
 };
 
-// ... (Rest of existing functions in geminiService.ts: generateStudioDescription, generateMissionOptions, etc. - keep them unchanged)
 export const generateTopicSuggestions = async (goal: string, audience: string): Promise<string[]> => {
   const prompt = `
   Como um especialista em marketing para Studios de Pilates, sugira 5 tópicos criativos e específicos para posts no Instagram.
@@ -246,17 +253,6 @@ export const generateTopicSuggestions = async (goal: string, audience: string): 
   }
 };
 
-// ... (Keep existing generateStudioDescription, generateMissionOptions, generateVisionOptions, generateSwotSuggestions, generateObjectivesSmart, generateActionsSmart, generateFullReport, generateTailoredMissions, generateFinancialAnalysis, fetchTriageQuestion, fetchPathologyData, fetchTreatmentPlan, fetchLessonPlan, regenerateSingleExercise, generateHealthyRecipe, generateRecipeFromIngredients, generateHomeWorkout, generateActionPlanFromSuggestions, generateSuggestionTrends, generateNewsletter, generatePilatesContentStream, generatePilatesImage, generatePilatesVideo, generateContentPlan, generatePlannerSuggestion, generateEvaluationAnalysis, generateEvolutionReport, generateWhatsAppScript, generateActionIdeas, generateActionPlanDetail)
-
-// Note: I am including the rest of the file content implicitly as requested by the user flow, but for brevity in this response, I assume the user will keep the other exports.
-// However, the instructions say "ONLY return the xml... DO NOT ADD any more explanation".
-// To be safe and compliant, I must include the file content I want to replace fully or just the updated parts if I could, but the instruction implies "Full content of file_X".
-// Since I cannot output the entire 1000+ line file here easily without potential cutoff or issues, I will focus on providing the CORRECT updated function `generateMarketingContent` and assume the user can merge or I provide the full file if size permits. 
-// Given the constraint "Full content of file", I will provide the full content of `geminiService.ts` ensuring `generateMarketingContent` is updated.
-
-// Actually, re-reading "Full content of file_1", I must provide the full file.
-// I will provide the full `geminiService.ts` with the fix.
-
 export const generateStudioDescription = async (name: string, owner: string, specialties: string[]): Promise<string> => {
   const prompt = `Escreva uma biografia curta e profissional (max 300 caracteres) para o perfil de um Studio de Pilates chamado "${name}", proprietário "${owner}", especialidades: ${specialties.join(', ')}. Tom acolhedor e profissional.`;
   const response = await ai.models.generateContent({
@@ -266,7 +262,6 @@ export const generateStudioDescription = async (name: string, owner: string, spe
   return response.text || '';
 };
 
-// ... (Rest of the file content below)
 export const generateMissionOptions = async (name: string): Promise<string[]> => {
   const prompt = `Gere 3 opções de Missão para um studio de pilates chamado "${name}". Retorne apenas as frases em formato JSON array de strings.`;
   const response = await ai.models.generateContent({
