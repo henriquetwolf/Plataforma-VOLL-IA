@@ -780,10 +780,10 @@ export interface GeneratedContent {
   reasoning: string;
   hashtags: string[];
   tips: string;
-  captionShort: string; // Made required
-  captionLong: string;  // Made required
+  captionShort: string; 
+  captionLong: string;  
   visualContent?: string[];
-  visualPrompt?: string; // Prompt for generating static image
+  visualPrompt?: string; 
   generatedImage?: string;
   isReels?: boolean;
   reelsOptions?: ReelOption[];
