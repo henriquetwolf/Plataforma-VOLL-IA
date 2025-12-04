@@ -33,7 +33,6 @@ export const GeneratedPlan: React.FC<Props> = ({ planData, report, onStartOver, 
     if (!element) return;
 
     try {
-      // Force white background for capture
       const originalBg = element.style.backgroundColor;
       element.style.backgroundColor = "#ffffff";
 
@@ -112,22 +111,30 @@ export const GeneratedPlan: React.FC<Props> = ({ planData, report, onStartOver, 
         {/* Actual Report Sheet (A4 Simulation) */}
         <div 
           id="strategic-report-content" 
-          className="bg-white text-slate-800 w-full max-w-[210mm] p-10 md:p-12 shadow-2xl min-h-[297mm] flex flex-col relative"
+          className="bg-white text-slate-800 shadow-2xl relative flex flex-col box-border"
+          style={{ 
+            width: '210mm', 
+            minHeight: '297mm', 
+            paddingTop: '30mm',
+            paddingRight: '20mm',
+            paddingBottom: '20mm',
+            paddingLeft: '30mm'
+          }}
         >
           {/* Header */}
-          <div className="flex justify-between items-start border-b-4 border-brand-500 pb-6 mb-8">
-            <div className="flex flex-col gap-2">
+          <div className="flex justify-between items-start border-b-4 border-brand-500 pb-4 mb-8">
+            <div className="flex flex-col gap-2 max-w-[65%]">
                <div className="flex items-center gap-3 text-brand-600 mb-1">
                   <FileText className="w-6 h-6" />
                   <span className="text-sm font-bold uppercase tracking-wider">Relatório de Planejamento</span>
                </div>
-               <h1 className="text-4xl font-extrabold text-slate-900 leading-tight">Plano Estratégico <br/> {planData.planningYear}</h1>
-               <h2 className="text-xl text-slate-500 font-medium">{planData.studioName}</h2>
+               <h1 className="text-3xl font-extrabold text-slate-900 leading-tight">Plano Estratégico {planData.planningYear}</h1>
+               <h2 className="text-lg text-slate-500 font-medium">{planData.studioName}</h2>
             </div>
             
             <div className="flex flex-col items-end">
                 {logoUrl ? (
-                    <img src={logoUrl} alt="Logo" className="h-20 w-20 object-contain mb-2" />
+                    <img src={logoUrl} alt="Logo" className="h-20 w-auto max-w-[150px] object-contain mb-2" />
                 ) : (
                     <div className="h-20 w-20 bg-slate-100 rounded-lg flex items-center justify-center text-slate-300 mb-2">
                         <Building2 className="w-8 h-8" />
@@ -140,11 +147,14 @@ export const GeneratedPlan: React.FC<Props> = ({ planData, report, onStartOver, 
           {/* AI Content */}
           <div 
             className="flex-1 prose prose-slate max-w-none 
-            prose-h2:text-2xl prose-h2:font-bold prose-h2:text-brand-600 prose-h2:border-b prose-h2:border-slate-100 prose-h2:pb-2 prose-h2:mt-8 prose-h2:mb-4
+            prose-h2:text-2xl prose-h2:font-bold prose-h2:text-brand-600 prose-h2:border-b-2 prose-h2:border-brand-100 prose-h2:pb-2 prose-h2:mb-4 prose-h2:mt-8
             prose-h3:text-lg prose-h3:font-semibold prose-h3:text-slate-700 prose-h3:mt-6
             prose-p:text-slate-600 prose-p:leading-relaxed prose-p:mb-4 prose-p:text-justify
             prose-li:text-slate-600 prose-li:marker:text-brand-500 prose-li:mb-1
-            prose-strong:text-slate-800"
+            prose-table:w-full prose-table:text-sm prose-table:border-collapse prose-table:my-6
+            prose-th:bg-brand-50 prose-th:p-3 prose-th:text-left prose-th:font-bold prose-th:text-brand-800 prose-th:border prose-th:border-slate-200
+            prose-td:p-3 prose-td:border prose-td:border-slate-200 prose-td:text-slate-600
+            prose-strong:text-slate-900 prose-strong:font-bold"
             dangerouslySetInnerHTML={{ __html: report }} 
           />
 

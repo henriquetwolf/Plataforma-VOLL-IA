@@ -221,7 +221,13 @@ export const StudentEvolutionPage: React.FC = () => {
     const element = document.getElementById(elementId);
     if (!element) return;
     try {
+        const originalBg = element.style.backgroundColor;
+        element.style.backgroundColor = "#ffffff";
+
         const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+        
+        element.style.backgroundColor = originalBg;
+
         const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF('p', 'mm', 'a4');
         const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -427,7 +433,6 @@ export const StudentEvolutionPage: React.FC = () => {
             <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl shadow-2xl p-6 relative overflow-y-auto max-h-[90vh]">
                 <button onClick={() => setViewModalOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X className="w-6 h-6" /></button>
                 <h2 className="text-xl font-bold mb-4">Detalhes da Evolução</h2>
-                {/* ... (keep existing view details content) ... */}
                 <div className="space-y-4 text-sm">
                     <p><strong>Aluno:</strong> {viewEvolutionData.studentName}</p>
                     <p><strong>Data:</strong> {new Date(viewEvolutionData.date).toLocaleDateString()}</p>
@@ -463,7 +468,15 @@ export const StudentEvolutionPage: React.FC = () => {
                     {/* A4 Page Simulation */}
                     <div 
                         id="evolution-report-content" 
-                        className="bg-white p-12 shadow-2xl max-w-[210mm] w-full min-h-[297mm] text-slate-800 flex flex-col"
+                        className="bg-white shadow-2xl relative flex flex-col box-border"
+                        style={{ 
+                            width: '210mm', 
+                            minHeight: '297mm', 
+                            paddingTop: '30mm',
+                            paddingRight: '20mm',
+                            paddingBottom: '20mm',
+                            paddingLeft: '30mm'
+                        }}
                     >
                         {/* Report Header */}
                         <div className="flex justify-between items-start border-b-4 border-brand-500 pb-6 mb-8">
@@ -483,8 +496,11 @@ export const StudentEvolutionPage: React.FC = () => {
                         {/* Content */}
                         <div 
                             className="flex-1 prose prose-slate max-w-none 
-                            prose-h2:text-2xl prose-h2:font-bold prose-h2:text-brand-700 prose-h2:border-b prose-h2:border-slate-100 prose-h2:pb-2 prose-h2:mt-8 prose-h2:mb-4
-                            prose-ul:list-disc prose-li:marker:text-brand-500 prose-p:text-justify prose-p:leading-relaxed"
+                            prose-h2:text-2xl prose-h2:font-bold prose-h2:text-brand-700 prose-h2:border-b-2 prose-h2:border-brand-100 prose-h2:pb-2 prose-h2:mt-8 prose-h2:mb-4
+                            prose-ul:list-disc prose-li:marker:text-brand-500 prose-p:text-justify prose-p:leading-relaxed
+                            prose-table:w-full prose-table:text-sm prose-table:border-collapse prose-table:my-4
+                            prose-th:bg-slate-100 prose-th:p-2 prose-th:text-left prose-th:font-bold
+                            prose-td:p-2 prose-td:border prose-td:border-slate-200"
                             dangerouslySetInnerHTML={{ __html: reportResult }} 
                         />
 

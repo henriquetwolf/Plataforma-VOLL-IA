@@ -37,6 +37,17 @@ const cleanAndParseJSON = (text: string) => {
   }
 };
 
+// Helper to clean HTML output (remove markdown fences)
+const cleanHtmlOutput = (text: string) => {
+  if (!text) return '';
+  // Remove ```html at start (case insensitive), ``` at end, and generic ``` fences
+  return text
+    .replace(/^```html/i, '')
+    .replace(/```$/g, '')
+    .replace(/```/g, '')
+    .trim();
+};
+
 export const handleGeminiError = (error: any): string => {
   console.error("Gemini API Error:", error);
   if (error.message?.includes('API key')) {
@@ -111,27 +122,30 @@ export const generateActionsSmart = async (objectives: any[]): Promise<{ quarter
 export const generateFullReport = async (planData: StrategicPlan): Promise<string> => {
   const prompt = `
   Atue como um consultor sênior de negócios.
-  Gere um relatório de Planejamento Estratégico em HTML limpo e bem estruturado para o studio "${planData.studioName}".
+  Gere um relatório de Planejamento Estratégico em HTML profissional para o studio "${planData.studioName}".
   
   Dados: ${JSON.stringify(planData)}
   
-  REGRAS DE FORMATAÇÃO HTML:
-  1. Use tags <h2> para títulos de seção principais (Visão, Missão, SWOT, Objetivos).
-  2. Use tags <h3> para subtítulos.
-  3. Use <p> para parágrafos com espaçamento adequado.
-  4. Use <ol> ou <ul> para listas.
-  5. Não use tags <html>, <head> ou <body>. Apenas o conteúdo.
-  6. Para a seção SWOT, agrupe em listas claras.
-  7. Para o Plano de Ação, use uma estrutura clara por trimestre.
+  REGRAS RÍGIDAS DE FORMATAÇÃO HTML (PARA PDF):
+  1. Use tags HTML semânticas e claras.
+  2. Use <h2> para cada Título de Seção (Visão, Missão, SWOT, Objetivos, Plano de Ação).
+  3. Use <h3> para subtítulos dentro das seções.
+  4. Para a "Análise SWOT", CRIE UMA TABELA HTML (<table>) com cabeçalho e bordas, dividindo claramente Forças, Fraquezas, Oportunidades e Ameaças.
+  5. Para o "Plano de Ação", CRIE UMA TABELA HTML (<table>) com as colunas: "Período/Trimestre" e "Ações Principais" (use lista <ul> dentro da célula de ações).
+  6. Para "Objetivos", use uma lista numerada (<ol>) onde cada item é o objetivo e dentro dele uma lista (<ul>) com os Resultados Chave.
+  7. Separe bem os blocos para leitura agradável.
+  8. Adicione uma seção final "Conclusão do Consultor" com uma análise breve e motivadora.
+  9. Não use tags <html>, <head> ou <body>. Apenas o conteúdo div/table/h2 etc.
+  10. NÃO USE blocos de código markdown (\`\`\`html). Retorne apenas o código HTML puro.
   
-  Inclua uma análise cruzada da SWOT e dicas finais de execução.
+  O tom deve ser encorajador, profissional e estratégico.
   `;
   
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: prompt,
   });
-  return response.text || '';
+  return cleanHtmlOutput(response.text || '');
 };
 
 export const generateTailoredMissions = async (studioName: string, specialties: string[], focus: string, tone: string): Promise<string[]> => {
@@ -157,26 +171,27 @@ export const generateFinancialAnalysis = async (
 ): Promise<string> => {
     const prompt = `
     Atue como consultor financeiro especialista em studios de pilates.
-    Analise os dados abaixo e forneça um parecer executivo em HTML.
+    Analise os dados abaixo e forneça um parecer executivo em HTML profissional.
     
     DADOS:
     - Receita Alvo Studio: R$ ${targetRevenue} (Potencial: R$ ${potentialRevenue})
     - Receita Gerada pelo Profissional: R$ ${professionalRevenue}
-    - Cenários Calculados: ${JSON.stringify(results.map(r => ({ nome: r.scenarioName, custo: r.costToStudio, margem: r.contributionMargin, viavel: r.isViable })))}
-    - Modelo Financeiro Desejado (Teto Folha): ${model.payroll}%
+    - Cenários: ${JSON.stringify(results.map(r => ({ nome: r.scenarioName, custo: r.costToStudio, margem: r.contributionMargin, viavel: r.isViable })))}
     
-    FORMATO HTML:
-    - Use <h2> para o Veredito Principal.
-    - Use <h3> para separar "Análise de Viabilidade", "Comparativo de Contratos" e "Recomendações".
-    - Use <ul> para listar pontos chave.
-    - Seja direto e profissional.
+    FORMATO HTML OBRIGATÓRIO:
+    1. <h2>Parecer Executivo</h2>: Uma introdução direta.
+    2. <h2>Análise Comparativa</h2>: Crie uma TABELA HTML (<table>) comparando os modelos (Colunas: Modelo, Custo Total, Margem Contrib., Veredito).
+    3. <h2>Pontos de Atenção</h2>: Lista com ícones ou bullets (<ul>) destacando riscos e oportunidades.
+    4. <h2>Recomendações Finais</h2>: Lista numerada (<ol>) com passos práticos.
+    5. NÃO USE blocos de código markdown.
+    Mantenha o tom profissional e direto. Use formatação de tabela para dados numéricos.
     `;
     
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: prompt,
     });
-    return response.text || '';
+    return cleanHtmlOutput(response.text || '');
 };
 
 // --- Rehab Agent ---
@@ -188,7 +203,7 @@ export const fetchTriageQuestion = async (query: string, history: ChatMessage[],
     Histórico da conversa: ${JSON.stringify(history)}.
     
     Se já tiver informações suficientes (dor, limitações, histórico) para montar uma aula segura, retorne JSON: { "status": "FINISH" }.
-    Caso contrário, faça APENAS UMA pergunta curta e direta para investigar melhor (ex: "A dor irradia?", "Dói ao flexionar?").
+    Caso contrário, faça APENAS UMA pergunta curta e direta para investigar melhor.
     Retorne JSON: { "status": "CONTINUE", "question": "sua pergunta aqui" }.
     `;
     
@@ -284,14 +299,14 @@ export const generateHealthyRecipe = async (goal: string, restrictions: string):
     Objetivo do aluno: ${goal}.
     Restrições/Preferências: ${restrictions}.
     
-    IMPORTANTE: Retorne APENAS um objeto JSON válido, sem texto adicional.
+    Retorne APENAS um objeto JSON válido.
     Formato:
     {
-      "title": "Nome Criativo da Receita",
-      "ingredients": ["1 xícara de aveia", "1 banana amassada"],
-      "instructions": ["Passo 1: Misture tudo...", "Passo 2: Asse por 15 min..."],
-      "benefits": "Esta receita é rica em fibras e potássio, ótima para energia...",
-      "calories": "Aprox. 250 kcal"
+      "title": "Nome Criativo",
+      "ingredients": ["ingrediente 1", "ingrediente 2"],
+      "instructions": ["passo 1", "passo 2"],
+      "benefits": "texto curto",
+      "calories": "texto curto"
     }
     `;
     
@@ -306,17 +321,16 @@ export const generateHealthyRecipe = async (goal: string, restrictions: string):
 export const generateRecipeFromIngredients = async (ingredients: string[], extraInfo: string): Promise<RecipeResponse | null> => {
     const prompt = `
     Atue como Nutricionista Chef. Crie uma receita saudável usando PRINCIPALMENTE estes ingredientes: ${ingredients.join(', ')}.
-    Você pode adicionar itens básicos de despensa (sal, azeite, temperos, água).
-    Info extra do aluno: ${extraInfo}.
+    Info extra: ${extraInfo}.
     
-    IMPORTANTE: Retorne APENAS um objeto JSON válido, sem texto adicional.
+    Retorne APENAS um objeto JSON válido.
     Formato:
     {
       "title": "Nome Criativo",
-      "ingredients": ["Lista completa dos ingredientes usados e quantidades"],
-      "instructions": ["Passo a passo numerado e claro"],
-      "benefits": "Explicação curta dos benefícios nutricionais",
-      "calories": "Estimativa calórica por porção"
+      "ingredients": ["ingrediente 1", "ingrediente 2"],
+      "instructions": ["passo 1", "passo 2"],
+      "benefits": "texto curto",
+      "calories": "texto curto"
     }
     `;
     
@@ -331,9 +345,8 @@ export const generateRecipeFromIngredients = async (ingredients: string[], extra
 export const generateHomeWorkout = async (name: string, observations: string, equipment: string, duration: string): Promise<WorkoutResponse | null> => {
     const prompt = `
     Crie um treino de Pilates em casa para ${name}.
-    Duração: ${duration}.
-    Equipamentos: ${equipment}.
-    Observações clínicas (CUIDADO REDOBRADO): ${observations}.
+    Duração: ${duration}. Equipamentos: ${equipment}.
+    Observações clínicas: ${observations}.
     
     Retorne JSON:
     {
@@ -367,23 +380,26 @@ export const generateActionPlanFromSuggestions = async (suggestions: Suggestion[
     
     Crie um Plano de Ação em HTML estruturado.
     
-    FORMATO HTML:
-    - <h2> para Títulos de Seção (Resumo, Ações Imediatas, Médio Prazo, Resposta aos Alunos).
-    - <ul> e <li> para listar as ações.
-    - Use negrito para destacar responsaveis e prazos.
+    FORMATO HTML OBRIGATÓRIO:
+    - <h2> para Títulos de Seção.
+    - <h3> para subtítulos.
+    - Crie uma TABELA HTML (<table>) para listar as ações com colunas: "Sugestão Original", "Ação Proposta", "Prioridade", "Prazo Estimado".
+    - Use lista numerada (<ol>) para passos de implementação.
+    - Texto direto e focado em solução.
+    - NÃO use blocos markdown (\`\`\`html).
     `;
     
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: prompt,
     });
-    return response.text || '';
+    return cleanHtmlOutput(response.text || '');
 };
 
 export const generateSuggestionTrends = async (suggestions: (Suggestion & { studioName?: string })[]): Promise<string> => {
     const suggestionsText = suggestions.map(s => {
       const studioInfo = s.studioName ? `[Studio: ${s.studioName}]` : '';
-      return `- "${s.content}" ${studioInfo} (${new Date(s.createdAt).toLocaleDateString()})`;
+      return `- "${s.content}" ${studioInfo}`;
     }).join('\n');
 
     const prompt = `
@@ -393,35 +409,36 @@ export const generateSuggestionTrends = async (suggestions: (Suggestion & { stud
     
     Gere um relatório analítico em HTML.
     
-    FORMATO HTML:
-    - <h2> para os títulos principais (Visão Geral, Categorias, Prioridades).
-    - <ul> para listas de insights.
-    - Se houver padrões negativos, sugira soluções práticas.
+    FORMATO HTML OBRIGATÓRIO:
+    - <h2> para os títulos principais.
+    - <h3> para categorias.
+    - Use listas (<ul>) para insights detalhados.
+    - Use <strong> para destacar pontos chave.
+    - Tente agrupar os temas recorrentes em uma pequena tabela resumo (<table>).
+    - Separe claramente "Pontos Positivos" de "Oportunidades de Melhoria".
+    - NÃO use blocos markdown.
     `;
     
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: prompt,
     });
-    return response.text || '';
+    return cleanHtmlOutput(response.text || '');
 };
 
 // --- Newsletter ---
 
 export const generateNewsletter = async (senderName: string, audience: NewsletterAudience, topic: string, style: string): Promise<{ title: string; content: string } | null> => {
-    const audienceText = audience === 'students' ? 'Alunos do Studio' : audience === 'instructors' ? 'Equipe de Instrutores' : 'Todos (Alunos e Equipe)';
+    const audienceText = audience === 'students' ? 'Alunos do Studio' : audience === 'instructors' ? 'Equipe de Instrutores' : 'Todos';
     
     const prompt = `
     Escreva uma newsletter/comunicado.
-    Remetente: ${senderName}.
-    Público: ${audienceText}.
-    Tópico: ${topic}.
-    Estilo: ${style}.
+    Remetente: ${senderName}. Público: ${audienceText}. Tópico: ${topic}. Estilo: ${style}.
     
     Retorne JSON:
     {
       "title": "Título chamativo",
-      "content": "Conteúdo em HTML formatado com <p>, <ul>, <li> e <strong> onde apropriado. Não use Markdown."
+      "content": "Conteúdo em HTML formatado com <p>, <ul>, <li> e <strong>. Use <br> para quebras de linha. Não use Markdown."
     }
     `;
     
@@ -438,13 +455,7 @@ export const generateNewsletter = async (senderName: string, audience: Newslette
 export const generatePilatesContentStream = async function* (request: ContentRequest, systemInstruction: string) {
     const prompt = `
     Crie um texto para ${request.format} de Pilates.
-    Tema: ${request.theme}
-    Objetivo: ${request.objective}
-    Público: ${request.audience}
-    Tom: ${request.tone}
-    
-    Se for post/carrossel, inclua legenda e hashtags.
-    Se for vídeo, inclua roteiro e descrição visual.
+    Tema: ${request.theme}. Objetivo: ${request.objective}. Público: ${request.audience}. Tom: ${request.tone}.
     `;
     
     const streamResult = await ai.models.generateContentStream({
@@ -463,10 +474,8 @@ export const generatePilatesImage = async (request: ContentRequest, studioInfo: 
     
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image', // Model for image generation
-            contents: {
-                parts: [{ text: prompt }]
-            },
+            model: 'gemini-2.5-flash-image',
+            contents: { parts: [{ text: prompt }] },
         });
         
         for (const part of response.candidates?.[0]?.content?.parts || []) {
@@ -487,11 +496,7 @@ export const generatePilatesVideo = async (script: string, onProgress: (msg: str
         let operation = await ai.models.generateVideos({
             model: 'veo-3.1-fast-generate-preview',
             prompt: `Pilates video: ${script.substring(0, 200)}`,
-            config: {
-                numberOfVideos: 1,
-                resolution: '720p',
-                aspectRatio: '9:16' // Vertical for social media
-            }
+            config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '9:16' }
         });
         
         while (!operation.done) {
@@ -502,7 +507,6 @@ export const generatePilatesVideo = async (script: string, onProgress: (msg: str
         
         const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
         if (videoUri) {
-            // Fetch the video bytes using the API key
             const res = await fetch(`${videoUri}&key=${process.env.API_KEY}`);
             const blob = await res.blob();
             return URL.createObjectURL(blob);
@@ -516,22 +520,12 @@ export const generatePilatesVideo = async (script: string, onProgress: (msg: str
 
 export const generateContentPlan = async (goals: any, persona: StudioPersona, durationWeeks: number, frequency: number, startDate: string) => {
     const prompt = `
-    Crie um Plano de Conteúdo Estratégico para Instagram de Pilates.
+    Crie um Plano de Conteúdo para Instagram de Pilates.
     Duração: ${durationWeeks} semanas. Frequência: ${frequency} posts/semana.
     Data Início: ${startDate}.
-    Objetivos: ${JSON.stringify(goals)}.
-    Persona: ${JSON.stringify(persona)}.
     
     Retorne JSON:
-    [
-      {
-        "week": "Semana 1",
-        "theme": "Tema da Semana",
-        "ideas": [
-          { "day": "Segunda-feira", "format": "Reels", "theme": "Título do Post", "objective": "Educação" }
-        ]
-      }
-    ]
+    [ { "week": "Semana 1", "theme": "Tema", "ideas": [ { "day": "Segunda-feira", "format": "Reels", "theme": "Título", "objective": "Educação" } ] } ]
     `;
     
     const response = await ai.models.generateContent({
@@ -552,8 +546,6 @@ export const generateEvaluationAnalysis = async (
     instr: e.instructorName,
     date: e.classDate,
     rate: e.rating,
-    feel: e.feeling,
-    pace: e.pace,
     msg: e.suggestions || e.discomfort
   }));
 
@@ -565,10 +557,11 @@ export const generateEvaluationAnalysis = async (
     Gere um relatório executivo em HTML.
     
     FORMATO HTML OBRIGATÓRIO:
-    - Use <h2> para títulos das seções: "Resumo Executivo", "Pontos Fortes", "Pontos de Atenção", "Análise de Instrutores", "Plano de Ação".
+    - <h2> para títulos das seções: "Resumo Executivo", "Pontos Fortes", "Pontos de Atenção", "Plano de Ação".
     - Use <ul> e <li> para listar itens.
-    - Use <p> para descrições.
-    - Não use Markdown (###), use tags HTML.
+    - Crie uma TABELA HTML (<table>) para comparar desempenho de instrutores (se houver dados suficientes) ou notas por período.
+    - Use espaçamento adequado entre parágrafos.
+    - NÃO use blocos markdown.
   `;
 
   try {
@@ -577,7 +570,7 @@ export const generateEvaluationAnalysis = async (
       contents: prompt,
       config: { temperature: 0.4 }
     });
-    return res.text || "<p>Não foi possível gerar a análise.</p>";
+    return cleanHtmlOutput(res.text || '');
   } catch (e) {
     console.error("Evaluation Analysis Error:", e);
     return `<p>Erro ao gerar análise: ${handleGeminiError(e)}</p>`;
@@ -593,9 +586,6 @@ export const generateEvolutionReport = async (
   const summary = evolutions.map(e => ({
     date: e.date,
     student: e.studentName,
-    instructor: e.instructorName,
-    stability: e.stability,
-    strength: e.strength,
     mobility: e.mobility,
     pain: e.pain ? e.painLocation : "Não",
     obs: e.observations
@@ -608,11 +598,13 @@ export const generateEvolutionReport = async (
 
     Gere um relatório de progresso técnico em HTML.
     
-    FORMATO HTML:
+    FORMATO HTML OBRIGATÓRIO:
     - <h2> para Seções (Visão Geral, Progresso Técnico, Pontos de Dor, Recomendações).
-    - <ul> para listas.
-    - <p> para texto corrido.
-    - Use linguagem técnica e encorajadora.
+    - Use uma TABELA HTML (<table>) para mostrar a evolução temporal das métricas (Estabilidade, Mobilidade, Força) data a data.
+    - Use <ul> para listas de recomendações.
+    - Use <p> para narrativa fluida.
+    - Linguagem técnica e encorajadora.
+    - NÃO use blocos markdown.
   `;
 
   try {
@@ -621,7 +613,7 @@ export const generateEvolutionReport = async (
       contents: prompt,
       config: { temperature: 0.4 }
     });
-    return res.text || "<p>Não foi possível gerar o relatório.</p>";
+    return cleanHtmlOutput(res.text || '');
   } catch (e) {
     console.error("Evolution Report Error:", e);
     return `<p>Erro ao gerar relatório: ${handleGeminiError(e)}</p>`;

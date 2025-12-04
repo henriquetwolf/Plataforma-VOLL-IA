@@ -11,7 +11,7 @@ import { ResultsTable } from '../components/calculator/ResultsTable';
 import { ResultsChart } from '../components/calculator/ResultsChart';
 import { SavedFinancialList } from '../components/calculator/SavedFinancialList';
 import { Button } from '../components/ui/Button';
-import { Calculator, TrendingUp, Sparkles, Loader2, Download, Save, History, Building2 } from 'lucide-react';
+import { Calculator, TrendingUp, Sparkles, Loader2, Download, Save, History, Building2, Banknote } from 'lucide-react';
 import { fetchProfile } from '../services/storage';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -184,16 +184,21 @@ export const FinancialAgent: React.FC = () => {
         const element = document.getElementById('financial-report-content');
         if (!element) return;
         
-        // Hide buttons for print
+        // Temporarily hide buttons/inputs for print
         element.classList.add('printing-mode');
 
         try {
+            const originalBg = element.style.backgroundColor;
+            element.style.backgroundColor = "#ffffff"; // Force white
+
             const canvas = await html2canvas(element, {
                 scale: 2,
                 useCORS: true,
                 backgroundColor: '#ffffff'
             });
             
+            element.style.backgroundColor = originalBg; // Restore
+
             const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF('p', 'mm', 'a4');
             const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -235,7 +240,7 @@ export const FinancialAgent: React.FC = () => {
     }
 
     return (
-        <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4">
+        <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4">
             
             {/* Screen Header */}
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -270,91 +275,112 @@ export const FinancialAgent: React.FC = () => {
 
                 {/* Report Column (Right) - This part will be printed */}
                 <div className="lg:col-span-2">
-                    <div 
-                        id="financial-report-content" 
-                        className="bg-white text-slate-800 p-8 md:p-10 rounded-xl shadow-lg border border-slate-200"
-                    >
-                        {/* Report Header */}
-                        <div className="flex justify-between items-start border-b-4 border-brand-500 pb-6 mb-8">
-                            <div>
-                                <h1 className="text-3xl font-extrabold text-slate-900 mb-1">Análise Financeira</h1>
-                                <h2 className="text-lg font-medium text-brand-600">{studioName || 'Seu Studio'}</h2>
-                                <p className="text-sm text-slate-500 mt-2">Data: {new Date().toLocaleDateString()}</p>
-                            </div>
-                            {studioLogo ? (
-                                <img src={studioLogo} alt="Logo" className="h-16 w-16 object-contain" />
-                            ) : (
-                                <Building2 className="h-12 w-12 text-slate-300" />
-                            )}
-                        </div>
-
-                        {/* Summary Metrics */}
-                        <div className="grid grid-cols-2 gap-4 mb-8 bg-slate-50 p-4 rounded-lg border border-slate-100">
-                            <div>
-                                <p className="text-xs text-slate-500 uppercase font-bold">Faturamento Projetado</p>
-                                <p className="text-xl font-bold text-slate-900">R$ {metrics.targetRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-slate-500 uppercase font-bold">Capacidade Máxima</p>
-                                <p className="text-xl font-bold text-slate-900">{metrics.maxCapacity} alunos</p>
-                            </div>
-                        </div>
-
-                        {/* Chart Section */}
-                        <div className="mb-8">
-                            <h3 className="font-bold text-lg text-slate-900 mb-4 flex items-center gap-2 border-b pb-2">
-                                <TrendingUp className="h-5 w-5 text-brand-600" /> Comparativo de Cenários
-                            </h3>
-                            {results.length > 0 ? (
-                                <div className="p-4 border rounded-lg bg-white">
-                                    <ResultsChart results={results} />
+                    <div className="bg-slate-100 dark:bg-slate-950 p-4 md:p-8 rounded-xl shadow-inner flex justify-center">
+                        <div 
+                            id="financial-report-content" 
+                            className="bg-white text-slate-800 shadow-xl box-border"
+                            style={{ 
+                                width: '210mm', 
+                                minHeight: '297mm', 
+                                paddingTop: '30mm',
+                                paddingRight: '20mm',
+                                paddingBottom: '20mm',
+                                paddingLeft: '30mm'
+                            }}
+                        >
+                            {/* Report Header */}
+                            <div className="flex justify-between items-start border-b-4 border-brand-500 pb-4 mb-8">
+                                <div>
+                                    <div className="flex items-center gap-2 text-brand-600 mb-1 font-bold uppercase text-xs tracking-wider">
+                                        <Banknote className="w-4 h-4" /> Análise de Viabilidade
+                                    </div>
+                                    <h1 className="text-3xl font-extrabold text-slate-900 mb-1">Relatório Financeiro</h1>
+                                    <h2 className="text-lg font-medium text-slate-500">{studioName || 'Seu Studio'}</h2>
                                 </div>
-                            ) : (
-                                <p className="text-center text-slate-400 py-8">Aguardando dados...</p>
-                            )}
-                        </div>
+                                <div className="text-right">
+                                    {studioLogo ? (
+                                        <img src={studioLogo} alt="Logo" className="h-16 w-auto max-w-[120px] object-contain mb-2" />
+                                    ) : (
+                                        <Building2 className="h-12 w-12 text-slate-300 mb-2 ml-auto" />
+                                    )}
+                                    <p className="text-xs text-slate-400">Data: {new Date().toLocaleDateString()}</p>
+                                </div>
+                            </div>
 
-                        {/* Table Section */}
-                        <div className="mb-8">
-                             <h3 className="font-bold text-lg text-slate-900 mb-4 border-b pb-2">{t('cost_details')}</h3>
-                             {results.length > 0 ? (
-                                <ResultsTable results={results} />
-                             ) : (
-                                <p className="text-center text-slate-400 py-8">Aguardando dados...</p>
-                             )}
-                        </div>
+                            {/* Summary Metrics */}
+                            <div className="grid grid-cols-2 gap-6 mb-8 bg-slate-50 p-6 rounded-lg border border-slate-100">
+                                <div>
+                                    <p className="text-xs text-slate-500 uppercase font-bold mb-1">Faturamento Projetado</p>
+                                    <p className="text-2xl font-bold text-slate-900">R$ {metrics.targetRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 uppercase font-bold mb-1">Capacidade Máxima</p>
+                                    <p className="text-2xl font-bold text-slate-900">{metrics.maxCapacity} alunos</p>
+                                </div>
+                            </div>
 
-                        {/* AI Analysis Section */}
-                        <div className="mb-6">
-                            <div className="flex justify-between items-center mb-4 border-b pb-2">
-                                <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
-                                    <Sparkles className="h-5 w-5 text-purple-600" /> Parecer do Consultor IA
+                            {/* Chart Section */}
+                            <div className="mb-8 print:break-inside-avoid">
+                                <h3 className="font-bold text-xl text-brand-700 mb-4 flex items-center gap-2 border-b border-brand-100 pb-2">
+                                    <TrendingUp className="h-5 w-5 text-brand-600" /> Comparativo de Cenários
                                 </h3>
-                                <div className="print:hidden">
-                                    <Button size="sm" onClick={handleGenerateAnalysis} disabled={isAiLoading || results.length === 0} className="bg-purple-600 hover:bg-purple-700 text-white">
-                                        {isAiLoading ? <Loader2 className="animate-spin h-3 w-3"/> : 'Gerar'}
-                                    </Button>
-                                </div>
+                                {results.length > 0 ? (
+                                    <div className="p-4 border rounded-lg bg-white h-[300px]">
+                                        <ResultsChart results={results} />
+                                    </div>
+                                ) : (
+                                    <p className="text-center text-slate-400 py-8">Aguardando dados...</p>
+                                )}
                             </div>
-                            
-                            {aiAnalysis ? (
-                                <div 
-                                    className="prose prose-sm max-w-none text-justify bg-purple-50/50 p-6 rounded-lg border border-purple-100 
-                                    prose-headings:text-purple-800 prose-headings:font-bold prose-p:text-slate-700"
-                                    dangerouslySetInnerHTML={{ __html: aiAnalysis }}
-                                />
-                            ) : (
-                                <div className="text-center py-6 text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                                    <p>Clique em "Gerar" para receber a análise detalhada.</p>
-                                </div>
-                            )}
-                        </div>
 
-                        {/* Footer Actions (Hidden in Print) */}
-                        <div className="flex justify-end gap-2 pt-4 border-t print:hidden">
-                             <Button variant="outline" onClick={handleSaveSimulation} isLoading={isSaving}>
-                                <Save className="h-4 w-4 mr-2" /> {t('save_simulation_btn')}
-                             </Button>
+                            {/* Table Section */}
+                            <div className="mb-8 print:break-inside-avoid">
+                                 <h3 className="font-bold text-xl text-brand-700 mb-4 border-b border-brand-100 pb-2">{t('cost_details')}</h3>
+                                 {results.length > 0 ? (
+                                    <ResultsTable results={results} />
+                                 ) : (
+                                    <p className="text-center text-slate-400 py-8">Aguardando dados...</p>
+                                 )}
+                            </div>
+
+                            {/* AI Analysis Section */}
+                            <div className="mb-6 print:break-inside-avoid">
+                                <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
+                                    <h3 className="font-bold text-xl text-slate-900 flex items-center gap-2">
+                                        <Sparkles className="h-5 w-5 text-purple-600" /> Parecer do Consultor IA
+                                    </h3>
+                                    <div className="print:hidden">
+                                        <Button size="sm" onClick={handleGenerateAnalysis} disabled={isAiLoading || results.length === 0} className="bg-purple-600 hover:bg-purple-700 text-white">
+                                            {isAiLoading ? <Loader2 className="animate-spin h-3 w-3"/> : 'Gerar'}
+                                        </Button>
+                                    </div>
+                                </div>
+                                
+                                {aiAnalysis ? (
+                                    <div 
+                                        className="prose prose-slate max-w-none text-justify 
+                                        prose-h2:text-xl prose-h2:font-bold prose-h2:text-brand-600 prose-h2:border-b-2 prose-h2:border-brand-100 prose-h2:pb-1 prose-h2:mt-6 prose-h2:mb-4
+                                        prose-p:text-slate-700 prose-p:mb-3 prose-p:leading-relaxed
+                                        prose-ul:list-disc prose-li:ml-4 prose-li:text-slate-700
+                                        prose-ol:list-decimal prose-ol:ml-4
+                                        prose-table:w-full prose-table:text-sm prose-table:border-collapse prose-table:my-4
+                                        prose-th:bg-slate-100 prose-th:p-2 prose-th:text-left prose-th:font-bold
+                                        prose-td:p-2 prose-td:border prose-td:border-slate-200"
+                                        dangerouslySetInnerHTML={{ __html: aiAnalysis }}
+                                    />
+                                ) : (
+                                    <div className="text-center py-6 text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                                        <p>Clique em "Gerar" para receber a análise detalhada.</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Footer Actions (Hidden in Print) */}
+                            <div className="flex justify-end gap-2 pt-4 border-t print:hidden">
+                                 <Button variant="outline" onClick={handleSaveSimulation} isLoading={isSaving}>
+                                    <Save className="h-4 w-4 mr-2" /> {t('save_simulation_btn')}
+                                 </Button>
+                            </div>
                         </div>
                     </div>
                 </div>
