@@ -224,14 +224,20 @@ export const StudentEvolutionPage: React.FC = () => {
         const originalBg = element.style.backgroundColor;
         element.style.backgroundColor = "#ffffff";
 
-        const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+        const canvas = await html2canvas(element, { 
+            scale: 2, 
+            useCORS: true, 
+            backgroundColor: '#ffffff',
+            width: element.offsetWidth,
+            height: element.offsetHeight
+        });
         
         element.style.backgroundColor = originalBg;
 
         const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const pdfWidth = 210;
+        const pdfHeight = 297;
         const imgWidth = pdfWidth;
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
         let heightLeft = imgHeight;
@@ -468,14 +474,15 @@ export const StudentEvolutionPage: React.FC = () => {
                     {/* A4 Page Simulation */}
                     <div 
                         id="evolution-report-content" 
-                        className="bg-white shadow-2xl relative flex flex-col box-border"
+                        className="bg-white shadow-2xl relative flex flex-col box-border overflow-hidden break-words"
                         style={{ 
                             width: '210mm', 
                             minHeight: '297mm', 
                             paddingTop: '30mm',
                             paddingRight: '20mm',
                             paddingBottom: '20mm',
-                            paddingLeft: '30mm'
+                            paddingLeft: '30mm',
+                            boxSizing: 'border-box'
                         }}
                     >
                         {/* Report Header */}

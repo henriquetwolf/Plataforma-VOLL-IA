@@ -33,22 +33,25 @@ export const GeneratedPlan: React.FC<Props> = ({ planData, report, onStartOver, 
     if (!element) return;
 
     try {
+      // Force white background for capture
       const originalBg = element.style.backgroundColor;
       element.style.backgroundColor = "#ffffff";
 
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: 2, // Higher resolution
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        width: element.offsetWidth, // Ensure full width capture
+        height: element.offsetHeight
       });
       
       element.style.backgroundColor = originalBg;
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const pdfWidth = 210; // A4 Width in mm
+      const pdfHeight = 297; // A4 Height in mm
       
       const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
@@ -105,20 +108,21 @@ export const GeneratedPlan: React.FC<Props> = ({ planData, report, onStartOver, 
         </div>
       </div>
 
-      {/* Report Preview Container (Gray Background) */}
+      {/* Report Preview Container */}
       <div className="bg-slate-100 dark:bg-slate-950 p-4 md:p-8 rounded-xl overflow-hidden shadow-inner flex justify-center">
         
         {/* Actual Report Sheet (A4 Simulation) */}
         <div 
           id="strategic-report-content" 
-          className="bg-white text-slate-800 shadow-2xl relative flex flex-col box-border"
+          className="bg-white text-slate-800 shadow-2xl relative flex flex-col box-border overflow-hidden break-words"
           style={{ 
             width: '210mm', 
             minHeight: '297mm', 
-            paddingTop: '30mm',
-            paddingRight: '20mm',
-            paddingBottom: '20mm',
-            paddingLeft: '30mm'
+            paddingTop: '30mm',    // 3.0cm
+            paddingRight: '20mm',  // 2.0cm
+            paddingBottom: '20mm', // 2.0cm
+            paddingLeft: '30mm',   // 3.0cm
+            boxSizing: 'border-box'
           }}
         >
           {/* Header */}

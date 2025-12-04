@@ -194,15 +194,17 @@ export const FinancialAgent: React.FC = () => {
             const canvas = await html2canvas(element, {
                 scale: 2,
                 useCORS: true,
-                backgroundColor: '#ffffff'
+                backgroundColor: '#ffffff',
+                width: element.offsetWidth,
+                height: element.offsetHeight
             });
             
             element.style.backgroundColor = originalBg; // Restore
 
             const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const pdfWidth = 210;
+            const pdfHeight = 297;
             const imgWidth = pdfWidth;
             const imgHeight = (canvas.height * imgWidth) / canvas.width;
             
@@ -278,14 +280,15 @@ export const FinancialAgent: React.FC = () => {
                     <div className="bg-slate-100 dark:bg-slate-950 p-4 md:p-8 rounded-xl shadow-inner flex justify-center">
                         <div 
                             id="financial-report-content" 
-                            className="bg-white text-slate-800 shadow-xl box-border"
+                            className="bg-white text-slate-800 shadow-xl box-border overflow-hidden break-words"
                             style={{ 
                                 width: '210mm', 
                                 minHeight: '297mm', 
                                 paddingTop: '30mm',
                                 paddingRight: '20mm',
                                 paddingBottom: '20mm',
-                                paddingLeft: '30mm'
+                                paddingLeft: '30mm',
+                                boxSizing: 'border-box'
                             }}
                         >
                             {/* Report Header */}
