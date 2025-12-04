@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppRoute } from '../../types';
-import { Utensils, Activity, ArrowRight, LogOut, Star, User } from 'lucide-react';
+import { Utensils, Activity, ArrowRight, LogOut, Star, User, MessageSquare, ClipboardList, Newspaper } from 'lucide-react';
 import { fetchProfile } from '../../services/storage';
 import { getStudentProfile } from '../../services/studentService';
 
@@ -53,7 +53,7 @@ export const StudentDashboard: React.FC = () => {
   if (user && !user.isStudent) return null;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in p-4">
+    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in p-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-center bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 gap-4 sm:gap-0">
         
@@ -100,32 +100,79 @@ export const StudentDashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Link to={AppRoute.STUDENT_RECIPES} className="group bg-gradient-to-br from-green-50 to-emerald-100 p-8 rounded-2xl shadow-sm border border-green-200 hover:shadow-md transition-all">
-          <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mb-4 text-green-600 shadow-sm group-hover:scale-110 transition-transform">
-            <Utensils className="w-7 h-7" />
+        
+        {/* Receitas */}
+        <Link to={AppRoute.STUDENT_RECIPES} className="group bg-gradient-to-br from-green-50 to-emerald-100 p-8 rounded-2xl shadow-sm border border-green-200 hover:shadow-md transition-all flex flex-col justify-between">
+          <div>
+            <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mb-4 text-green-600 shadow-sm group-hover:scale-110 transition-transform">
+                <Utensils className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-bold text-green-800 mb-2">Receitas Saudáveis</h2>
+            <p className="text-green-700/80 text-sm mb-6">Crie receitas deliciosas e saudáveis personalizadas para seu objetivo.</p>
           </div>
-          <h2 className="text-xl font-bold text-green-800 mb-2">Receitas Saudáveis</h2>
-          <p className="text-green-700/80 text-sm mb-6">Crie receitas deliciosas e saudáveis personalizadas para seu objetivo.</p>
           <span className="inline-flex items-center text-sm font-bold text-green-700 group-hover:gap-2 transition-all">Acessar <ArrowRight className="ml-1 w-4 h-4"/></span>
         </Link>
 
-        <Link to={AppRoute.STUDENT_WORKOUT} className="group bg-gradient-to-br from-blue-50 to-indigo-100 p-8 rounded-2xl shadow-sm border border-blue-200 hover:shadow-md transition-all">
-          <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mb-4 text-blue-600 shadow-sm group-hover:scale-110 transition-transform">
-            <Activity className="w-7 h-7" />
+        {/* Treino */}
+        <Link to={AppRoute.STUDENT_WORKOUT} className="group bg-gradient-to-br from-blue-50 to-indigo-100 p-8 rounded-2xl shadow-sm border border-blue-200 hover:shadow-md transition-all flex flex-col justify-between">
+          <div>
+            <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mb-4 text-blue-600 shadow-sm group-hover:scale-110 transition-transform">
+                <Activity className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-bold text-blue-800 mb-2">Treino em Casa</h2>
+            <p className="text-blue-700/80 text-sm mb-6">Exercícios de Pilates seguros baseados no seu histórico clínico.</p>
           </div>
-          <h2 className="text-xl font-bold text-blue-800 mb-2">Treino em Casa</h2>
-          <p className="text-blue-700/80 text-sm mb-6">Exercícios de Pilates seguros baseados no seu histórico clínico.</p>
           <span className="inline-flex items-center text-sm font-bold text-blue-700 group-hover:gap-2 transition-all">Acessar <ArrowRight className="ml-1 w-4 h-4"/></span>
         </Link>
 
-        <Link to={AppRoute.STUDENT_EVALUATION} className="group bg-gradient-to-br from-yellow-50 to-orange-100 p-8 rounded-2xl shadow-sm border border-yellow-200 hover:shadow-md transition-all">
-          <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mb-4 text-yellow-600 shadow-sm group-hover:scale-110 transition-transform">
-            <Star className="w-7 h-7 fill-yellow-600" />
+        {/* Avaliação */}
+        <Link to={AppRoute.STUDENT_EVALUATION} className="group bg-gradient-to-br from-yellow-50 to-orange-100 p-8 rounded-2xl shadow-sm border border-yellow-200 hover:shadow-md transition-all flex flex-col justify-between">
+          <div>
+            <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mb-4 text-yellow-600 shadow-sm group-hover:scale-110 transition-transform">
+                <Star className="w-7 h-7 fill-yellow-600" />
+            </div>
+            <h2 className="text-xl font-bold text-yellow-800 mb-2">Avaliar Aula</h2>
+            <p className="text-yellow-700/80 text-sm mb-6">Conte como foi sua aula hoje e ajude-nos a melhorar.</p>
           </div>
-          <h2 className="text-xl font-bold text-yellow-800 mb-2">Avaliar Aula</h2>
-          <p className="text-yellow-700/80 text-sm mb-6">Conte como foi sua aula hoje e ajude-nos a melhorar.</p>
           <span className="inline-flex items-center text-sm font-bold text-yellow-700 group-hover:gap-2 transition-all">Avaliar Agora <ArrowRight className="ml-1 w-4 h-4"/></span>
         </Link>
+
+        {/* Sugestões */}
+        <Link to={AppRoute.STUDENT_SUGGESTIONS} className="group bg-gradient-to-br from-purple-50 to-fuchsia-100 p-8 rounded-2xl shadow-sm border border-purple-200 hover:shadow-md transition-all flex flex-col justify-between">
+          <div>
+            <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mb-4 text-purple-600 shadow-sm group-hover:scale-110 transition-transform">
+                <MessageSquare className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-bold text-purple-800 mb-2">Sugestões</h2>
+            <p className="text-purple-700/80 text-sm mb-6">Envie ideias, elogios ou sugestões diretamente para o estúdio.</p>
+          </div>
+          <span className="inline-flex items-center text-sm font-bold text-purple-700 group-hover:gap-2 transition-all">Enviar <ArrowRight className="ml-1 w-4 h-4"/></span>
+        </Link>
+
+        {/* Pesquisas */}
+        <Link to={AppRoute.STUDENT_SURVEYS} className="group bg-gradient-to-br from-cyan-50 to-sky-100 p-8 rounded-2xl shadow-sm border border-cyan-200 hover:shadow-md transition-all flex flex-col justify-between">
+          <div>
+            <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mb-4 text-cyan-600 shadow-sm group-hover:scale-110 transition-transform">
+                <ClipboardList className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-bold text-cyan-800 mb-2">Pesquisas</h2>
+            <p className="text-cyan-700/80 text-sm mb-6">Responda às pesquisas de satisfação e nos ajude a evoluir.</p>
+          </div>
+          <span className="inline-flex items-center text-sm font-bold text-cyan-700 group-hover:gap-2 transition-all">Responder <ArrowRight className="ml-1 w-4 h-4"/></span>
+        </Link>
+
+        {/* Mural de Avisos */}
+        <Link to={AppRoute.STUDENT_NEWSLETTERS} className="group bg-gradient-to-br from-orange-50 to-amber-100 p-8 rounded-2xl shadow-sm border border-orange-200 hover:shadow-md transition-all flex flex-col justify-between">
+          <div>
+            <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mb-4 text-orange-600 shadow-sm group-hover:scale-110 transition-transform">
+                <Newspaper className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-bold text-orange-800 mb-2">Mural de Avisos</h2>
+            <p className="text-orange-700/80 text-sm mb-6">Fique por dentro das novidades e comunicados importantes.</p>
+          </div>
+          <span className="inline-flex items-center text-sm font-bold text-orange-700 group-hover:gap-2 transition-all">Ver Avisos <ArrowRight className="ml-1 w-4 h-4"/></span>
+        </Link>
+
       </div>
     </div>
   );

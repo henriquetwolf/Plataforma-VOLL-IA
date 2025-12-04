@@ -10,7 +10,7 @@ import { Input } from '../components/ui/Input';
 import { MessageCircle, Send, Copy, Save, Trash2, Smartphone, Zap, RefreshCw, Wand2, History, ArrowRight } from 'lucide-react';
 
 const PRESET_TEMPLATES = [
-  { label: 'Recuperar Carrinho/Venda', objective: 'Recuperar cliente que parou de responder', context: 'Cliente pediu preço mas sumiu.' },
+  { label: 'Cliente parou de Responder', objective: 'Recuperar cliente que parou de responder', context: 'Cliente pediu preço mas sumiu.' },
   { label: 'Confirmação Aula', objective: 'Confirmar agendamento experimental', context: 'Aula agendada para amanhã.' },
   { label: 'Aniversário', objective: 'Parabenizar e oferecer presente', context: 'Oferecer desconto ou aula extra.' },
   { label: 'Reativação (Sumido)', objective: 'Reativar ex-aluno', context: 'Não vem há 3 meses.' },
