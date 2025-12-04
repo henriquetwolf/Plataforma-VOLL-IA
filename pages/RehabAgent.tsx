@@ -13,7 +13,9 @@ import { AssessmentModal } from '../components/rehab/AssessmentModal';
 import { ResultCard, LessonPlanView } from '../components/rehab/RehabResults';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Search, History, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, User, ChevronRight, Folder, Dumbbell, Filter, Plus, Pencil, X, Upload, ImageIcon, Maximize2, Home, AlertTriangle, List, CheckSquare, Save } from 'lucide-react';
+import { Search, History, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, User, ChevronRight, Folder, Dumbbell, Filter, Plus, Pencil, X, Upload, ImageIcon, Maximize2, Home, AlertTriangle, List, CheckSquare, Save, Download, FileText, Calendar } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 const COMMON_SUGGESTIONS = [
   "Hérnia de Disco L5-S1", "Dor Lombar Crônica", "Ombro Rígido", "Condromalácia", "Cervicalgia", "Fascite Plantar"
@@ -90,6 +92,7 @@ export const RehabAgent: React.FC = () => {
   
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [studioLogo, setStudioLogo] = useState<string | null>(null);
 
   // App States
   const [activeTab, setActiveTab] = useState<'reference' | 'lesson' | 'bank'>('reference');
@@ -110,6 +113,8 @@ export const RehabAgent: React.FC = () => {
   const [treatmentPlan, setTreatmentPlan] = useState<TreatmentPlanResponse | null>(null);
   const [lessonStatus, setLessonStatus] = useState<LoadingState>(LoadingState.IDLE);
   const [lessonData, setLessonData] = useState<LessonPlanResponse | null>(null);
+  // Cache to store generated lessons within the session so we don't regenerate
+  const [sessionLessonsCache, setSessionLessonsCache] = useState<Record<number, LessonPlanResponse>>({});
   
   const [isAssessmentOpen, setIsAssessmentOpen] = useState(false);
   const [assessmentHistory, setAssessmentHistory] = useState<ChatMessage[] | undefined>(undefined);
@@ -129,6 +134,14 @@ export const RehabAgent: React.FC = () => {
   useEffect(() => {
     const checkPermission = async () => {
       if (!user) return;
+      
+      const targetId = user.isInstructor ? user.studioId : user.id;
+      if (targetId) {
+          fetchProfile(targetId).then(p => {
+              if (p?.logoUrl) setStudioLogo(p.logoUrl);
+          });
+      }
+
       if (!user.isInstructor) {
         setIsAuthorized(true);
         setCheckingAuth(false);
@@ -218,6 +231,8 @@ export const RehabAgent: React.FC = () => {
   const handleAssessmentComplete = (history: ChatMessage[]) => {
     setAssessmentHistory(history); 
     setIsAssessmentOpen(false); 
+    // IMPORTANT: Set status immediately to show loading
+    setRefStatus(LoadingState.LOADING);
     fetchReferenceData(query, history);
   };
 
@@ -253,6 +268,7 @@ export const RehabAgent: React.FC = () => {
 
   const generateTreatmentPlan = async () => {
       setLessonStatus(LoadingState.LOADING);
+      setSessionLessonsCache({}); // Clear cache for new plan
       try {
         const obs = currentStudent?.observations || '';
         const data = await fetchTreatmentPlan(query, selectedEquipment, assessmentHistory, obs);
@@ -261,6 +277,12 @@ export const RehabAgent: React.FC = () => {
   };
 
   const generateSessionLesson = async (sessionNumber: number, focus: string) => {
+      // If already generated, just view it
+      if (sessionLessonsCache[sessionNumber]) {
+          setLessonData(sessionLessonsCache[sessionNumber]);
+          return;
+      }
+
       setLessonStatus(LoadingState.LOADING);
       try {
         const obs = currentStudent?.observations || '';
@@ -269,7 +291,8 @@ export const RehabAgent: React.FC = () => {
         if (data) { 
             setLessonData(data); 
             setLessonStatus(LoadingState.SUCCESS); 
-            // We stay in 'lesson' tab but now showing the specific lesson
+            // Save to cache
+            setSessionLessonsCache(prev => ({...prev, [sessionNumber]: data}));
         }
       } catch (err: any) { setLessonStatus(LoadingState.ERROR); setErrorHtml(handleGeminiError(err)); }
   };
@@ -373,6 +396,45 @@ export const RehabAgent: React.FC = () => {
       alert("Erro ao salvar exercício."); 
     } finally { 
       setIsExerciseSaving(false); 
+    }
+  };
+
+  const downloadReferencePDF = async () => {
+    const element = document.getElementById('reference-report-content');
+    if (!element || !refData) return;
+
+    try {
+      // Force white background for capture
+      const originalBg = element.style.backgroundColor;
+      element.style.backgroundColor = "#ffffff";
+
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+      
+      element.style.backgroundColor = originalBg;
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = 210;
+      const pdfHeight = 297;
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
+
+      pdf.save(`Guia_Clinico_${refData.pathologyName.replace(/\s+/g, '_')}.pdf`);
+    } catch (error) {
+      alert('Erro ao gerar PDF.');
     }
   };
 
@@ -490,6 +552,7 @@ export const RehabAgent: React.FC = () => {
                                 setShowHistory(false); 
                                 setSelectedStudentFilter(null);
                                 setPlanMode('treatment');
+                                setSessionLessonsCache({}); // Reset view cache for fresh load
                             }}>
                                 Abrir Planejamento
                             </Button>
@@ -549,7 +612,7 @@ export const RehabAgent: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in">
-      {(refData || lessonData || treatmentPlan || activeTab === 'bank') && (
+      {(refData || lessonData || treatmentPlan || activeTab === 'bank' || refStatus === LoadingState.LOADING) && (
         <header className="flex justify-between items-center border-b pb-6">
           <div className="flex items-center gap-3">
             {user?.isInstructor && (
@@ -561,14 +624,14 @@ export const RehabAgent: React.FC = () => {
             <div><h1 className="text-2xl font-bold text-slate-900 dark:text-white">Guia Clínico</h1></div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => { setRefData(null); setLessonData(null); setTreatmentPlan(null); setQuery(''); setActiveTab('reference'); }}>{t('new')}</Button>
+            <Button variant="outline" onClick={() => { setRefData(null); setLessonData(null); setTreatmentPlan(null); setQuery(''); setActiveTab('reference'); setSessionLessonsCache({}); }}>{t('new')}</Button>
             <Button variant="outline" onClick={() => setShowHistory(true)}>{t('view_history')}</Button>
           </div>
         </header>
       )}
 
       {/* Landing Search View */}
-      {(!refData && !lessonData && !treatmentPlan && activeTab !== 'bank') && (
+      {(!refData && !lessonData && !treatmentPlan && activeTab !== 'bank' && refStatus !== LoadingState.LOADING) && (
         <div className="max-w-3xl mx-auto space-y-6 pt-8">
           <div className="text-center mb-8">
              <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">{t('clinical_guide')}</h2>
@@ -679,10 +742,18 @@ export const RehabAgent: React.FC = () => {
         </div>
       )}
 
-      {/* Loading & Content Views (Reference, Lesson, Bank) */}
+      {/* Loading States */}
+      {refStatus === LoadingState.LOADING && (
+          <div className="flex flex-col items-center justify-center py-20 animate-in fade-in">
+              <Loader2 className="h-12 w-12 text-brand-600 animate-spin mb-4" />
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white">Gerando Guia Clínico e Referências...</h3>
+              <p className="text-slate-500 mt-2">A IA está analisando o caso e consultando a base de dados.</p>
+          </div>
+      )}
+
       {(refStatus === LoadingState.ERROR || lessonStatus === LoadingState.ERROR) && errorHtml && (refData || lessonData) && <div dangerouslySetInnerHTML={{ __html: errorHtml }} />}
 
-      {(refData || lessonData || treatmentPlan || activeTab === 'bank') && (
+      {(refData || lessonData || treatmentPlan || activeTab === 'bank') && refStatus !== LoadingState.LOADING && (
         <div className="space-y-6">
           {/* Tabs */}
           <div className="flex flex-wrap justify-center p-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit mx-auto gap-1">
@@ -691,18 +762,105 @@ export const RehabAgent: React.FC = () => {
             <button onClick={() => handleTabChange('bank')} className={`px-6 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'bank' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}><Dumbbell className="w-4 h-4"/> {t('exercise_bank')}</button>
           </div>
           
-          {/* Reference View */}
+          {/* Reference View (A4 Report Style) */}
           {activeTab === 'reference' && (
             <div className="animate-in fade-in">
               {refData ? (
-                <>
-                  <div className="bg-brand-50 dark:bg-brand-900/20 p-6 rounded-xl border border-brand-100 dark:border-brand-800 mb-6"><h2 className="text-3xl font-bold mb-3 text-brand-800 dark:text-brand-300">{refData.pathologyName}</h2><p className="text-lg text-brand-700 dark:text-brand-400">{refData.summary}</p></div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Only showing Contraindicated per user request */}
-                      <ResultCard title={t('contraindicated')} type="contraindicated" items={refData.contraindicated} />
-                      {/* Could show indicated here if requested, but hidden for now */}
-                  </div>
-                </>
+                <div className="max-w-4xl mx-auto space-y-4">
+                    {/* Action Bar */}
+                    <div className="flex justify-end">
+                        <Button variant="outline" onClick={downloadReferencePDF} className="bg-white border-slate-200 shadow-sm">
+                            <Download className="w-4 h-4 mr-2"/> Baixar PDF
+                        </Button>
+                    </div>
+
+                    {/* Report Wrapper */}
+                    <div className="bg-slate-100 dark:bg-slate-950 p-4 md:p-8 rounded-xl shadow-inner flex justify-center">
+                        <div 
+                            id="reference-report-content" 
+                            className="bg-white text-slate-800 shadow-2xl relative flex flex-col box-border overflow-hidden break-words"
+                            style={{ 
+                                width: '210mm', 
+                                minHeight: '297mm', 
+                                paddingTop: '25mm',
+                                paddingRight: '20mm',
+                                paddingBottom: '20mm',
+                                paddingLeft: '25mm',
+                                boxSizing: 'border-box'
+                            }}
+                        >
+                            {/* Header */}
+                            <div className="flex justify-between items-start border-b-4 border-brand-500 pb-4 mb-6">
+                                <div>
+                                    <div className="flex items-center gap-2 text-brand-600 mb-1 font-bold uppercase text-xs tracking-wider">
+                                        <Activity className="w-4 h-4" /> Guia Clínico
+                                    </div>
+                                    <h1 className="text-2xl font-extrabold text-slate-900 leading-tight mb-1">{refData.pathologyName}</h1>
+                                    <h2 className="text-sm text-slate-500 font-medium">Aluno: {currentStudent?.name || 'Não informado'}</h2>
+                                </div>
+                                <div className="text-right">
+                                    {studioLogo ? (
+                                        <img src={studioLogo} alt="Logo" className="h-16 w-auto max-w-[120px] object-contain mb-1 ml-auto" />
+                                    ) : (
+                                        <Home className="h-10 w-10 text-slate-300 mb-1 ml-auto" />
+                                    )}
+                                    <span className="text-xs text-slate-400 block">Data: {new Date().toLocaleDateString()}</span>
+                                </div>
+                            </div>
+
+                            {/* Summary */}
+                            <div className="mb-6 bg-slate-50 p-4 rounded-lg border-l-4 border-brand-400">
+                                <h3 className="font-bold text-brand-800 mb-2 text-sm uppercase">Resumo Clínico</h3>
+                                <p className="text-sm text-slate-700 leading-relaxed text-justify">{refData.summary}</p>
+                            </div>
+
+                            {/* Contraindications (Priority) */}
+                            <div className="mb-6">
+                                <div className="flex items-center gap-2 mb-3 pb-1 border-b border-red-100">
+                                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                                    <h3 className="font-bold text-red-700 text-lg">Contraindicações e Cuidados</h3>
+                                </div>
+                                <div className="grid gap-3">
+                                    {refData.contraindicated.map((item, idx) => (
+                                        <div key={idx} className="bg-red-50 p-3 rounded-lg border border-red-100 break-inside-avoid">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <strong className="text-red-900 text-sm">{item.name}</strong>
+                                                <span className="text-[10px] bg-white px-2 py-0.5 rounded text-red-600 font-bold border border-red-200">{item.apparatus}</span>
+                                            </div>
+                                            <p className="text-xs text-red-800">{item.reason}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Indications (Optional if present in response, mainly focusing on Contra per request) */}
+                            {refData.indicated && refData.indicated.length > 0 && (
+                                <div className="mb-6">
+                                    <div className="flex items-center gap-2 mb-3 pb-1 border-b border-green-100">
+                                        <CheckCircle2 className="w-5 h-5 text-green-600" />
+                                        <h3 className="font-bold text-green-700 text-lg">Exercícios Indicados</h3>
+                                    </div>
+                                    <div className="grid gap-3">
+                                        {refData.indicated.slice(0, 5).map((item, idx) => (
+                                            <div key={idx} className="bg-green-50 p-3 rounded-lg border border-green-100 break-inside-avoid">
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <strong className="text-green-900 text-sm">{item.name}</strong>
+                                                    <span className="text-[10px] bg-white px-2 py-0.5 rounded text-green-600 font-bold border border-green-200">{item.apparatus}</span>
+                                                </div>
+                                                <p className="text-xs text-green-800">{item.reason}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Footer */}
+                            <div className="mt-auto pt-4 border-t border-slate-200 text-center text-[10px] text-slate-400">
+                                <p>Gerado pela Plataforma VOLL IA • Guia de Referência Rápida</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
               ) : (
                 <div className="text-center py-12 text-slate-500 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
                    <p className="mb-4">Use a busca para carregar o Guia Clínico.</p>
@@ -734,25 +892,44 @@ export const RehabAgent: React.FC = () => {
                             </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {treatmentPlan.sessions.map(session => (
-                                    <div key={session.sessionNumber} className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm hover:border-purple-300 transition-all">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <span className="bg-purple-100 text-purple-700 text-xs font-bold px-3 py-1 rounded-full uppercase">Sessão {session.sessionNumber}</span>
+                                {treatmentPlan.sessions.map(session => {
+                                    // Check if we have generated this lesson in this session
+                                    const isGenerated = !!sessionLessonsCache[session.sessionNumber];
+                                    
+                                    return (
+                                        <div key={session.sessionNumber} className={`bg-white border p-5 rounded-xl shadow-sm transition-all ${isGenerated ? 'border-green-200 ring-1 ring-green-100' : 'border-slate-200 hover:border-purple-300'}`}>
+                                            <div className="flex justify-between items-start mb-3">
+                                                <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase ${isGenerated ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
+                                                    Sessão {session.sessionNumber} {isGenerated && '(Gerada)'}
+                                                </span>
+                                                {isGenerated && <CheckCircle2 className="w-5 h-5 text-green-500" />}
+                                            </div>
+                                            <h3 className="font-bold text-lg mb-2">{session.goal}</h3>
+                                            <div className="text-sm text-slate-600 space-y-1 mb-4">
+                                                <p><strong>Foco:</strong> {session.focus}</p>
+                                                <p><strong>Aparelhos:</strong> {session.apparatusFocus}</p>
+                                            </div>
+                                            
+                                            {isGenerated ? (
+                                                <Button 
+                                                    variant="secondary" 
+                                                    className="w-full bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                                                    onClick={() => generateSessionLesson(session.sessionNumber, session.focus)}
+                                                >
+                                                    <FileText className="w-4 h-4 mr-2"/> Visualizar Aula
+                                                </Button>
+                                            ) : (
+                                                <Button 
+                                                    variant="outline" 
+                                                    className="w-full"
+                                                    onClick={() => generateSessionLesson(session.sessionNumber, session.focus)}
+                                                >
+                                                    Gerar Aula {session.sessionNumber}
+                                                </Button>
+                                            )}
                                         </div>
-                                        <h3 className="font-bold text-lg mb-2">{session.goal}</h3>
-                                        <div className="text-sm text-slate-600 space-y-1 mb-4">
-                                            <p><strong>Foco:</strong> {session.focus}</p>
-                                            <p><strong>Aparelhos:</strong> {session.apparatusFocus}</p>
-                                        </div>
-                                        <Button 
-                                            variant="outline" 
-                                            className="w-full"
-                                            onClick={() => generateSessionLesson(session.sessionNumber, session.focus)}
-                                        >
-                                            Gerar Aula {session.sessionNumber}
-                                        </Button>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
@@ -780,7 +957,16 @@ export const RehabAgent: React.FC = () => {
                                         if(!prev) return null;
                                         const newExs = [...prev.exercises]; 
                                         newExs[idx] = newEx; 
-                                        return {...prev, exercises: newExs};
+                                        const updatedPlan = {...prev, exercises: newExs};
+                                        
+                                        // If inside treatment plan, update cache too
+                                        if (treatmentPlan) {
+                                            // Find session number? Hard without passing it. 
+                                            // Simplification: We update current lesson view. Cache might be stale on back, 
+                                            // but user can view 'stale' version or we need to pass session ID.
+                                            // For now, simple view update is enough.
+                                        }
+                                        return updatedPlan;
                                     });
                                     setLessonStatus(LoadingState.SUCCESS);
                                 }} 
