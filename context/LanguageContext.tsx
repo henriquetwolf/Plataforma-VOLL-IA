@@ -38,8 +38,8 @@ const translations: Record<Language, TranslationDict> = {
     'planning_ai': 'Planejamento Estratégico',
     'pilates_rehab': 'Pilates Rehab',
     'content_agent': 'Instagram',
-    'finance_calc': 'Calculadora Financeira',
-    'smart_pricing': 'Preço Inteligente',
+    'finance_calc': 'Cálculo de Contratação',
+    'smart_pricing': 'Precificação',
     'newsletter': 'Criador Newsletter',
     'tracking': 'Acompanhamento',
     'student_evolution': 'Evolução do Aluno',
@@ -106,7 +106,7 @@ const translations: Record<Language, TranslationDict> = {
     'saved_plans': 'Planos Salvos',
 
     // Financial Agent
-    'finance_title': 'Calculadora Financeira',
+    'finance_title': 'Cálculo de Contratação',
     'finance_subtitle': 'Simule custos de contratação e viabilidade econômica.',
     'projected_revenue': 'Faturamento Projetado',
     'compare_models': 'Comparativo de Modelos',
@@ -117,7 +117,7 @@ const translations: Record<Language, TranslationDict> = {
     'download_pdf': 'Baixar PDF',
 
     // Pricing Agent
-    'pricing_title': 'Preço Certo Inteligente',
+    'pricing_title': 'Precificação',
     'pricing_subtitle': 'Defina sua precificação com base em custos reais.',
     'step_by_step': 'Passo a Passo',
     'full_view': 'Visão Completa',
@@ -332,7 +332,7 @@ const translations: Record<Language, TranslationDict> = {
     'planning_ai': 'Strategic Planning',
     'pilates_rehab': 'Pilates Rehab',
     'content_agent': 'Instagram',
-    'finance_calc': 'Financial Calc',
+    'finance_calc': 'Hiring Calculator',
     'smart_pricing': 'Smart Pricing',
     'newsletter': 'Newsletter Creator',
     'tracking': 'Tracking',
@@ -396,7 +396,7 @@ const translations: Record<Language, TranslationDict> = {
     'start_date_label': 'Start Date',
     'generate_calendar_btn': 'Generate Calendar',
     'saved_plans': 'Saved Plans',
-    'finance_title': 'Financial Calculator',
+    'finance_title': 'Hiring Calculator',
     'finance_subtitle': 'Simulate hiring costs and economic viability.',
     'projected_revenue': 'Projected Revenue',
     'compare_models': 'Model Comparison',
