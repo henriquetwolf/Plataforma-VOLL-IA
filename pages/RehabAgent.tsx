@@ -13,13 +13,10 @@ import { AssessmentModal } from '../components/rehab/AssessmentModal';
 import { ResultCard, LessonPlanView } from '../components/rehab/RehabResults';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Search, History, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, User, ChevronRight, Folder, Dumbbell, Filter, Plus, Pencil, X, Upload, ImageIcon, Maximize2, Home, AlertTriangle, List, CheckSquare, Save, Download, FileText, Calendar } from 'lucide-react';
+import { Search, History, Activity, Loader2, ArrowLeft, Trash2, CheckCircle2, User, ChevronRight, Folder, Dumbbell, Filter, Plus, Pencil, X, Upload, ImageIcon, Maximize2, Home, AlertTriangle, List, CheckSquare, Save, FileText, Download, Building2, Eye } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
-const COMMON_SUGGESTIONS = [
-  "Hérnia de Disco L5-S1", "Dor Lombar Crônica", "Ombro Rígido", "Condromalácia", "Cervicalgia", "Fascite Plantar"
-];
 const EQUIPMENTS = ["Mat (Solo)", "Reformer", "Cadillac", "Chair", "Barrel", "Acessórios"];
 
 interface ExerciseCardProps {
@@ -92,7 +89,7 @@ export const RehabAgent: React.FC = () => {
   
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
-  const [studioLogo, setStudioLogo] = useState<string | null>(null);
+  const [studioName, setStudioName] = useState('');
 
   // App States
   const [activeTab, setActiveTab] = useState<'reference' | 'lesson' | 'bank'>('reference');
@@ -102,7 +99,7 @@ export const RehabAgent: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [historySearchTerm, setHistorySearchTerm] = useState(''); // New history filter
+  const [historySearchTerm, setHistorySearchTerm] = useState('');
   const [selectedStudentFilter, setSelectedStudentFilter] = useState<string | null>(null);
   const [refStatus, setRefStatus] = useState<LoadingState>(LoadingState.IDLE);
   const [refData, setRefData] = useState<PathologyResponse | null>(null);
@@ -113,7 +110,8 @@ export const RehabAgent: React.FC = () => {
   const [treatmentPlan, setTreatmentPlan] = useState<TreatmentPlanResponse | null>(null);
   const [lessonStatus, setLessonStatus] = useState<LoadingState>(LoadingState.IDLE);
   const [lessonData, setLessonData] = useState<LessonPlanResponse | null>(null);
-  // Cache to store generated lessons within the session so we don't regenerate
+  
+  // Session Cache for Treatment Plan (to avoid regenerating)
   const [sessionLessonsCache, setSessionLessonsCache] = useState<Record<number, LessonPlanResponse>>({});
   
   const [isAssessmentOpen, setIsAssessmentOpen] = useState(false);
@@ -123,7 +121,7 @@ export const RehabAgent: React.FC = () => {
   // Bank State
   const [savedExercises, setSavedExercises] = useState<StudioExercise[]>([]);
   const [bankEquipmentFilter, setBankEquipmentFilter] = useState('All');
-  const [bankFocusFilter, setBankFocusFilter] = useState(''); // New Focus Filter
+  const [bankFocusFilter, setBankFocusFilter] = useState('');
   const [isExerciseModalOpen, setIsExerciseModalOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState<StudioExercise | null>(null);
   const [exerciseFormData, setExerciseFormData] = useState<Partial<StudioExercise>>({});
@@ -135,11 +133,11 @@ export const RehabAgent: React.FC = () => {
     const checkPermission = async () => {
       if (!user) return;
       
+      // Load studio name for report
       const targetId = user.isInstructor ? user.studioId : user.id;
       if (targetId) {
-          fetchProfile(targetId).then(p => {
-              if (p?.logoUrl) setStudioLogo(p.logoUrl);
-          });
+          const profile = await fetchProfile(targetId);
+          if (profile) setStudioName(profile.studioName);
       }
 
       if (!user.isInstructor) {
@@ -220,7 +218,8 @@ export const RehabAgent: React.FC = () => {
     setQuery(q); 
     setRefData(null); 
     setLessonData(null); 
-    setTreatmentPlan(null); // Clear treatment plan
+    setTreatmentPlan(null);
+    setSessionLessonsCache({}); // Clear cache on new search
     setRefStatus(LoadingState.IDLE); 
     setLessonStatus(LoadingState.IDLE); 
     setErrorHtml(null); 
@@ -231,24 +230,28 @@ export const RehabAgent: React.FC = () => {
   const handleAssessmentComplete = (history: ChatMessage[]) => {
     setAssessmentHistory(history); 
     setIsAssessmentOpen(false); 
-    // IMPORTANT: Set status immediately to show loading
-    setRefStatus(LoadingState.LOADING);
     fetchReferenceData(query, history);
   };
 
   const fetchReferenceData = async (q: string, history?: ChatMessage[]) => {
     setRefStatus(LoadingState.LOADING);
+    setActiveTab('reference'); // Switch to reference tab to show loading
     try {
       const data = await fetchPathologyData(q, selectedEquipment, history);
-      if (data) { setRefData(data); setRefStatus(LoadingState.SUCCESS); } else { throw new Error("Não foi possível obter dados. Tente novamente."); }
+      if (data) { 
+          setRefData(data); 
+          setRefStatus(LoadingState.SUCCESS); 
+      } else { 
+          throw new Error("Não foi possível obter dados. Tente novamente."); 
+      }
     } catch (err: any) { setRefStatus(LoadingState.ERROR); setErrorHtml(handleGeminiError(err)); }
   };
 
   const handleTabChange = async (tab: 'reference' | 'lesson' | 'bank') => {
     setActiveTab(tab);
     
-    // Auto-fetch logic ONLY if lessonData is missing AND we have a query
-    if (tab === 'lesson' && !lessonData && !treatmentPlan && query && lessonStatus === LoadingState.IDLE) {
+    // Auto-fetch logic ONLY if lessonData/Plan is missing AND we have a query
+    if (tab === 'lesson' && !lessonData && !treatmentPlan && query && lessonStatus === LoadingState.IDLE && refData) {
       if (planMode === 'single') {
           generateSingleLesson();
       } else {
@@ -268,7 +271,6 @@ export const RehabAgent: React.FC = () => {
 
   const generateTreatmentPlan = async () => {
       setLessonStatus(LoadingState.LOADING);
-      setSessionLessonsCache({}); // Clear cache for new plan
       try {
         const obs = currentStudent?.observations || '';
         const data = await fetchTreatmentPlan(query, selectedEquipment, assessmentHistory, obs);
@@ -277,22 +279,23 @@ export const RehabAgent: React.FC = () => {
   };
 
   const generateSessionLesson = async (sessionNumber: number, focus: string) => {
-      // If already generated, just view it
+      // Check cache first
       if (sessionLessonsCache[sessionNumber]) {
           setLessonData(sessionLessonsCache[sessionNumber]);
+          // No loading state needed, immediate switch
           return;
       }
 
       setLessonStatus(LoadingState.LOADING);
+      setLessonData(null); // Clear previous lesson while loading
       try {
         const obs = currentStudent?.observations || '';
-        const fullQuery = `${query} - Fase ${sessionNumber}`;
+        const fullQuery = `${query} - Fase ${sessionNumber} (${focus})`;
         const data = await fetchLessonPlan(fullQuery, selectedEquipment, assessmentHistory, obs, focus);
         if (data) { 
             setLessonData(data); 
+            setSessionLessonsCache(prev => ({ ...prev, [sessionNumber]: data })); // Cache result
             setLessonStatus(LoadingState.SUCCESS); 
-            // Save to cache
-            setSessionLessonsCache(prev => ({...prev, [sessionNumber]: data}));
         }
       } catch (err: any) { setLessonStatus(LoadingState.ERROR); setErrorHtml(handleGeminiError(err)); }
   };
@@ -349,7 +352,6 @@ export const RehabAgent: React.FC = () => {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      // Validação de Tamanho (Max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         alert("A imagem deve ter no máximo 5MB.");
         return;
@@ -367,48 +369,37 @@ export const RehabAgent: React.FC = () => {
     
     try {
       let imageUrl = exerciseFormData.imageUrl;
-      
       if (exerciseImageFile) { 
           const url = await uploadExerciseImage(ownerId, exerciseImageFile); 
-          if (url) {
-              imageUrl = url; 
-          } else {
+          if (url) { imageUrl = url; } else {
               const proceed = window.confirm("Falha ao subir imagem. Deseja salvar sem imagem?");
-              if (!proceed) {
-                setIsExerciseSaving(false);
-                return;
-              }
+              if (!proceed) { setIsExerciseSaving(false); return; }
           }
       }
       
       const finalData = { ...exerciseFormData, imageUrl };
-      
-      if (editingExercise) { 
-        await updateStudioExercise(editingExercise.id, finalData); 
-      } else { 
-        await createStudioExercise(ownerId, finalData); 
-      }
+      if (editingExercise) { await updateStudioExercise(editingExercise.id, finalData); } else { await createStudioExercise(ownerId, finalData); }
       
       loadBank(); 
       setIsExerciseModalOpen(false);
-    } catch (err) { 
-      console.error(err); 
-      alert("Erro ao salvar exercício."); 
-    } finally { 
-      setIsExerciseSaving(false); 
-    }
+    } catch (err) { console.error(err); alert("Erro ao salvar exercício."); } finally { setIsExerciseSaving(false); }
   };
 
   const downloadReferencePDF = async () => {
-    const element = document.getElementById('reference-report-content');
+    const element = document.getElementById('reference-report');
     if (!element || !refData) return;
 
     try {
-      // Force white background for capture
       const originalBg = element.style.backgroundColor;
       element.style.backgroundColor = "#ffffff";
 
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+      const canvas = await html2canvas(element, { 
+          scale: 2, 
+          useCORS: true, 
+          backgroundColor: '#ffffff',
+          width: element.offsetWidth,
+          height: element.offsetHeight
+      });
       
       element.style.backgroundColor = originalBg;
 
@@ -440,7 +431,6 @@ export const RehabAgent: React.FC = () => {
 
   const studentsWithLessons = Array.from(new Set([...savedLessons.map(l => l.patientName), ...savedPlans.map(p => p.patientName)])).sort() as string[];
   
-  // Filter Bank Exercises
   const filteredBankExercises = savedExercises.filter(ex => {
       const matchEquip = bankEquipmentFilter === 'All' || ex.equipment === bankEquipmentFilter;
       const matchFocus = !bankFocusFilter || ex.focus.toLowerCase().includes(bankFocusFilter.toLowerCase()) || ex.name.toLowerCase().includes(bankFocusFilter.toLowerCase());
@@ -449,7 +439,7 @@ export const RehabAgent: React.FC = () => {
   
   const bankEquipments = Array.from(new Set([...EQUIPMENTS, ...savedExercises.map(e => e.equipment)])).sort();
 
-  // RENDER HELPERS for HISTORY View
+  // --- RENDER HISTORY ---
   const renderHistory = () => {
       const filteredStudents = studentsWithLessons.filter((name: string) => name.toLowerCase().includes(historySearchTerm.toLowerCase()));
 
@@ -476,11 +466,7 @@ export const RehabAgent: React.FC = () => {
         {selectedStudentFilter === null && (
           <>
             <div className="mb-4">
-                <Input 
-                    placeholder="Filtrar por nome do aluno..." 
-                    value={historySearchTerm} 
-                    onChange={e => setHistorySearchTerm(e.target.value)} 
-                />
+                <Input placeholder="Filtrar por nome do aluno..." value={historySearchTerm} onChange={e => setHistorySearchTerm(e.target.value)} />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 animate-in fade-in">
                 {filteredStudents.length === 0 ? (
@@ -500,9 +486,7 @@ export const RehabAgent: React.FC = () => {
                         <div className="p-3 bg-brand-50 dark:bg-brand-900/20 rounded-lg text-brand-600 dark:text-brand-400 group-hover:bg-brand-100 dark:group-hover:bg-brand-900/40 transition-colors">
                             <Folder className="w-6 h-6" />
                         </div>
-                        <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold px-2 py-1 rounded-full">
-                            {count}
-                        </span>
+                        <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold px-2 py-1 rounded-full">{count}</span>
                         </div>
                         <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate">{studentName || 'Sem Nome'}</h3>
                         <p className="text-sm text-slate-500 mt-1">Ver arquivos</p>
@@ -517,14 +501,9 @@ export const RehabAgent: React.FC = () => {
         {selectedStudentFilter !== null && (
           <div className="grid gap-6 animate-in fade-in slide-in-from-right-8">
             <div className="mb-4">
-                <Input 
-                    placeholder="Filtrar por patologia..." 
-                    value={historySearchTerm} 
-                    onChange={e => setHistorySearchTerm(e.target.value)} 
-                />
+                <Input placeholder="Filtrar por patologia..." value={historySearchTerm} onChange={e => setHistorySearchTerm(e.target.value)} />
             </div>
 
-            {/* Section: Treatment Plans */}
             <h3 className="font-bold text-slate-600 dark:text-slate-400 text-sm uppercase">Planejamentos (4 Aulas)</h3>
             <div className="grid gap-3">
                 {savedPlans
@@ -543,8 +522,9 @@ export const RehabAgent: React.FC = () => {
                             <Button variant="ghost" onClick={() => { 
                                 setTreatmentPlan(p);
                                 setQuery(p.pathologyName);
-                                if (p.assessmentContext) setAssessmentHistory(p.assessmentContext); // Restore context!
+                                if (p.assessmentContext) setAssessmentHistory(p.assessmentContext); 
                                 setLessonData(null);
+                                setSessionLessonsCache({}); // Clear cache for new plan open
                                 setLessonStatus(LoadingState.SUCCESS); 
                                 setRefStatus(LoadingState.IDLE);
                                 setRefData(null);
@@ -552,7 +532,6 @@ export const RehabAgent: React.FC = () => {
                                 setShowHistory(false); 
                                 setSelectedStudentFilter(null);
                                 setPlanMode('treatment');
-                                setSessionLessonsCache({}); // Reset view cache for fresh load
                             }}>
                                 Abrir Planejamento
                             </Button>
@@ -567,7 +546,6 @@ export const RehabAgent: React.FC = () => {
                 )}
             </div>
 
-            {/* Section: Individual Lessons */}
             <h3 className="font-bold text-slate-600 dark:text-slate-400 text-sm uppercase mt-4">Aulas Individuais Salvas</h3>
             <div className="grid gap-3">
                 {savedLessons
@@ -624,7 +602,7 @@ export const RehabAgent: React.FC = () => {
             <div><h1 className="text-2xl font-bold text-slate-900 dark:text-white">Guia Clínico</h1></div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => { setRefData(null); setLessonData(null); setTreatmentPlan(null); setQuery(''); setActiveTab('reference'); setSessionLessonsCache({}); }}>{t('new')}</Button>
+            <Button variant="outline" onClick={() => { setRefData(null); setLessonData(null); setTreatmentPlan(null); setQuery(''); setActiveTab('reference'); setRefStatus(LoadingState.IDLE); }}>{t('new')}</Button>
             <Button variant="outline" onClick={() => setShowHistory(true)}>{t('view_history')}</Button>
           </div>
         </header>
@@ -676,8 +654,6 @@ export const RehabAgent: React.FC = () => {
 
           {/* Mode Selection and Equipment Filter */}
           <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
-              
-              {/* Mode Toggle */}
               <div>
                   <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-3 text-sm uppercase">Modo de Geração</h3>
                   <div className="flex gap-4">
@@ -700,7 +676,6 @@ export const RehabAgent: React.FC = () => {
                   </div>
               </div>
 
-              {/* Equipment Selection */}
               <div>
                   <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-3 text-sm uppercase">Aparelhos Disponíveis</h3>
                   <div className="flex flex-wrap gap-2">
@@ -717,7 +692,6 @@ export const RehabAgent: React.FC = () => {
               </div>
           </div>
           
-          {/* Quick Access Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm cursor-pointer hover:border-brand-400 transition-all group" onClick={() => setShowHistory(true)}>
               <div className="flex items-center justify-between">
@@ -742,13 +716,13 @@ export const RehabAgent: React.FC = () => {
         </div>
       )}
 
-      {/* Loading States */}
+      {/* Loading State Display */}
       {refStatus === LoadingState.LOADING && (
-          <div className="flex flex-col items-center justify-center py-20 animate-in fade-in">
-              <Loader2 className="h-12 w-12 text-brand-600 animate-spin mb-4" />
-              <h3 className="text-xl font-bold text-slate-800 dark:text-white">Gerando Guia Clínico e Referências...</h3>
-              <p className="text-slate-500 mt-2">A IA está analisando o caso e consultando a base de dados.</p>
-          </div>
+        <div className="flex flex-col items-center justify-center py-20 animate-in fade-in">
+            <Loader2 className="h-16 w-16 text-brand-600 animate-spin mb-6" />
+            <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">Gerando Guia Clínico...</h3>
+            <p className="text-slate-500">A IA está analisando o caso e selecionando as melhores referências.</p>
+        </div>
       )}
 
       {(refStatus === LoadingState.ERROR || lessonStatus === LoadingState.ERROR) && errorHtml && (refData || lessonData) && <div dangerouslySetInnerHTML={{ __html: errorHtml }} />}
@@ -762,102 +736,90 @@ export const RehabAgent: React.FC = () => {
             <button onClick={() => handleTabChange('bank')} className={`px-6 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'bank' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}><Dumbbell className="w-4 h-4"/> {t('exercise_bank')}</button>
           </div>
           
-          {/* Reference View (A4 Report Style) */}
+          {/* Reference View (Report Style) */}
           {activeTab === 'reference' && (
             <div className="animate-in fade-in">
               {refData ? (
-                <div className="max-w-4xl mx-auto space-y-4">
-                    {/* Action Bar */}
-                    <div className="flex justify-end">
-                        <Button variant="outline" onClick={downloadReferencePDF} className="bg-white border-slate-200 shadow-sm">
+                <div className="max-w-4xl mx-auto">
+                    <div className="flex justify-end mb-4">
+                        <Button variant="outline" onClick={downloadReferencePDF}>
                             <Download className="w-4 h-4 mr-2"/> Baixar PDF
                         </Button>
                     </div>
+                    
+                    <div id="reference-report" className="bg-white p-8 md:p-12 shadow-xl border border-slate-100 mx-auto" style={{ minHeight: '297mm' }}>
+                        {/* Header */}
+                        <div className="flex justify-between items-start border-b-4 border-brand-500 pb-6 mb-8">
+                            <div>
+                                <div className="flex items-center gap-2 text-brand-600 mb-1 font-bold uppercase text-xs tracking-wider">
+                                    <FileText className="w-4 h-4" /> Relatório Clínico
+                                </div>
+                                <h1 className="text-3xl font-extrabold text-slate-900 leading-tight">{refData.pathologyName}</h1>
+                                <h2 className="text-lg text-slate-500 font-medium">{studioName}</h2>
+                            </div>
+                            <div className="text-right">
+                                <Building2 className="h-10 w-10 text-slate-200 mb-1 ml-auto" />
+                                <span className="text-xs text-slate-400 block">Data: {new Date().toLocaleDateString()}</span>
+                                {currentStudent && <span className="text-xs text-slate-500 font-bold block mt-1">Aluno: {currentStudent.name}</span>}
+                            </div>
+                        </div>
 
-                    {/* Report Wrapper */}
-                    <div className="bg-slate-100 dark:bg-slate-950 p-4 md:p-8 rounded-xl shadow-inner flex justify-center">
-                        <div 
-                            id="reference-report-content" 
-                            className="bg-white text-slate-800 shadow-2xl relative flex flex-col box-border overflow-hidden break-words"
-                            style={{ 
-                                width: '210mm', 
-                                minHeight: '297mm', 
-                                paddingTop: '25mm',
-                                paddingRight: '20mm',
-                                paddingBottom: '20mm',
-                                paddingLeft: '25mm',
-                                boxSizing: 'border-box'
-                            }}
-                        >
-                            {/* Header */}
-                            <div className="flex justify-between items-start border-b-4 border-brand-500 pb-4 mb-6">
+                        {/* Content */}
+                        <div className="space-y-8">
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1">Resumo Clínico</h3>
+                                <p className="text-slate-700 text-justify leading-relaxed">{refData.summary}</p>
+                            </div>
+
+                            {refData.objectives && refData.objectives.length > 0 && (
                                 <div>
-                                    <div className="flex items-center gap-2 text-brand-600 mb-1 font-bold uppercase text-xs tracking-wider">
-                                        <Activity className="w-4 h-4" /> Guia Clínico
-                                    </div>
-                                    <h1 className="text-2xl font-extrabold text-slate-900 leading-tight mb-1">{refData.pathologyName}</h1>
-                                    <h2 className="text-sm text-slate-500 font-medium">Aluno: {currentStudent?.name || 'Não informado'}</h2>
+                                    <h3 className="text-lg font-bold text-slate-800 mb-3 border-b border-slate-100 pb-1">Objetivos do Tratamento</h3>
+                                    <ul className="list-disc pl-5 space-y-1 text-slate-700">
+                                        {refData.objectives.map((obj, i) => <li key={i}>{obj}</li>)}
+                                    </ul>
                                 </div>
-                                <div className="text-right">
-                                    {studioLogo ? (
-                                        <img src={studioLogo} alt="Logo" className="h-16 w-auto max-w-[120px] object-contain mb-1 ml-auto" />
-                                    ) : (
-                                        <Home className="h-10 w-10 text-slate-300 mb-1 ml-auto" />
-                                    )}
-                                    <span className="text-xs text-slate-400 block">Data: {new Date().toLocaleDateString()}</span>
-                                </div>
-                            </div>
+                            )}
 
-                            {/* Summary */}
-                            <div className="mb-6 bg-slate-50 p-4 rounded-lg border-l-4 border-brand-400">
-                                <h3 className="font-bold text-brand-800 mb-2 text-sm uppercase">Resumo Clínico</h3>
-                                <p className="text-sm text-slate-700 leading-relaxed text-justify">{refData.summary}</p>
-                            </div>
-
-                            {/* Contraindications (Priority) */}
-                            <div className="mb-6">
-                                <div className="flex items-center gap-2 mb-3 pb-1 border-b border-red-100">
-                                    <AlertTriangle className="w-5 h-5 text-red-600" />
-                                    <h3 className="font-bold text-red-700 text-lg">Contraindicações e Cuidados</h3>
-                                </div>
-                                <div className="grid gap-3">
+                            <div>
+                                <h3 className="text-lg font-bold text-red-700 mb-4 border-b border-red-100 pb-2 flex items-center gap-2">
+                                    <AlertTriangle className="w-5 h-5"/> Exercícios Contraindicados
+                                </h3>
+                                <div className="grid grid-cols-1 gap-3">
                                     {refData.contraindicated.map((item, idx) => (
-                                        <div key={idx} className="bg-red-50 p-3 rounded-lg border border-red-100 break-inside-avoid">
-                                            <div className="flex justify-between items-start mb-1">
-                                                <strong className="text-red-900 text-sm">{item.name}</strong>
-                                                <span className="text-[10px] bg-white px-2 py-0.5 rounded text-red-600 font-bold border border-red-200">{item.apparatus}</span>
+                                        <div key={idx} className="bg-red-50 p-3 rounded-lg border border-red-100">
+                                            <div className="flex justify-between font-bold text-red-800 text-sm mb-1">
+                                                <span>{item.name}</span>
+                                                <span className="text-xs font-normal bg-white px-2 py-0.5 rounded border border-red-100">{item.apparatus}</span>
                                             </div>
-                                            <p className="text-xs text-red-800">{item.reason}</p>
+                                            <p className="text-xs text-red-700">{item.reason}</p>
                                         </div>
                                     ))}
                                 </div>
                             </div>
 
-                            {/* Indications (Optional if present in response, mainly focusing on Contra per request) */}
-                            {refData.indicated && refData.indicated.length > 0 && (
-                                <div className="mb-6">
-                                    <div className="flex items-center gap-2 mb-3 pb-1 border-b border-green-100">
-                                        <CheckCircle2 className="w-5 h-5 text-green-600" />
-                                        <h3 className="font-bold text-green-700 text-lg">Exercícios Indicados</h3>
-                                    </div>
-                                    <div className="grid gap-3">
-                                        {refData.indicated.slice(0, 5).map((item, idx) => (
-                                            <div key={idx} className="bg-green-50 p-3 rounded-lg border border-green-100 break-inside-avoid">
-                                                <div className="flex justify-between items-start mb-1">
-                                                    <strong className="text-green-900 text-sm">{item.name}</strong>
-                                                    <span className="text-[10px] bg-white px-2 py-0.5 rounded text-green-600 font-bold border border-green-200">{item.apparatus}</span>
-                                                </div>
-                                                <p className="text-xs text-green-800">{item.reason}</p>
+                            <div>
+                                <h3 className="text-lg font-bold text-green-700 mb-4 border-b border-green-100 pb-2 flex items-center gap-2">
+                                    <CheckCircle2 className="w-5 h-5"/> Exercícios Indicados
+                                </h3>
+                                <div className="grid grid-cols-1 gap-3">
+                                    {refData.indicated.map((item, idx) => (
+                                        <div key={idx} className="bg-green-50 p-3 rounded-lg border border-green-100">
+                                            <div className="flex justify-between font-bold text-green-800 text-sm mb-1">
+                                                <span>{item.name}</span>
+                                                <span className="text-xs font-normal bg-white px-2 py-0.5 rounded border border-green-100">{item.apparatus}</span>
                                             </div>
-                                        ))}
-                                    </div>
+                                            <p className="text-xs text-green-700">{item.reason}</p>
+                                            {item.details && <p className="text-xs text-green-600 mt-1 italic">{item.details}</p>}
+                                        </div>
+                                    ))}
                                 </div>
-                            )}
-
-                            {/* Footer */}
-                            <div className="mt-auto pt-4 border-t border-slate-200 text-center text-[10px] text-slate-400">
-                                <p>Gerado pela Plataforma VOLL IA • Guia de Referência Rápida</p>
                             </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="mt-16 pt-8 border-t border-slate-100 flex justify-between items-center text-slate-400 text-xs">
+                            <p>Plataforma VOLL IA - Guia Clínico</p>
+                            <p>Uso Interno</p>
                         </div>
                     </div>
                 </div>
@@ -874,7 +836,7 @@ export const RehabAgent: React.FC = () => {
           {activeTab === 'lesson' && (
             <div className="animate-in fade-in">
               {lessonStatus === LoadingState.LOADING ? (
-                  <div className="text-center py-12"><Loader2 className="h-10 w-10 animate-spin mx-auto text-brand-500"/><p>Gerando com IA...</p></div> 
+                  <div className="text-center py-12"><Loader2 className="h-10 w-10 animate-spin mx-auto text-brand-500"/><p>Gerando Aula com IA...</p></div> 
               ) : (
                 <>
                     {/* Treatment Plan View */}
@@ -893,48 +855,35 @@ export const RehabAgent: React.FC = () => {
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {treatmentPlan.sessions.map(session => {
-                                    // Check if we have generated this lesson in this session
-                                    const isGenerated = !!sessionLessonsCache[session.sessionNumber];
-                                    
+                                    const isCached = !!sessionLessonsCache[session.sessionNumber];
                                     return (
-                                        <div key={session.sessionNumber} className={`bg-white border p-5 rounded-xl shadow-sm transition-all ${isGenerated ? 'border-green-200 ring-1 ring-green-100' : 'border-slate-200 hover:border-purple-300'}`}>
-                                            <div className="flex justify-between items-start mb-3">
-                                                <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase ${isGenerated ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
-                                                    Sessão {session.sessionNumber} {isGenerated && '(Gerada)'}
-                                                </span>
-                                                {isGenerated && <CheckCircle2 className="w-5 h-5 text-green-500" />}
-                                            </div>
-                                            <h3 className="font-bold text-lg mb-2">{session.goal}</h3>
-                                            <div className="text-sm text-slate-600 space-y-1 mb-4">
-                                                <p><strong>Foco:</strong> {session.focus}</p>
-                                                <p><strong>Aparelhos:</strong> {session.apparatusFocus}</p>
-                                            </div>
-                                            
-                                            {isGenerated ? (
-                                                <Button 
-                                                    variant="secondary" 
-                                                    className="w-full bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-                                                    onClick={() => generateSessionLesson(session.sessionNumber, session.focus)}
-                                                >
-                                                    <FileText className="w-4 h-4 mr-2"/> Visualizar Aula
-                                                </Button>
-                                            ) : (
-                                                <Button 
-                                                    variant="outline" 
-                                                    className="w-full"
-                                                    onClick={() => generateSessionLesson(session.sessionNumber, session.focus)}
-                                                >
-                                                    Gerar Aula {session.sessionNumber}
-                                                </Button>
-                                            )}
+                                    <div key={session.sessionNumber} className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm hover:border-purple-300 transition-all">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <span className="bg-purple-100 text-purple-700 text-xs font-bold px-3 py-1 rounded-full uppercase">Sessão {session.sessionNumber}</span>
                                         </div>
-                                    );
-                                })}
+                                        <h3 className="font-bold text-lg mb-2">{session.goal}</h3>
+                                        <div className="text-sm text-slate-600 space-y-1 mb-4">
+                                            <p><strong>Foco:</strong> {session.focus}</p>
+                                            <p><strong>Aparelhos:</strong> {session.apparatusFocus}</p>
+                                        </div>
+                                        <Button 
+                                            variant={isCached ? "secondary" : "outline"}
+                                            className="w-full"
+                                            onClick={() => generateSessionLesson(session.sessionNumber, session.focus)}
+                                        >
+                                            {isCached ? (
+                                                <><Eye className="w-4 h-4 mr-2"/> Visualizar Aula</>
+                                            ) : (
+                                                `Gerar Aula ${session.sessionNumber}`
+                                            )}
+                                        </Button>
+                                    </div>
+                                )})}
                             </div>
                         </div>
                     )}
 
-                    {/* Single Lesson View (Used by both Single Mode and Treatment Mode Drill-down) */}
+                    {/* Single Lesson View */}
                     {lessonData && (
                         <div>
                             {treatmentPlan && (
@@ -949,24 +898,13 @@ export const RehabAgent: React.FC = () => {
                                 onSaveLesson={handleSaveLesson} 
                                 onSaveToBank={handleSaveToBank}
                                 onRegenerateExercise={async (idx, ex) => { 
-                                    // Update State Correctly using functional update
                                     setLessonStatus(LoadingState.LOADING);
                                     const newEx = await regenerateSingleExercise(query, ex, selectedEquipment); 
-                                    
                                     setLessonData(prev => {
                                         if(!prev) return null;
                                         const newExs = [...prev.exercises]; 
                                         newExs[idx] = newEx; 
-                                        const updatedPlan = {...prev, exercises: newExs};
-                                        
-                                        // If inside treatment plan, update cache too
-                                        if (treatmentPlan) {
-                                            // Find session number? Hard without passing it. 
-                                            // Simplification: We update current lesson view. Cache might be stale on back, 
-                                            // but user can view 'stale' version or we need to pass session ID.
-                                            // For now, simple view update is enough.
-                                        }
-                                        return updatedPlan;
+                                        return {...prev, exercises: newExs};
                                     });
                                     setLessonStatus(LoadingState.SUCCESS);
                                 }} 
@@ -1047,7 +985,6 @@ export const RehabAgent: React.FC = () => {
         </div>
       )}
 
-      {/* Modals ... (AssessmentModal and Exercise Edit Modal kept as is) */}
       <AssessmentModal 
         isOpen={isAssessmentOpen} 
         initialQuery={query} 
