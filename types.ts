@@ -778,10 +778,10 @@ export interface CarouselCard {
 export interface GeneratedContent {
   suggestedFormat: string;
   reasoning: string;
-  hashtags?: string[]; // Optional for Plans
+  hashtags?: string[];
   tips: string;
-  captionShort?: string; // Optional for Plans
-  captionLong?: string;  // Optional for Plans
+  captionShort?: string;
+  captionLong?: string;
   visualContent?: string[];
   visualPrompt?: string; 
   generatedImage?: string;

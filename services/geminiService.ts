@@ -1,6 +1,8 @@
 
 
 
+
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
   StrategicPlan, CalculatorInputs, FinancialModel, CompensationResult, 
@@ -43,7 +45,9 @@ const cleanAndParseJSON = (text: string) => {
 export const generateMarketingContent = async (formData: MarketingFormData): Promise<GeneratedContent | null> => {
   const isPlan = formData.mode === 'plan';
   const isStory = formData.mode === 'story';
+  // Check format explicitly for carousel or post
   const isCarousel = formData.format === 'carousel';
+  const isPost = formData.format === 'post';
   
   let responseSchema: any;
 
@@ -77,6 +81,7 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
                 }
             }
         },
+        // Captions are optional for Plans to avoid token limits and blank screen errors
         required: ['suggestedFormat', 'reasoning', 'tips', 'isPlan', 'weeks']
     };
   } else {
@@ -86,8 +91,9 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
         reasoning: { type: Type.STRING },
         hashtags: { type: Type.ARRAY, items: { type: Type.STRING } },
         tips: { type: Type.STRING },
-        captionShort: { type: Type.STRING },
-        captionLong: { type: Type.STRING },
+        // Ensure both caption lengths are generated
+        captionShort: { type: Type.STRING, description: "A short, punchy caption (max 2 sentences)." },
+        captionLong: { type: Type.STRING, description: "A detailed, storytelling caption with value." },
     };
 
     responseSchema = {
@@ -120,9 +126,10 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
             }
         };
     } else {
-        // Single Post
-        responseSchema.properties.visualContent = { type: Type.ARRAY, items: { type: Type.STRING } };
+        // Single Post / Reels / Carousel
         responseSchema.properties.isReels = { type: Type.BOOLEAN };
+        responseSchema.properties.visualContent = { type: Type.ARRAY, items: { type: Type.STRING } };
+        
         responseSchema.properties.reelsOptions = {
             type: Type.ARRAY,
             items: {
@@ -131,8 +138,6 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
                     style: { type: Type.STRING },
                     title: { type: Type.STRING },
                     purpose: { type: Type.STRING },
-                    captionShort: { type: Type.STRING },
-                    captionLong: { type: Type.STRING },
                     script: { type: Type.ARRAY, items: { type: Type.STRING } },
                     audioSuggestion: { type: Type.STRING },
                     duration: { type: Type.STRING }
@@ -147,14 +152,15 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
                     type: Type.OBJECT,
                     properties: {
                         order: { type: Type.INTEGER },
-                        textOverlay: { type: Type.STRING },
-                        visualPrompt: { type: Type.STRING },
+                        textOverlay: { type: Type.STRING, description: "Short text to place on the image" },
+                        visualPrompt: { type: Type.STRING, description: "Photorealistic image description for this card" },
                     },
                     required: ['order', 'textOverlay', 'visualPrompt']
                 }
             };
         } else {
-            responseSchema.properties.visualPrompt = { type: Type.STRING };
+            // Static Post or generic
+            responseSchema.properties.visualPrompt = { type: Type.STRING, description: "Photorealistic image description for the post" };
         }
     }
   }
@@ -177,7 +183,7 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
     Para cada semana, defina um tema macro.
     Sugira 3 posts por semana (Dias alternados, ex: Seg, Qua, Sex).
     Preencha 'isPlan' como true.
-    IMPORTANTE: Retorne APENAS o JSON. Certifique-se que o array 'weeks' tenha 4 itens.
+    IMPORTANTE: Retorne APENAS o JSON conforme o schema. Certifique-se que o array 'weeks' tenha 4 itens.
     `;
   } else if (isStory) {
     prompt += `
@@ -185,7 +191,7 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
     Foco em retenção e interação.
     Use gatilhos mentais adequados ao objetivo.
     Preencha 'isStory' como true e detalhe a 'storySequence'.
-    SEMPRE retorne 'captionShort' (resumo) E 'captionLong' (detalhe estratégico).
+    SEMPRE retorne 'captionShort' (resumo para capa) E 'captionLong' (roteiro de fala detalhado).
     `;
   } else if (isCarousel) {
     prompt += `
@@ -193,15 +199,22 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
     Preencha 'carouselCards' com exatamente 6 itens.
     Para cada card, forneça:
     - 'textOverlay': Texto curto para escrever na imagem.
-    - 'visualPrompt': Descrição visual extremamente detalhada, fotorealista, 8k, iluminação cinematográfica, para gerar a imagem do card com IA (sem texto na descrição).
-    SEMPRE retorne 'captionShort' (curta e direta) E 'captionLong' (storytelling detalhado).
+    - 'visualPrompt': Descrição visual extremamente detalhada, fotorealista, 8k, iluminação cinematográfica, para gerar a imagem do card com IA (sem texto na descrição da imagem).
+    SEMPRE retorne 'captionShort' (curta e direta) E 'captionLong' (storytelling detalhado para a legenda do post).
     `;
   } else {
+    // Single Post or Reels
     prompt += `
     Crie um post único completo.
     SEMPRE retorne 'captionShort' (curta e direta) E 'captionLong' (storytelling detalhado).
-    Se o formato for Reels ou Vídeo, forneça roteiro detalhado em 'reelsOptions' (pelo menos 2 opções diferentes) e marque 'isReels' como true.
-    Se for Estático (Post), forneça 'visualPrompt' com uma descrição detalhada, fotorealista, 8k, iluminação de estúdio profissional, para gerar a imagem.
+    
+    Se o formato for Reels ou Vídeo:
+    - Forneça roteiro detalhado em 'reelsOptions' (pelo menos 2 opções diferentes).
+    - Marque 'isReels' como true.
+    
+    Se o formato for Post Estático (ou 'auto' que decidiu ser estático):
+    - Forneça 'visualPrompt' com uma descrição detalhada, fotorealista, 8k, iluminação de estúdio profissional, para gerar a imagem.
+    - NÃO marque 'isReels'.
     `;
   }
 
@@ -698,13 +711,14 @@ export const generatePilatesContentStream = async function* (request: ContentReq
 };
 
 export const generatePilatesImage = async (request: ContentRequest, studioInfo: StudioInfo | null, contextText: string): Promise<string | null> => {
-    // If contextText contains enhanced prompts (e.g. from handleGenerateAction), use it
-    const prompt = contextText ? contextText : `Image of Pilates: ${request.theme}. Style: ${request.imageStyle}`;
+    // Enhanced Prompt prefix for better quality
+    const basePrompt = contextText ? contextText : `Image of Pilates: ${request.theme}. Style: ${request.imageStyle}`;
+    const enhancedPrompt = `Photorealistic, 8k, cinematic lighting, professional studio photography, high quality: ${basePrompt}`;
     
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
-            contents: { parts: [{ text: prompt }] },
+            contents: { parts: [{ text: enhancedPrompt }] },
         });
         
         for (const part of response.candidates?.[0]?.content?.parts || []) {

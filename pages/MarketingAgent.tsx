@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { MarketingFormData, GeneratedContent, SavedContent, ContentRequest, LogoConfig, StudioPersona } from '../types';
@@ -256,11 +258,11 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate }:
                         <div className="flex items-center justify-between mb-4">
                             <h4 className="font-bold text-slate-800 dark:text-white flex items-center gap-2"><FileText className="w-5 h-5"/> Legenda</h4>
                             <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-lg flex text-xs font-bold">
-                                <button onClick={() => setCaptionType('short')} className={`px-3 py-1 rounded ${captionType === 'short' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>Curta</button>
-                                <button onClick={() => setCaptionType('long')} className={`px-3 py-1 rounded ${captionType === 'long' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>Longa</button>
+                                <button onClick={() => setCaptionType('short')} className={`px-3 py-1 rounded transition-colors ${captionType === 'short' ? 'bg-white dark:bg-slate-700 shadow text-slate-800 dark:text-white' : 'text-slate-500'}`}>Curta</button>
+                                <button onClick={() => setCaptionType('long')} className={`px-3 py-1 rounded transition-colors ${captionType === 'long' ? 'bg-white dark:bg-slate-700 shadow text-slate-800 dark:text-white' : 'text-slate-500'}`}>Longa</button>
                             </div>
                         </div>
-                        <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl text-sm whitespace-pre-wrap h-80 overflow-y-auto flex-1">
+                        <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl text-sm whitespace-pre-wrap h-80 overflow-y-auto flex-1 border border-slate-100 dark:border-slate-800">
                             {captionType === 'long' ? result.captionLong : result.captionShort}
                             <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
                                 <p className="text-brand-600 font-medium">{result.hashtags?.join(' ')}</p>
@@ -296,19 +298,19 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate }:
 
                         {/* CAROUSEL VIEW */}
                         {result.carouselCards && (
-                            <div className="h-96 flex overflow-x-auto gap-4 p-2">
+                            <div className="h-[340px] flex overflow-x-auto gap-4 p-2 pb-4 scrollbar-thin">
                                 {result.carouselCards.map((card: any, idx: number) => (
-                                    <div key={idx} className="min-w-[200px] w-[200px] bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden group">
+                                    <div key={idx} className="min-w-[200px] w-[200px] bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden group shadow-sm">
                                         <div className="h-40 bg-slate-200 dark:bg-slate-900 relative">
                                             {card.generatedImage ? (
                                                 <img src={card.generatedImage} alt={`Card ${idx+1}`} className="w-full h-full object-cover" />
                                             ) : (
-                                                <div className="flex items-center justify-center h-full text-slate-400">Card {idx+1}</div>
+                                                <div className="flex items-center justify-center h-full text-slate-400 text-xs">Gerando imagem...</div>
                                             )}
-                                            <span className="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded">{idx+1}/6</span>
+                                            <span className="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded font-bold backdrop-blur-sm">{idx+1}/6</span>
                                         </div>
                                         <div className="p-3 flex-1 flex flex-col bg-white dark:bg-slate-900">
-                                            <p className="text-xs font-bold text-slate-500 uppercase mb-1">Texto Sugerido</p>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Texto Overlay</p>
                                             <p className="text-xs text-slate-700 dark:text-slate-300 leading-tight flex-1">{card.textOverlay}</p>
                                         </div>
                                     </div>
@@ -320,7 +322,7 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate }:
                         {!result.isReels && !result.carouselCards && (
                             <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl text-sm h-80 overflow-y-auto flex flex-col justify-center">
                                 {result.generatedImage ? (
-                                    <img src={result.generatedImage} alt="Sugestão" className="w-full h-full object-contain rounded-lg" />
+                                    <img src={result.generatedImage} alt="Sugestão" className="w-full h-full object-contain rounded-lg shadow-sm" />
                                 ) : (
                                     <div className="flex flex-col items-center justify-center text-slate-400 h-full">
                                         <ImageIcon className="w-12 h-12 mb-2 opacity-50"/>
