@@ -91,7 +91,7 @@ interface CustomField {
 // --- SPECIALIZED KNEE TEMPLATE ---
 const KNEE_TEMPLATE_FIELDS: CustomField[] = [
     // 1. Inspeção
-    { id: 'k1', label: '--- 1. INSPEÇÃO / OBSERVAÇÃO ---', type: 'text', value: 'Seção', options: [] }, 
+    { id: 'k1', label: '--- 1. INSPEÇÃO / OBSERVAÇÃO ---', type: 'text', value: 'Seção', options: [] }, // Header simulado
     { id: 'k_align', label: 'Alinhamento dos joelhos (vista anterior)', type: 'radio', options: ['Neutro', 'Valgo', 'Varo'], value: '' },
     { id: 'k_lat', label: 'Vista lateral', type: 'radio', options: ['Normal', 'Recurvado', 'Flexo (não estende totalmente)'], value: '' },
     { id: 'k_rot', label: 'Rotação dos membros inferiores', type: 'radio', options: ['Neutra', 'Rotação interna', 'Rotação externa'], value: '' },
@@ -245,6 +245,8 @@ export const StudentAssessmentPage: React.FC = () => {
         // Auto-set evaluator if current user is instructor
         if (user?.isInstructor) {
             setSimpleForm(prev => ({ ...prev, evaluatorId: user.dbId || user.id, evaluatorName: user.name }));
+        } else if (user?.isOwner) {
+            setSimpleForm(prev => ({ ...prev, evaluatorId: user.id, evaluatorName: user.name }));
         }
     }
     setLoading(false);
@@ -266,6 +268,7 @@ export const StudentAssessmentPage: React.FC = () => {
         studentId: student.id,
         studentName: student.name,
         studentAge: calculateAge(student.birthDate),
+        // If instructor, force their ID. If Owner, set them as default but allow change in UI
         evaluatorId: user?.isInstructor ? (user.dbId || user.id) : (user?.id || ''),
         evaluatorName: user?.name || ''
     });
@@ -300,10 +303,21 @@ export const StudentAssessmentPage: React.FC = () => {
     const targetId = user.isInstructor ? user.studioId : user.id;
     if (!targetId || !simpleForm.studentId) return;
 
+    // Se o usuário logado é Dono (não instrutor), e o ID do avaliador selecionado
+    // é igual ao ID do Dono, enviamos instructorId como null ou undefined, pois o dono não está na tabela instructors
+    // Se o ID for de um instrutor, enviamos
+    let instrId = undefined;
+    
+    // Verifica se o ID selecionado pertence a um instrutor da lista
+    const selectedInstructor = instructors.find(i => i.id === simpleForm.evaluatorId);
+    if (selectedInstructor) {
+        instrId = selectedInstructor.id;
+    }
+
     const result = await saveAssessment(targetId, {
         studioId: targetId,
         studentId: simpleForm.studentId,
-        instructorId: simpleForm.evaluatorId || undefined,
+        instructorId: instrId, // Send undefined if Owner is the evaluator
         studentName: simpleForm.studentName,
         instructorName: simpleForm.evaluatorName,
         type: 'simple',
@@ -326,10 +340,16 @@ export const StudentAssessmentPage: React.FC = () => {
     if (!user || !selectedTemplateTitle) return;
     const targetId = user.isInstructor ? user.studioId : user.id;
     
+    let instrId = undefined;
+    const selectedInstructor = instructors.find(i => i.id === simpleForm.evaluatorId);
+    if (selectedInstructor) {
+        instrId = selectedInstructor.id;
+    }
+
     const result = await saveAssessment(targetId!, {
         studioId: targetId!,
         studentId: simpleForm.studentId,
-        instructorId: simpleForm.evaluatorId || undefined,
+        instructorId: instrId,
         studentName: simpleForm.studentName,
         instructorName: simpleForm.evaluatorName,
         type: 'custom',
@@ -543,8 +563,33 @@ export const StudentAssessmentPage: React.FC = () => {
                                     <Input type="date" value={simpleForm.date} onChange={e => setSimpleForm({...simpleForm, date: e.target.value})} />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Avaliador</label>
-                                    <Input value={simpleForm.evaluatorName} readOnly />
+                                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Avaliador Responsável</label>
+                                    {user?.isInstructor ? (
+                                        <Input value={simpleForm.evaluatorName} readOnly className="bg-slate-200 dark:bg-slate-800 cursor-not-allowed" />
+                                    ) : (
+                                        <select 
+                                            className="w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-500"
+                                            value={simpleForm.evaluatorId}
+                                            onChange={(e) => {
+                                                const selectedId = e.target.value;
+                                                // Se selecionou o próprio Dono
+                                                if (selectedId === user?.id) {
+                                                    setSimpleForm(prev => ({ ...prev, evaluatorId: user.id, evaluatorName: user.name }));
+                                                } else {
+                                                    // Se selecionou um Instrutor
+                                                    const inst = instructors.find(i => i.id === selectedId);
+                                                    if (inst) {
+                                                        setSimpleForm(prev => ({ ...prev, evaluatorId: inst.id, evaluatorName: inst.name }));
+                                                    }
+                                                }
+                                            }}
+                                        >
+                                            <option value={user?.id}>{user?.name} (Eu / Dono)</option>
+                                            {instructors.map(inst => (
+                                                <option key={inst.id} value={inst.id}>{inst.name}</option>
+                                            ))}
+                                        </select>
+                                    )}
                                 </div>
                             </div>
 
