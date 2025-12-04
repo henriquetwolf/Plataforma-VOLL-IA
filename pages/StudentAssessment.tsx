@@ -7,7 +7,7 @@ import { saveAssessment, fetchAssessments, deleteAssessment, saveAssessmentTempl
 import { Student, Instructor, StudentAssessment, AssessmentTemplate } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ClipboardList, Plus, History, Search, Trash2, Eye, FileText, Printer, Save, Layout, ArrowRight, X, ArrowLeft, CheckCircle, Activity, Accessibility, AlignJustify, UserCheck } from 'lucide-react';
+import { ClipboardList, Plus, History, Search, Trash2, Eye, FileText, Printer, Save, Layout, ArrowRight, X, ArrowLeft, CheckCircle, Activity, Accessibility, AlignJustify, UserCheck, Footprints } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -339,6 +339,92 @@ const SHOULDER_TEMPLATE_FIELDS: CustomField[] = [
   { id: 'sh6', label: '--- 6. ANÁLISE FINAL ---', type: 'text', value: 'Seção', options: [] },
   { id: 'sh_hyp', label: 'Hipótese Principal', type: 'checkbox', options: ['Síndrome do Impacto', 'Tendinopatia Manguito', 'Bursite', 'Capsulite Adesiva', 'Instabilidade', 'Discinesia Escapular', 'Disfunção Cervical Associada'], value: [] },
   { id: 'sh_plan', label: 'Plano de Ação', type: 'long_text', value: '' }
+];
+
+// --- SPECIALIZED FOOT AND ANKLE TEMPLATE ---
+const FOOT_TEMPLATE_FIELDS: CustomField[] = [
+  // 1. Dados Iniciais
+  { id: 'f1', label: '--- 1. DADOS INICIAIS ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'f_side', label: 'Lado avaliado', type: 'radio', options: ['Direito', 'Esquerdo', 'Ambos'], value: '' },
+  { id: 'f_complaint', label: 'Queixa principal', type: 'long_text', value: '' },
+  { id: 'f_pain_loc', label: 'Localização da dor', type: 'text', value: '' },
+  { id: 'f_radiation', label: 'Irradiação', type: 'text', value: '' },
+  { id: 'f_intensity', label: 'Intensidade (0-10)', type: 'select', options: ['0','1','2','3','4','5','6','7','8','9','10'], value: '' },
+  { id: 'f_worse', label: 'Piora com', type: 'text', value: '' },
+  { id: 'f_better', label: 'Melhora com', type: 'text', value: '' },
+  { id: 'f_onset', label: 'Início da dor', type: 'text', value: '' },
+
+  // 2. Inspeção
+  { id: 'f2', label: '--- 2. INSPEÇÃO EM PÉ (ESTÁTICO) ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'f_arch', label: 'Arco longitudinal medial', type: 'radio', options: ['Normal', 'Abaixado / Pé plano', 'Aumentado / Pé cavo'], value: '' },
+  { id: 'f_rear', label: 'Alinhamento do retropé', type: 'radio', options: ['Valgo', 'Varo', 'Neutro'], value: '' },
+  { id: 'f_fore', label: 'Antepé', type: 'radio', options: ['Abduzido', 'Aduzido', 'Neutro'], value: '' },
+  { id: 'f_bony', label: 'Proeminências ósseas', type: 'checkbox', options: ['Navicular', '5º metatarso', 'Calosidades'], value: [] },
+  { id: 'f_edema', label: 'Edema', type: 'checkbox', options: ['Ausente', 'Lateral inframaleolar', 'Medial', 'Dorsal', 'Difuso'], value: [] },
+  { id: 'f_circ', label: 'Circunferência (cm)', type: 'text', value: '' },
+
+  // 3. Palpação
+  { id: 'f3', label: '--- 3. PALPAÇÃO ESPECÍFICA (DOR) ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'f_palp_lat', label: 'Lateral', type: 'checkbox', options: ['Maléolo lateral', 'Lig. Talofibular Ant. (TFA)', 'Lig. Calcâneo-fibular (CFL)', 'Lig. Talofibular Post. (TFP)', 'Fibulares (curto/longo)'], value: [] },
+  { id: 'f_palp_med', label: 'Medial', type: 'checkbox', options: ['Maléolo medial', 'Lig. Deltoide', 'Tibial posterior / Navicular', 'Túnel do Tarso'], value: [] },
+  { id: 'f_palp_other', label: 'Outros', type: 'checkbox', options: ['Sindesmose (Tib-Fib)', 'Tendão Calcâneo', 'Fáscia Plantar', 'Calcâneo', 'Cabeça Metatarsos', 'Seio do Tarso'], value: [] },
+  { id: 'f_palp_obs', label: 'Observações Palpação', type: 'long_text', value: '' },
+
+  // 4. Mobilidade (ADM)
+  { id: 'f4', label: '--- 4. MOBILIDADE (ADM) ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'f_rom_dorsi', label: 'Dorsiflexão (°)', type: 'text', value: '' },
+  { id: 'f_rom_plant', label: 'Flexão Plantar (°)', type: 'text', value: '' },
+  { id: 'f_rom_inv', label: 'Inversão (°)', type: 'text', value: '' },
+  { id: 'f_rom_ever', label: 'Eversão (°)', type: 'text', value: '' },
+  { id: 'f_lunge', label: 'Lunge Test (Cadeia Fechada) - Distância/Angulação', type: 'text', value: '' },
+  { id: 'f_sym', label: 'Simetria entre os lados?', type: 'radio', options: ['Sim', 'Não'], value: '' },
+
+  // 5. Testes Especiais
+  { id: 'f5', label: '--- 5. TESTES ESPECIAIS ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'f_draw', label: 'Gaveta Anterior (Instabilidade)', type: 'radio', options: ['Negativo', 'Positivo'], value: '' },
+  { id: 'f_tilt', label: 'Inclinação Talar (Talar Tilt)', type: 'checkbox', options: ['Positivo TFA', 'Positivo CFL', 'Positivo TFP', 'Negativo'], value: [] },
+  { id: 'f_squeeze', label: 'Squeeze Test (Sindesmose)', type: 'radio', options: ['Negativo', 'Positivo (Dor alta)'], value: '' },
+  { id: 'f_tinel', label: 'Tinel (Túnel do Tarso)', type: 'radio', options: ['Negativo', 'Positivo (Choque/Parestesia)'], value: '' },
+  { id: 'f_thompson', label: 'Thompson (Ruptura Aquiles)', type: 'radio', options: ['Negativo (Faz flexão plantar)', 'Positivo (Sem movimento)'], value: '' },
+  { id: 'f_windlass', label: 'Windlass Test (Fáscia/Arco)', type: 'radio', options: ['Normal (Arco sobe)', 'Reduzido', 'Ausente/Dor'], value: '' },
+  { id: 'f_nav_drop', label: 'Navicular Drop (Queda do Navicular)', type: 'text', value: '' },
+
+  // 6. Força
+  { id: 'f6', label: '--- 6. FORÇA MUSCULAR (0-5) ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'f_str_dorsi', label: 'Dorsiflexão (Tibial Ant)', type: 'text', value: '' },
+  { id: 'f_str_plant', label: 'Flexão Plantar (Tríceps Sural)', type: 'text', value: '' },
+  { id: 'f_str_inv', label: 'Inversão (Tibial Post)', type: 'text', value: '' },
+  { id: 'f_str_ever', label: 'Eversão (Fibulares)', type: 'text', value: '' },
+  { id: 'f_str_toes', label: 'Flexores dos Dedos', type: 'text', value: '' },
+  { id: 'f_calf_raise', label: 'Resistência Panturrilha (Reps D/E)', type: 'text', value: '' },
+
+  // 7. Funcional
+  { id: 'f7', label: '--- 7. TESTES FUNCIONAIS ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'f_step_down', label: 'Step Down', type: 'checkbox', options: ['Sem compensações', 'Valgo dinâmico', 'Rotações excessivas', 'Dor'], value: [] },
+  { id: 'f_sls', label: 'Apoio Unipodal (Equilíbrio)', type: 'radio', options: ['Estável', 'Instável', 'Dor'], value: '' },
+  { id: 'f_sls_time', label: 'Tempo Unipodal (segundos)', type: 'text', value: '' },
+  { id: 'f_jumps', label: 'Saltos (Bi/Unipodal)', type: 'checkbox', options: ['Normal', 'Dor', 'Instabilidade', 'Compensações'], value: [] },
+
+  // 8. Marcha
+  { id: 'f8', label: '--- 8. ANÁLISE DE MARCHA ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'f_gait_init', label: 'Fase Inicial', type: 'checkbox', options: ['Contato adequado', 'Dorsiflexão limitada', 'Pronação abrupta'], value: [] },
+  { id: 'f_gait_mid', label: 'Apoio Médio', type: 'radio', options: ['Estável', 'Colapso medial (pronação excessiva)'], value: '' },
+  { id: 'f_gait_prop', label: 'Propulsão', type: 'checkbox', options: ['Adequada', 'Sem mola (rígido)', 'Dor ao impulsionar'], value: [] },
+
+  // 9. Diagnóstico
+  { id: 'f9', label: '--- 9. HIPÓTESES DIAGNÓSTICAS ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'f_diag', label: 'Hipóteses', type: 'checkbox', options: ['Entorse lateral', 'Entorse alta/sindesmose', 'Tendinopatia fibulares', 'Tendinopatia calcâneo', 'Disfunção Tibial Post', 'Fasciopatia plantar', 'Pé plano', 'Pé cavo'], value: [] },
+  { id: 'f_diag_other', label: 'Outros', type: 'text', value: '' },
+
+  // 10. Objetivos
+  { id: 'f10', label: '--- 10. OBJETIVOS E PLANO ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'f_goals_student', label: 'Objetivos do Aluno', type: 'long_text', value: '' },
+  { id: 'f_goals_pro', label: 'Objetivos do Profissional', type: 'checkbox', options: ['Mobilidade', 'Força', 'Estabilidade', 'Redução da dor', 'Reeducação da marcha', 'Retorno ao esporte'], value: [] },
+  { id: 'f_certainty', label: 'Grau de Certeza', type: 'radio', options: ['100% seguro', 'Acertei a maioria', 'Ainda inseguro'], value: '' },
+
+  // 11. Obs
+  { id: 'f11', label: '--- 11. OBSERVAÇÕES FINAIS ---', type: 'text', value: 'Seção', options: [] },
+  { id: 'f_final_obs', label: 'Observações Finais', type: 'long_text', value: '' }
 ];
 
 // --- COMPONENTS DEFINED OUTSIDE TO PREVENT RE-RENDER FOCUS LOSS ---
@@ -753,6 +839,22 @@ export const StudentAssessmentPage: React.FC = () => {
                                 </div>
                                 <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Modelo Quadril (Especializado)</h3>
                                 <p className="text-sm text-slate-500 text-center">Avaliação completa para quadril: queixas, testes ortopédicos e função.</p>
+                            </button>
+
+                            {/* FOOT AND ANKLE SPECIALIZED MODEL (HARDCODED) */}
+                            <button 
+                                onClick={() => { 
+                                    initCustomForm(selectedStudent, 'Avaliação Pé e Tornozelo', FOOT_TEMPLATE_FIELDS); 
+                                    setFormMode('custom'); 
+                                }}
+                                className="relative bg-white dark:bg-slate-900 p-6 rounded-xl border-2 border-emerald-100 dark:border-emerald-900/30 hover:border-emerald-500 hover:shadow-lg transition-all text-left group flex flex-col items-center justify-center min-h-[200px]"
+                            >
+                                <div className="absolute top-4 right-4 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity"><ArrowRight className="w-5 h-5"/></div>
+                                <div className="bg-emerald-50 dark:bg-emerald-900/20 w-16 h-16 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                    <Footprints className="w-8 h-8 text-emerald-600" />
+                                </div>
+                                <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Modelo Pé e Tornozelo</h3>
+                                <p className="text-sm text-slate-500 text-center">Avaliação completa para pé e tornozelo: inspeção, ADM e testes.</p>
                             </button>
 
                             {/* Custom Templates Cards */}
