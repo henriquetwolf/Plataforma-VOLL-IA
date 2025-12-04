@@ -7,7 +7,7 @@ import { saveAssessment, fetchAssessments, deleteAssessment, saveAssessmentTempl
 import { Student, Instructor, StudentAssessment, AssessmentTemplate } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ClipboardList, Plus, History, Search, Trash2, Eye, FileText, Printer, Save, Layout, ArrowRight, X, ArrowLeft, CheckCircle } from 'lucide-react';
+import { ClipboardList, Plus, History, Search, Trash2, Eye, FileText, Printer, Save, Layout, ArrowRight, X, ArrowLeft, CheckCircle, Activity } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -88,6 +88,65 @@ interface CustomField {
   value: any;
 }
 
+// --- SPECIALIZED KNEE TEMPLATE ---
+const KNEE_TEMPLATE_FIELDS: CustomField[] = [
+    // 1. Inspeção
+    { id: 'k1', label: '--- 1. INSPEÇÃO / OBSERVAÇÃO ---', type: 'text', value: 'Seção', options: [] }, 
+    { id: 'k_align', label: 'Alinhamento dos joelhos (vista anterior)', type: 'radio', options: ['Neutro', 'Valgo', 'Varo'], value: '' },
+    { id: 'k_lat', label: 'Vista lateral', type: 'radio', options: ['Normal', 'Recurvado', 'Flexo (não estende totalmente)'], value: '' },
+    { id: 'k_rot', label: 'Rotação dos membros inferiores', type: 'radio', options: ['Neutra', 'Rotação interna', 'Rotação externa'], value: '' },
+    { id: 'k_pat', label: 'Patela (Achados)', type: 'checkbox', options: ['Alinhamento normal', 'Patela alta', 'Patela lateralizada', 'Sinal do "J" positivo', 'Crepitação'], value: [] },
+    { id: 'k_gait', label: 'Marcha', type: 'checkbox', options: ['Normal', 'Rotação externa excessiva', 'Rotação interna', 'Desvio lateral / instabilidade'], value: [] },
+    { id: 'k_obs1', label: 'Observações Inspeção', type: 'text', value: '' },
+
+    // 2. Palpação
+    { id: 'k2', label: '--- 2. PALPAÇÃO (Locais de Dor) ---', type: 'text', value: 'Seção', options: [] },
+    { id: 'k_palp', label: 'Marcar locais de dor', type: 'checkbox', options: ['Interlinha medial', 'Interlinha lateral', 'Tendão patelar', 'Polegar superior da patela', 'Pata de ganso', 'Trato iliotibial', 'Cabeça da fíbula', 'Região poplítea', 'Tuberosidade anterior da tíbia'], value: [] },
+
+    // 3. ADM
+    { id: 'k3', label: '--- 3. AMPLITUDE DE MOVIMENTO (ADM) ---', type: 'text', value: 'Seção', options: [] },
+    { id: 'k_flex', label: 'Flexão', type: 'radio', options: ['Normal', 'Reduzida'], value: '' },
+    { id: 'k_flex_deg', label: 'Graus Flexão (Opcional)', type: 'text', value: '' },
+    { id: 'k_ext', label: 'Extensão', type: 'radio', options: ['Normal', 'Recurvado', 'Limitação em extensão'], value: '' },
+    { id: 'k_ext_deg', label: 'Graus Extensão (Opcional)', type: 'text', value: '' },
+    { id: 'k_tib_rot', label: 'Rotação da tíbia', type: 'radio', options: ['Normal', 'Dolorosa', 'Limitada'], value: '' },
+
+    // 4. Testes Funcionais
+    { id: 'k4', label: '--- 4. TESTES FUNCIONAIS (PILATES) ---', type: 'text', value: 'Seção', options: [] },
+    { id: 'k_squat', label: '4.1 Agachamento Funcional', type: 'checkbox', options: ['Execução adequada', 'Valgo dinâmico', 'Dor', 'Instabilidade'], value: [] },
+    { id: 'k_step', label: '4.2 Step Down', type: 'checkbox', options: ['Controle adequado', 'Queda de pelve', 'Valgo dinâmico', 'Dor anterior de joelho'], value: [] },
+    { id: 'k_sls', label: '4.3 Single Leg Stance (Equilíbrio)', type: 'radio', options: ['Estável', 'Instável', 'Dor'], value: '' },
+    { id: 'k_sls_time', label: 'Tempo SLS (segundos)', type: 'text', value: '' },
+    { id: 'k_stairs', label: '4.4 Subida/Descida de degrau', type: 'radio', options: ['Sem dor', 'Dor anterior', 'Dor medial', 'Crepitação'], value: '' },
+
+    // 5. Testes Específicos
+    { id: 'k5', label: '--- 5. TESTES ESPECÍFICOS (Ortopédicos) ---', type: 'text', value: 'Seção', options: [] },
+    
+    // Menisco
+    { id: 'k_men_mc', label: '5.1 Menisco: McMurray', type: 'radio', options: ['Negativo', 'Positivo (Medial)', 'Positivo (Lateral)'], value: '' },
+    { id: 'k_men_ap', label: '5.1 Menisco: Apley Compressão', type: 'radio', options: ['Negativo', 'Dor', 'Estalido'], value: '' },
+    { id: 'k_men_th', label: '5.1 Menisco: Thessaly', type: 'radio', options: ['Negativo', 'Dor', 'Instabilidade'], value: '' },
+
+    // LCA
+    { id: 'k_lca_la', label: '5.2 LCA: Lachman (Principal)', type: 'radio', options: ['Negativo', 'Positivo Leve', 'Positivo Moderado', 'Positivo Grave'], value: '' },
+    { id: 'k_lca_ga', label: '5.2 LCA: Gaveta Anterior', type: 'radio', options: ['Negativo', 'Positivo'], value: '' },
+    
+    // LCP
+    { id: 'k_lcp_gp', label: '5.3 LCP: Gaveta Posterior', type: 'radio', options: ['Negativo', 'Positivo'], value: '' },
+    
+    // Patelares
+    { id: 'k_pat_comp', label: '5.5 Patela: Compressão Patelar', type: 'radio', options: ['Negativo', 'Dor', 'Crepitação'], value: '' },
+    { id: 'k_pat_appr', label: '5.5 Patela: Apreensão (Smillie)', type: 'radio', options: ['Negativo', 'Positivo (sensação de deslocamento)'], value: '' },
+
+    // 6. Conclusão
+    { id: 'k6', label: '--- 6. CONCLUSÃO FUNCIONAL ---', type: 'text', value: 'Seção', options: [] },
+    { id: 'k_conc_stab', label: 'Estabilidade', type: 'radio', options: ['Boa', 'Moderada', 'Instável'], value: '' },
+    { id: 'k_conc_mob', label: 'Mobilidade', type: 'radio', options: ['Boa', 'Reduzida', 'Assimétrica'], value: '' },
+    { id: 'k_conc_str', label: 'Força (Percepção Funcional)', type: 'radio', options: ['Boa', 'Moderada', 'Fraca'], value: '' },
+    { id: 'k_conc_rec', label: 'Recomendação Inicial para Pilates', type: 'checkbox', options: ['Foco em mobilidade', 'Foco em estabilidade', 'Foco em fortalecimento', 'Foco em controle motor', 'Evitar sobrecarga em flexão profunda'], value: [] },
+    { id: 'k_final_obs', label: 'Observações Finais', type: 'long_text', value: '' }
+];
+
 // --- COMPONENTS DEFINED OUTSIDE TO PREVENT RE-RENDER FOCUS LOSS ---
 
 const SectionHeader = ({ title, icon: Icon }: any) => (
@@ -145,7 +204,7 @@ export const StudentAssessmentPage: React.FC = () => {
   // --- NEW EVALUATION FLOW STATE ---
   const [selectedStudent, setSelectedStudent] = useState<string>('');
   const [formMode, setFormMode] = useState<'none' | 'simple' | 'custom'>('none');
-  const [selectedTemplate, setSelectedTemplate] = useState<AssessmentTemplate | null>(null);
+  const [selectedTemplateTitle, setSelectedTemplateTitle] = useState('');
 
   // Forms Data
   const [simpleForm, setSimpleForm] = useState<SimpleFormState>(INITIAL_SIMPLE_FORM);
@@ -212,17 +271,19 @@ export const StudentAssessmentPage: React.FC = () => {
     });
   };
 
-  const initCustomForm = (studentId: string, template: AssessmentTemplate) => {
+  const initCustomForm = (studentId: string, title: string, fields: any[]) => {
     const student = students.find(s => s.id === studentId);
     if (!student) return;
     
     // Initialize fields with empty values based on template structure
-    const initializedFields = template.fields.map((f: any) => ({
+    const initializedFields = fields.map((f: any) => ({
         ...f,
         value: f.type === 'checkbox' ? [] : ''
     }));
 
     setCustomFields(initializedFields);
+    setSelectedTemplateTitle(title);
+    
     // We reuse simpleForm for header data (Evaluator, Date, Student Info)
     setSimpleForm(prev => ({
         ...prev,
@@ -262,7 +323,7 @@ export const StudentAssessmentPage: React.FC = () => {
   };
 
   const handleSaveCustomAssessment = async () => {
-    if (!user || !selectedTemplate) return;
+    if (!user || !selectedTemplateTitle) return;
     const targetId = user.isInstructor ? user.studioId : user.id;
     
     const result = await saveAssessment(targetId!, {
@@ -272,7 +333,7 @@ export const StudentAssessmentPage: React.FC = () => {
         studentName: simpleForm.studentName,
         instructorName: simpleForm.evaluatorName,
         type: 'custom',
-        title: selectedTemplate.title,
+        title: selectedTemplateTitle,
         content: {
             ...simpleForm, // Header data
             fields: customFields
@@ -416,11 +477,27 @@ export const StudentAssessmentPage: React.FC = () => {
                                 <p className="text-sm text-slate-500 text-center">Avaliação completa com anamnese, dor, postura e testes físicos.</p>
                             </button>
 
+                            {/* KNEE SPECIALIZED MODEL (HARDCODED) */}
+                            <button 
+                                onClick={() => { 
+                                    initCustomForm(selectedStudent, 'Avaliação de Joelho', KNEE_TEMPLATE_FIELDS); 
+                                    setFormMode('custom'); 
+                                }}
+                                className="relative bg-white dark:bg-slate-900 p-6 rounded-xl border-2 border-blue-100 dark:border-blue-900/30 hover:border-blue-500 hover:shadow-lg transition-all text-left group flex flex-col items-center justify-center min-h-[200px]"
+                            >
+                                <div className="absolute top-4 right-4 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"><ArrowRight className="w-5 h-5"/></div>
+                                <div className="bg-blue-50 dark:bg-blue-900/20 w-16 h-16 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                    <Activity className="w-8 h-8 text-blue-600" />
+                                </div>
+                                <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Modelo Joelho (Especializado)</h3>
+                                <p className="text-sm text-slate-500 text-center">Protocolo completo para joelho: menisco, ligamentos e funcional.</p>
+                            </button>
+
                             {/* Custom Templates Cards */}
                             {templates.map(tpl => (
                                 <button 
                                     key={tpl.id}
-                                    onClick={() => { setSelectedTemplate(tpl); initCustomForm(selectedStudent, tpl); setFormMode('custom'); }}
+                                    onClick={() => { initCustomForm(selectedStudent, tpl.title, tpl.fields); setFormMode('custom'); }}
                                     className="relative bg-white dark:bg-slate-900 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-800 hover:border-purple-500 hover:shadow-lg transition-all text-left group flex flex-col items-center justify-center min-h-[200px]"
                                 >
                                     <div className="absolute top-4 right-4 text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity"><ArrowRight className="w-5 h-5"/></div>
@@ -450,7 +527,7 @@ export const StudentAssessmentPage: React.FC = () => {
                         <div className="flex items-center justify-between mb-6">
                             <Button variant="ghost" onClick={() => setFormMode('none')}><ArrowLeft className="w-4 h-4 mr-2"/> Trocar Modelo</Button>
                             <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                                {formMode === 'simple' ? 'Avaliação Padrão VOLL' : selectedTemplate?.title}
+                                {formMode === 'simple' ? 'Avaliação Padrão VOLL' : selectedTemplateTitle}
                             </h2>
                         </div>
 
@@ -671,64 +748,71 @@ export const StudentAssessmentPage: React.FC = () => {
                                 <div className="space-y-6">
                                     {customFields.map((field) => (
                                         <div key={field.id} className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg">
-                                            <label className="block font-medium mb-2 text-slate-800 dark:text-white">{field.label}</label>
-                                            
-                                            {field.type === 'text' && (
-                                                <input className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950" value={field.value} onChange={e => {
-                                                    setCustomFields(customFields.map(f => f.id === field.id ? {...f, value: e.target.value} : f));
-                                                }} />
-                                            )}
-                                            
-                                            {field.type === 'long_text' && (
-                                                <textarea className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg h-24 bg-white dark:bg-slate-950" value={field.value} onChange={e => {
-                                                    setCustomFields(customFields.map(f => f.id === field.id ? {...f, value: e.target.value} : f));
-                                                }} />
-                                            )}
-                                            
-                                            {field.type === 'select' && (
-                                                <select className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950" value={field.value} onChange={e => {
-                                                    setCustomFields(customFields.map(f => f.id === field.id ? {...f, value: e.target.value} : f));
-                                                }}>
-                                                    <option value="">Selecione...</option>
-                                                    {field.options?.map(opt => <option key={opt}>{opt}</option>)}
-                                                </select>
-                                            )}
+                                            {/* Render "Fake Header" fields differently */}
+                                            {field.value === 'Seção' ? (
+                                                <h3 className="font-bold text-slate-800 dark:text-white uppercase text-sm tracking-wide bg-slate-100 dark:bg-slate-800 p-2 rounded">{field.label}</h3>
+                                            ) : (
+                                                <>
+                                                    <label className="block font-medium mb-2 text-slate-800 dark:text-white">{field.label}</label>
+                                                    
+                                                    {field.type === 'text' && (
+                                                        <input className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950" value={field.value} onChange={e => {
+                                                            setCustomFields(customFields.map(f => f.id === field.id ? {...f, value: e.target.value} : f));
+                                                        }} />
+                                                    )}
+                                                    
+                                                    {field.type === 'long_text' && (
+                                                        <textarea className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg h-24 bg-white dark:bg-slate-950" value={field.value} onChange={e => {
+                                                            setCustomFields(customFields.map(f => f.id === field.id ? {...f, value: e.target.value} : f));
+                                                        }} />
+                                                    )}
+                                                    
+                                                    {field.type === 'select' && (
+                                                        <select className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950" value={field.value} onChange={e => {
+                                                            setCustomFields(customFields.map(f => f.id === field.id ? {...f, value: e.target.value} : f));
+                                                        }}>
+                                                            <option value="">Selecione...</option>
+                                                            {field.options?.map(opt => <option key={opt}>{opt}</option>)}
+                                                        </select>
+                                                    )}
 
-                                            {field.type === 'radio' && (
-                                                <div className="space-y-2">
-                                                    {field.options?.map(opt => (
-                                                        <label key={opt} className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                                                            <input 
-                                                                type="radio" 
-                                                                name={field.id} 
-                                                                checked={field.value === opt}
-                                                                onChange={() => setCustomFields(customFields.map(f => f.id === field.id ? {...f, value: opt} : f))}
-                                                            />
-                                                            {opt}
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                            )}
+                                                    {field.type === 'radio' && (
+                                                        <div className="space-y-2">
+                                                            {field.options?.map(opt => (
+                                                                <label key={opt} className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                                                                    <input 
+                                                                        type="radio" 
+                                                                        name={field.id} 
+                                                                        checked={field.value === opt}
+                                                                        onChange={() => setCustomFields(customFields.map(f => f.id === field.id ? {...f, value: opt} : f))}
+                                                                    />
+                                                                    {opt}
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    )}
 
-                                            {field.type === 'checkbox' && (
-                                                <div className="space-y-2">
-                                                    {field.options?.map(opt => (
-                                                        <label key={opt} className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                                                            <input 
-                                                                type="checkbox"
-                                                                checked={(field.value as string[]).includes(opt)}
-                                                                onChange={e => {
-                                                                    const current = field.value as string[];
-                                                                    const newVal = e.target.checked 
-                                                                        ? [...current, opt]
-                                                                        : current.filter(x => x !== opt);
-                                                                    setCustomFields(customFields.map(f => f.id === field.id ? {...f, value: newVal} : f));
-                                                                }}
-                                                            />
-                                                            {opt}
-                                                        </label>
-                                                    ))}
-                                                </div>
+                                                    {field.type === 'checkbox' && (
+                                                        <div className="space-y-2">
+                                                            {field.options?.map(opt => (
+                                                                <label key={opt} className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                                                                    <input 
+                                                                        type="checkbox"
+                                                                        checked={(field.value as string[]).includes(opt)}
+                                                                        onChange={e => {
+                                                                            const current = field.value as string[];
+                                                                            const newVal = e.target.checked 
+                                                                                ? [...current, opt]
+                                                                                : current.filter(x => x !== opt);
+                                                                            setCustomFields(customFields.map(f => f.id === field.id ? {...f, value: newVal} : f));
+                                                                        }}
+                                                                    />
+                                                                    {opt}
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                     ))}
@@ -918,10 +1002,16 @@ export const StudentAssessmentPage: React.FC = () => {
                             <div className="space-y-6">
                                 {viewAssessment.content.fields?.map((field: any) => (
                                     <div key={field.id} className="border-b pb-2">
-                                        <p className="font-bold text-sm text-slate-600 mb-1">{field.label}</p>
-                                        <p className="text-slate-900">
-                                            {Array.isArray(field.value) ? field.value.join(', ') : field.value}
-                                        </p>
+                                        {field.value === 'Seção' ? (
+                                            <h3 className="font-bold bg-slate-200 p-1 mt-4 mb-2">{field.label}</h3>
+                                        ) : (
+                                            <>
+                                                <p className="font-bold text-sm text-slate-600 mb-1">{field.label}</p>
+                                                <p className="text-slate-900">
+                                                    {Array.isArray(field.value) ? field.value.join(', ') : field.value}
+                                                </p>
+                                            </>
+                                        )}
                                     </div>
                                 ))}
                             </div>
