@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppRoute } from '../../types';
-import { Users, Activity, ArrowRight, User, Building2, Newspaper, CheckCircle2 } from 'lucide-react';
+import { Users, Activity, ArrowRight, User, Building2, Newspaper, CheckCircle2, ClipboardList, TrendingUp } from 'lucide-react';
 import { fetchProfile } from '../../services/storage';
 import { StudioProfile } from '../../types';
 
@@ -70,9 +70,9 @@ export const InstructorDashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         
-        {/* Pilar 1: Meus Alunos */}
+        {/* Pilar 1: Meus Alunos (Renamed from Alunos do Studio) */}
         <Link to={AppRoute.STUDENTS} className="group relative overflow-hidden bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-blue-300 transition-all duration-300 flex flex-col">
           <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110">
             <Users size={120} />
@@ -83,7 +83,7 @@ export const InstructorDashboard: React.FC = () => {
           </div>
           
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 group-hover:text-blue-600 transition-colors">
-            Alunos do Studio
+            Meus Alunos
           </h2>
           <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 flex-grow leading-relaxed">
             Visualize a lista de alunos, contatos e fichas técnicas. 
@@ -95,7 +95,7 @@ export const InstructorDashboard: React.FC = () => {
           </div>
         </Link>
 
-        {/* Pilar 2: Pilates Rehab */}
+        {/* Pilar 2: Guia Clínico (Renamed from Pilates Rehab) */}
         <Link to={AppRoute.REHAB} className="group relative overflow-hidden bg-gradient-to-br from-brand-50 to-white dark:from-slate-800 dark:to-slate-900 p-8 rounded-2xl border border-brand-100 dark:border-brand-900/50 shadow-sm hover:shadow-xl hover:border-brand-400 transition-all duration-300 flex flex-col">
           <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110">
             <Activity size={120} />
@@ -106,7 +106,7 @@ export const InstructorDashboard: React.FC = () => {
           </div>
           
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 group-hover:text-brand-600 transition-colors">
-            Pilates Rehab & Aulas
+            Guia Clínico
           </h2>
           <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 flex-grow leading-relaxed">
             Ferramenta de IA para criar planos de aula baseados em patologias e consultar o histórico clínico.
@@ -117,7 +117,51 @@ export const InstructorDashboard: React.FC = () => {
           </div>
         </Link>
 
-        {/* Pilar 3: Newsletters */}
+        {/* Pilar 3: Avaliação Física (New) */}
+        <Link to={AppRoute.STUDENT_ASSESSMENT} className="group relative overflow-hidden bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-emerald-300 transition-all duration-300 flex flex-col">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110">
+            <ClipboardList size={120} />
+          </div>
+          
+          <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <ClipboardList className="w-7 h-7" />
+          </div>
+          
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 group-hover:text-emerald-600 transition-colors">
+            Avaliação Física
+          </h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 flex-grow leading-relaxed">
+            Realize anamneses completas, testes físicos e análises posturais dos alunos.
+          </p>
+          
+          <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center text-emerald-600 font-bold text-sm group-hover:gap-2 transition-all">
+            Nova Avaliação <ArrowRight className="w-4 h-4 ml-1" />
+          </div>
+        </Link>
+
+        {/* Pilar 4: Evolução do Aluno (New) */}
+        <Link to={AppRoute.EVOLUTION} className="group relative overflow-hidden bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-orange-300 transition-all duration-300 flex flex-col">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110">
+            <TrendingUp size={120} />
+          </div>
+          
+          <div className="w-14 h-14 bg-orange-50 dark:bg-orange-900/20 text-orange-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <TrendingUp className="w-7 h-7" />
+          </div>
+          
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 group-hover:text-orange-600 transition-colors">
+            Evolução do Aluno
+          </h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 flex-grow leading-relaxed">
+            Registre a evolução diária (estabilidade, força, dor) e acompanhe o progresso técnico.
+          </p>
+          
+          <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center text-orange-600 font-bold text-sm group-hover:gap-2 transition-all">
+            Registrar <ArrowRight className="w-4 h-4 ml-1" />
+          </div>
+        </Link>
+
+        {/* Pilar 5: Newsletters */}
         <Link to={AppRoute.INSTRUCTOR_NEWSLETTERS} className="group relative overflow-hidden bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-purple-300 transition-all duration-300 flex flex-col">
           <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110">
             <Newspaper size={120} />

@@ -92,8 +92,8 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         { type: 'header', label: 'Operacional' },
         { type: 'link', label: 'Avaliação Física', icon: ClipboardList, path: AppRoute.STUDENT_ASSESSMENT },
         { type: 'link', label: 'Guia Clínico', icon: Activity, path: AppRoute.REHAB },
-        { type: 'link', label: t('student_evolution'), icon: TrendingUp, path: AppRoute.EVOLUTION },
-        { type: 'link', label: t('students'), icon: Users, path: AppRoute.STUDENTS },
+        { type: 'link', label: 'Evolução do Aluno', icon: TrendingUp, path: AppRoute.EVOLUTION },
+        { type: 'link', label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
         { type: 'link', label: 'Pesquisas', icon: FileText, path: AppRoute.INSTRUCTOR_SURVEYS }, 
         { type: 'link', label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.INSTRUCTOR_NEWSLETTERS },
       ];
