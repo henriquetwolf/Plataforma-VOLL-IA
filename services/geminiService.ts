@@ -114,8 +114,8 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
 
     IMPORTANTE SOBRE IMAGEM:
     Gere um 'visualPrompt' ÚNICO que descreva uma "Imagem Storyboard" (Grid Layout).
-    A imagem deve ser uma composição panorâmica dividida em 6 painéis verticais iguais lado a lado, lendo-se da esquerda para a direita.
-    Descreva o que aparece em cada um dos 6 painéis visualmente para que o modelo de imagem gere uma única imagem larga contendo toda a sequência.
+    A imagem deve ser uma composição panorâmica (16:9) dividida em 6 painéis verticais iguais lado a lado, lendo-se da esquerda para a direita.
+    Descreva o que aparece em cada um dos 6 painéis visualmente para que o modelo de imagem gere uma única imagem larga contendo toda a sequência de 6 slides.
     `;
 
     responseSchema.properties.carouselCards = {
@@ -132,7 +132,7 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
             required: ['order', 'visualPrompt']
         }
     };
-    responseSchema.properties.visualPrompt = { type: Type.STRING, description: "Prompt para imagem única estilo Storyboard (6 painéis lado a lado) descrevendo a sequência inteira." };
+    responseSchema.properties.visualPrompt = { type: Type.STRING, description: "Prompt visual para imagem única estilo Storyboard (6 painéis verticais lado a lado) descrevendo a sequência inteira." };
   } 
   // --- LOGIC: STATIC POST ---
   else {
@@ -232,11 +232,13 @@ export const generatePilatesImage = async (request: ContentRequest, persona: any
         No text in image.`;
 
         if (isCarousel) {
-            prompt = `Create a wide panoramic image split into 6 equal vertical panels (storyboard style) representing a carousel sequence for Pilates.
+            prompt = `Create a wide panoramic storyboard image (16:9 ratio).
+            The image must be visually divided into 6 equal vertical panels side-by-side, representing a sequence.
+            Each panel represents a slide of a carousel.
             Style: ${request.imageStyle}.
             Theme: ${request.theme}.
-            Sequence: ${contentContext.substring(0, 300)}...
-            Make sure the transitions are seamless or distinctly panelled. No text.`;
+            Context Description: ${contentContext.substring(0, 500)}...
+            Ensure distinct separation or seamless flow between the 6 panels. No text.`;
         }
 
         const response = await ai.models.generateContent({

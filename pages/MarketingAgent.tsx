@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { generateMarketingContent, generateTopicSuggestions } from '../services/geminiService';
+import { generateMarketingContent, generateTopicSuggestions, generatePilatesImage } from '../services/geminiService';
 import { MarketingFormData, GeneratedContent, CategorizedTopics, SavedPost, ReelOption, CarouselCard, ContentRequest } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -230,9 +230,28 @@ const ResultView = ({ result, onSave, onRegenerate }: { result: GeneratedContent
                 {/* --- CAROUSEL VIEW --- */}
                 {result.carouselCards && (
                     <div className="mb-8">
+                        {/* Display the Generated Image if available */}
+                        {result.generatedImage && (
+                            <div className="mb-6 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm">
+                                <h4 className="text-xs font-bold text-slate-500 uppercase p-3 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-700 flex items-center gap-2">
+                                    <LucideImage className="w-4 h-4"/> Storyboard (Visualização dos 6 Cards)
+                                </h4>
+                                <img 
+                                    src={result.generatedImage} 
+                                    alt="Carousel Storyboard" 
+                                    className="w-full h-auto object-cover"
+                                />
+                                <div className="p-2 bg-slate-50 dark:bg-slate-950 flex justify-center border-t border-slate-200 dark:border-slate-700">
+                                    <a href={result.generatedImage} download="carousel_storyboard.png" className="text-xs text-brand-600 font-bold hover:underline">
+                                        Baixar Imagem (Use no Canva para cortar)
+                                    </a>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="mb-4">
                             <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2 mb-2">
-                                <LucideImage className="w-4 h-4"/> Visual Panorâmico (Prompt)
+                                <LucideImage className="w-4 h-4"/> Visual Prompt (Texto)
                             </h4>
                             <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400 italic">
                                 "{result.visualPrompt}"
@@ -317,7 +336,13 @@ const ResultView = ({ result, onSave, onRegenerate }: { result: GeneratedContent
                         <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
                             <LucideImage className="w-4 h-4"/> Sugestão Visual
                         </h4>
-                        <p className="text-sm text-slate-600 dark:text-slate-400 italic">"{result.visualPrompt}"</p>
+                        {result.generatedImage ? (
+                            <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 mb-2">
+                                <img src={result.generatedImage} alt="Gerado" className="w-full h-auto" />
+                            </div>
+                        ) : (
+                            <p className="text-sm text-slate-600 dark:text-slate-400 italic">"{result.visualPrompt}"</p>
+                        )}
                     </div>
                 )}
 
@@ -423,7 +448,9 @@ const GeneratedPostPreview = ({ post, onClose, readOnly }: { post: SavedPost, on
 
 export const MarketingAgent: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
   
   // Navigation State
   const [step, setStep] = useState(1); // 1: Goal, 2: Audience, 3: Topic, 4: Format, 5: Result
@@ -479,6 +506,8 @@ export const MarketingAgent: React.FC = () => {
 
   const handleGenerate = async () => {
     setLoading(true);
+    setLoadingMessage(t('loading'));
+    
     try {
         const formData: MarketingFormData = {
             mode: 'single',
@@ -495,7 +524,32 @@ export const MarketingAgent: React.FC = () => {
         };
 
         const data = await generateMarketingContent(formData);
+        
         if (data) {
+            // Check if we need to generate an image automatically (e.g. for Carousels or Static Posts if visualPrompt is present)
+            if (data.visualPrompt) {
+                setLoadingMessage('Gerando imagem visual...');
+                try {
+                    // Create a compatible ContentRequest for image generation
+                    const imgRequest: ContentRequest = {
+                        format: format, // This will trigger the carousel 16:9 logic in generatePilatesImage
+                        imageStyle: style,
+                        theme: topic,
+                        objective: formData.goal,
+                        audience: formData.audience,
+                        tone: 'Professional', // Default
+                        logoConfig: { enabled: false, type: 'normal', position: 'bottom-right', size: 'small' }
+                    };
+                    
+                    const imgUrl = await generatePilatesImage(imgRequest, null, data.visualPrompt);
+                    if (imgUrl) {
+                        data.generatedImage = imgUrl;
+                    }
+                } catch (imgErr) {
+                    console.error("Failed to auto-generate image:", imgErr);
+                }
+            }
+
             setResult(data);
             setStep(5);
         }
@@ -504,6 +558,7 @@ export const MarketingAgent: React.FC = () => {
         alert("Erro ao gerar conteúdo.");
     } finally {
         setLoading(false);
+        setLoadingMessage('');
     }
   };
 
@@ -522,7 +577,7 @@ export const MarketingAgent: React.FC = () => {
               logoConfig: { enabled: false, type: 'normal', position: 'bottom-right', size: 'small' }
           },
           content: result.captionLong || result.captionShort || '',
-          imageUrl: result.generatedImage || null, // Se a IA gerar imagem real no futuro
+          imageUrl: result.generatedImage || null, 
           videoUrl: null,
           createdAt: new Date().toISOString()
       };
@@ -650,7 +705,7 @@ export const MarketingAgent: React.FC = () => {
                            
                            {step === 4 ? (
                                <Button onClick={handleGenerate} isLoading={loading} className="px-8 bg-brand-600 hover:bg-brand-700 text-white">
-                                   <Sparkles className="w-4 h-4 mr-2"/> Gerar Conteúdo
+                                   {loading ? loadingMessage : <><Sparkles className="w-4 h-4 mr-2"/> Gerar Conteúdo</>}
                                </Button>
                            ) : (
                                <Button onClick={() => setStep(prev => prev + 1)} disabled={
