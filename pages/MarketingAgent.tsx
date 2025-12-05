@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -554,7 +553,7 @@ export const MarketingAgent: React.FC = () => {
        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div>
                 <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Megaphone className="h-8 w-8 text-brand-600" /> Marketing Digital
+                    <Megaphone className="h-8 w-8 text-brand-600" /> Marketing
                 </h1>
                 <p className="text-slate-500">Crie conteúdo estratégico (Post Único).</p>
             </div>

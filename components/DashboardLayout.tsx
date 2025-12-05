@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -110,7 +109,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         { type: 'header', label: `2. ${t('strategy')}` },
         { type: 'link', label: t('planning_ai'), icon: Compass, path: AppRoute.STRATEGY },
         { type: 'link', label: 'Agente de Ação', icon: Rocket, path: AppRoute.ACTION_AGENT },
-        { type: 'link', label: 'Marketing Digital', icon: Megaphone, path: AppRoute.MARKETING_AGENT },
+        { type: 'link', label: 'Marketing', icon: Megaphone, path: AppRoute.MARKETING_AGENT },
         { type: 'link', label: 'Guia Clínico', icon: Activity, path: AppRoute.REHAB },
         { type: 'link', label: t('content_agent'), icon: Wand2, path: AppRoute.CONTENT_AGENT },
         { type: 'link', label: 'WhatsApp', icon: MessageCircle, path: AppRoute.WHATSAPP_AGENT },
