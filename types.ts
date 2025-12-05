@@ -19,6 +19,8 @@ export interface MarketingFormData {
   frequency?: number;
   selectedFormats?: string[];
   startDate?: string; // Added Start Date
+  // New field for Carousel specific mode
+  carouselType?: 'image-only' | 'text-only' | 'text-image';
 }
 
 export interface ReelOption {
