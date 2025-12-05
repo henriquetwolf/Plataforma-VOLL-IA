@@ -4,37 +4,24 @@ export type MarketingMode = 'single' | 'plan' | 'story';
 
 export interface MarketingFormData {
   mode: MarketingMode;
-  // Legacy single string fields (kept for compatibility or singular logic if needed)
-  goal: string; 
-  audience: string;
-  // New Array fields for multi-selection
-  goals?: string[];
-  audiences?: string[];
-  
+  goal: string; // Can be comma separated for multi-select
   customGoal?: string; 
-  customAudience?: string;
+  audience: string; // Can be comma separated for multi-select
+  customAudience?: string; // New field for custom audience text
   topic: string;
   format: string; 
   style: string;
-  // New fields for Planner
-  frequency?: number;
-  selectedFormats?: string[];
-  startDate?: string; // Added Start Date
-  // New field for Carousel specific mode
+  // Specific for carousel logic
   carouselType?: 'image-only' | 'text-only' | 'text-image';
 }
 
 export interface ReelOption {
-  type: 'Viral' | 'Standard' | 'Selfie' | 'Box'; // New field for specific types
-  style: string; // Keeping for compatibility
+  type: string; // 'Viral', 'Standard', etc.
   title: string;
-  hook: string; // "Gancho Inicial"
-  purpose: string;
-  captionShort: string;
-  captionLong: string;
-  script: string[];
-  audioSuggestions: string[]; // Array for "Viral/Trend" and "Emotional/Cinematic"
-  microDetails: string; // "Microdetalhes"
+  hook: string;
+  script: string[]; 
+  audioSuggestions: string[];
+  microDetails: string;
   duration: string;
 }
 
@@ -42,7 +29,7 @@ export interface ContentItem {
   day: string;
   format: string;
   idea: string;
-  generatedPostId?: string; // Links to SavedPost ID
+  generatedPostId?: string;
 }
 
 export interface WeekPlan {
@@ -54,15 +41,15 @@ export interface WeekPlan {
 export interface StoryFrame {
   order: number;
   type: 'video' | 'static' | 'poll' | 'box' | 'repost';
-  action: string;
-  spokenText?: string;
-  directAction: string;
+  action: string; 
+  spokenText?: string; 
+  directAction: string; 
   emotion: string;
 }
 
 export interface StorySequence {
-  category: string;
-  reasoning: string;
+  category: string; 
+  reasoning: string; 
   frames: StoryFrame[];
 }
 
@@ -70,34 +57,37 @@ export interface CarouselCard {
   order: number;
   textOverlay: string;
   visualPrompt: string;
-  generatedImage?: string;
-  title?: string;
   content?: string;
 }
 
 export interface GeneratedContent {
+  // Common
   suggestedFormat: string;
   reasoning: string;
-  hashtags?: string[];
+  hashtags: string[];
   tips: string;
+  
+  // Single Post (Static/Carousel)
   captionShort?: string;
   captionLong?: string;
-  visualContent?: string[];
-  visualPrompt?: string; 
-  generatedImage?: string;
+  visualContent?: string[]; // Legacy
+  visualPrompt?: string; // New for image gen
+  generatedImage?: string; // Base64 string
+  
+  // Carousel Specific
+  carouselCards?: CarouselCard[];
+
+  // Single Post (Reels)
   isReels?: boolean;
   reelsOptions?: ReelOption[];
+
+  // Monthly Plan
   isPlan?: boolean;
   weeks?: WeekPlan[];
+
+  // Story Sequence
   isStory?: boolean;
   storySequence?: StorySequence;
-  carouselCards?: CarouselCard[]; // New field for carousel cards
-}
-
-export interface CategorizedTopics {
-  cliche: string[];
-  innovative: string[];
-  visceral: string[];
 }
 
 export interface SavedContent extends GeneratedContent {
@@ -450,9 +440,11 @@ export enum AppRoute {
   CONTENT_AGENT = '/content-agent',
   WHATSAPP_AGENT = '/whatsapp-agent',
   ACTION_AGENT = '/action-agent',
+  MARKETING_AGENT = '/marketing-agent',
   ROOT = '/'
 }
 
+// ... existing interfaces ...
 export type NewsletterAudience = 'students' | 'instructors' | 'both';
 
 export interface Newsletter {
@@ -847,4 +839,10 @@ export enum StrategyStep {
   Actions,
   Review,
   GeneratedPlan
+}
+
+export interface CategorizedTopics {
+  cliche: string[];
+  innovative: string[];
+  visceral: string[];
 }
