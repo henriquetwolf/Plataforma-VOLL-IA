@@ -13,6 +13,7 @@ export interface MarketingFormData {
   // New fields for Planner
   frequency?: number;
   selectedFormats?: string[];
+  startDate?: string; // Added Start Date
 }
 
 export interface ReelOption {
@@ -30,6 +31,7 @@ export interface ContentItem {
   day: string;
   format: string;
   idea: string;
+  generatedPostId?: string; // Links to SavedPost ID
 }
 
 export interface WeekPlan {

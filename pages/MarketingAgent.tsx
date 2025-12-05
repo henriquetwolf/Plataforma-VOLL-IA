@@ -3,42 +3,28 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { 
-    generatePilatesContentStream, 
-    generatePilatesImage, 
-    generatePilatesVideo, 
-    generateContentPlan,
-    generatePlannerSuggestion,
     generateMarketingContent, 
-    generateTopicSuggestions
+    generateTopicSuggestions,
+    generatePilatesImage
 } from '../services/geminiService';
 import { 
     saveStudioPersona, 
     fetchStudioPersona, 
     savePost, 
     fetchSavedPosts, 
-    deleteSavedPost,
-    saveContentPlan,
-    fetchContentPlans,
-    deleteContentPlan,
-    getTodayPostCount,
-    recordGenerationUsage
+    deleteSavedPost
 } from '../services/contentService';
 import { fetchProfile } from '../services/storage';
-import { compositeImageWithLogo } from '../services/imageService';
 import { 
     ContentRequest, 
     StudioPersona, 
-    SavedPost, 
-    StrategicContentPlan,
-    LogoConfig,
-    AppRoute,
-    GeneratedContent,
     MarketingFormData,
-    SavedContent
+    SavedContent,
+    GeneratedContent
 } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Wand2, Calendar, Layout, Loader2, Sparkles, Copy, Trash2, Video, Image as LucideImage, CheckCircle, Save, UserCircle, Eye, ArrowRight, X, Settings2, RefreshCw, MessageSquarePlus, Lock, ArrowLeft, Lightbulb, Zap, Rocket, CalendarDays, FileText, Heart, ShoppingBag, BookOpen, Camera, MessageCircle, Star, Users, RotateCcw, Dumbbell, History } from 'lucide-react';
+import { Wand2, CalendarDays, FileText, Heart, ShoppingBag, BookOpen, Camera, MessageCircle, Star, Users, RotateCcw, Dumbbell, History, Zap, Layout, Sparkles, ArrowRight, CheckCircle, Save, Trash2, Eye, X, Video, Image as LucideImage, Copy, Lightbulb, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const GOALS = [
@@ -84,19 +70,45 @@ const STYLES = [
   'Energético / Vibrante'
 ];
 
-const INITIAL_REQUEST: ContentRequest = {
-    format: 'Post Estático',
-    objective: 'Educação',
-    theme: '',
-    audience: 'Alunos Iniciantes',
-    tone: 'Inspirador',
-    imageStyle: 'Fotorealista',
-    logoConfig: {
-        enabled: false,
-        type: 'normal',
-        position: 'bottom-right',
-        size: 'small'
+// --- HELPER FUNCTIONS ---
+const getCalculatedDate = (startStr: string | undefined, weekIndex: number, dayName: string) => {
+    if (!startStr) return dayName;
+    const start = new Date(startStr);
+    const dayLower = dayName.toLowerCase();
+    
+    // 0 = Domingo, 1 = Segunda, ...
+    const dayMap: {[key:string]: number} = {
+        'domingo': 0, 'segunda': 1, 'terça': 2, 'quarta': 3, 'quinta': 4, 'sexta': 5, 'sábado': 6,
+        'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4, 'friday': 5, 'saturday': 6
+    };
+
+    let targetDay = -1;
+    for (const key in dayMap) {
+        if (dayLower.includes(key)) {
+            targetDay = dayMap[key];
+            break;
+        }
     }
+
+    if (targetDay === -1) return dayName;
+    
+    // Start of the specific week
+    const currentWeekStart = new Date(start);
+    currentWeekStart.setDate(start.getDate() + (weekIndex * 7));
+    
+    // Find the date of the specific day in that week
+    const date = new Date(currentWeekStart);
+    // Adjust logic: assume startDate is the first day of the plan logic.
+    // If startDate is Wednesday, and Plan Week 1 says "Monday", that implies NEXT Monday? Or should we map strictly?
+    // Simplification: Find the next occurrence of 'targetDay' starting from 'currentWeekStart'
+    
+    const startDay = currentWeekStart.getDay();
+    let daysToAdd = targetDay - startDay;
+    if (daysToAdd < 0) daysToAdd += 7; // Ensure next occurrence if day passed in current week context
+    
+    date.setDate(currentWeekStart.getDate() + daysToAdd);
+    
+    return `${date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} - ${dayName}`;
 };
 
 // --- COMPONENTS ---
@@ -203,22 +215,33 @@ const StepPlanSettings = ({ formData, updateFormData }: any) => {
                     <CalendarDays className="w-5 h-5 text-brand-600"/> Configuração do Plano
                 </h2>
                 
-                <div className="mb-6">
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Quantos posts por semana?</label>
-                    <div className="flex gap-2">
-                        {[1, 2, 3, 4, 5].map(num => (
-                            <button
-                                key={num}
-                                onClick={() => updateFormData('frequency', num)}
-                                className={`flex-1 p-3 rounded-lg border text-sm font-bold transition-all ${
-                                    formData.frequency === num 
-                                    ? 'bg-brand-600 text-white border-brand-600' 
-                                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-brand-300'
-                                }`}
-                            >
-                                {num}x
-                            </button>
-                        ))}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Quantos posts por semana?</label>
+                        <div className="flex gap-2">
+                            {[1, 2, 3, 4, 5].map(num => (
+                                <button
+                                    key={num}
+                                    onClick={() => updateFormData('frequency', num)}
+                                    className={`flex-1 p-3 rounded-lg border text-sm font-bold transition-all ${
+                                        formData.frequency === num 
+                                        ? 'bg-brand-600 text-white border-brand-600' 
+                                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-brand-300'
+                                    }`}
+                                >
+                                    {num}x
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Data de Início do Plano</label>
+                        <input 
+                            type="date"
+                            className="w-full p-3 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
+                            value={formData.startDate || ''}
+                            onChange={(e) => updateFormData('startDate', e.target.value)}
+                        />
                     </div>
                 </div>
 
@@ -234,7 +257,7 @@ const StepPlanSettings = ({ formData, updateFormData }: any) => {
                                     onClick={() => toggleFormat(fmt)}
                                     className={`p-3 rounded-lg border text-sm font-medium transition-all flex items-center justify-between ${
                                         isSelected 
-                                        ? 'bg-purple-50 border-purple-500 text-purple-700' 
+                                        ? 'bg-purple-50 border-purple-500 text-purple-700 dark:bg-purple-900/20' 
                                         : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 hover:bg-slate-50'
                                     }`}
                                 >
@@ -337,9 +360,7 @@ const StepTopic = ({ formData, updateFormData, suggestions, onGenerateIdeas, isG
     </div>
 );
 
-const PlanCalendarView = ({ weeks }: { weeks: any[] }) => {
-    // Determine the days to show based on what's present in the posts, or fixed standard week
-    // Standard week: Mon-Sun
+const PlanCalendarView = ({ weeks, startDate }: { weeks: any[], startDate?: string }) => {
     const days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
     
     return (
@@ -359,15 +380,21 @@ const PlanCalendarView = ({ weeks }: { weeks: any[] }) => {
                             </div>
                             
                             {days.map(dayName => {
-                                // Find post for this day (rough matching)
                                 const post = week.posts?.find((p: any) => p.day.toLowerCase().includes(dayName.toLowerCase().split('-')[0]));
+                                const calculatedDate = post ? getCalculatedDate(startDate, idx, dayName) : null;
                                 
                                 return (
-                                    <div key={dayName} className={`col-span-1 rounded-lg p-2 border min-h-[80px] flex flex-col ${post ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm' : 'bg-slate-50/50 dark:bg-slate-950/50 border-transparent'}`}>
+                                    <div key={dayName} className={`col-span-1 rounded-lg p-2 border min-h-[80px] flex flex-col relative ${post ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm' : 'bg-slate-50/50 dark:bg-slate-950/50 border-transparent'}`}>
                                         {post ? (
                                             <>
-                                                <span className="text-[9px] font-bold uppercase text-brand-600 mb-1">{post.format}</span>
+                                                {startDate && <span className="text-[9px] text-slate-400 absolute top-1 right-2">{calculatedDate?.split(' - ')[0]}</span>}
+                                                <span className="text-[9px] font-bold uppercase text-brand-600 mb-1 mt-3">{post.format}</span>
                                                 <p className="text-[10px] text-slate-700 dark:text-slate-300 leading-tight line-clamp-3" title={post.idea}>{post.idea}</p>
+                                                {post.generatedPostId && (
+                                                    <div className="mt-auto pt-1 flex justify-center">
+                                                        <CheckCircle className="w-3 h-3 text-green-500" />
+                                                    </div>
+                                                )}
                                             </>
                                         ) : (
                                             <span className="text-slate-300 text-xs text-center mt-4">-</span>
@@ -383,7 +410,56 @@ const PlanCalendarView = ({ weeks }: { weeks: any[] }) => {
     );
 };
 
-const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate }: any) => {
+// --- PREVIEW MODAL ---
+const GeneratedPostPreview = ({ content, onClose, onSave, isSaving }: { content: GeneratedContent, onClose: () => void, onSave: () => void, isSaving: boolean }) => {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
+                    <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-brand-600"/> Post Gerado
+                    </h3>
+                    <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg text-slate-500">
+                        <X className="w-5 h-5"/>
+                    </button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                        <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                            <FileText className="w-4 h-4"/> Legenda
+                        </h4>
+                        <p className="text-sm whitespace-pre-wrap text-slate-600 dark:text-slate-400">{content.captionLong}</p>
+                        <p className="text-xs text-brand-600 mt-2 font-medium">{content.hashtags?.join(' ')}</p>
+                    </div>
+
+                    <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                        <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                            <LucideImage className="w-4 h-4"/> Imagem Sugerida
+                        </h4>
+                        {content.generatedImage ? (
+                            <img src={content.generatedImage} alt="Post" className="w-full rounded-lg object-contain h-64 bg-slate-200 dark:bg-slate-900" />
+                        ) : (
+                            <div className="h-40 bg-slate-200 dark:bg-slate-900 rounded-lg flex items-center justify-center text-slate-400 text-sm">
+                                Imagem não gerada
+                            </div>
+                        )}
+                        <p className="text-xs text-slate-500 mt-2 italic">Prompt: {content.visualPrompt}</p>
+                    </div>
+                </div>
+
+                <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 bg-slate-50 dark:bg-slate-950">
+                    <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+                    <Button onClick={onSave} isLoading={isSaving} className="bg-brand-600 hover:bg-brand-700 text-white">
+                        <Save className="w-4 h-4 mr-2"/> Salvar Post
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate, startDate, onGenerateSinglePost }: any) => {
     const [captionType, setCaptionType] = useState<'short' | 'long'>('long');
     const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
@@ -412,7 +488,69 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate }:
                 )}
             </div>
 
-            {/* SINGLE POST / REELS / CAROUSEL */}
+            {/* PLAN VIEW */}
+            {result.isPlan && result.weeks && (
+                <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                        <div className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                            {startDate ? `Início: ${new Date(startDate).toLocaleDateString()}` : 'Sem data definida'}
+                        </div>
+                        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                            <button onClick={() => setViewMode('list')} className={`px-3 py-1 text-xs font-bold rounded ${viewMode === 'list' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}>Lista</button>
+                            <button onClick={() => setViewMode('calendar')} className={`px-3 py-1 text-xs font-bold rounded ${viewMode === 'calendar' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}>Calendário</button>
+                        </div>
+                    </div>
+
+                    {viewMode === 'list' ? (
+                        <div className="space-y-4">
+                            {result.weeks.map((week: any, i: number) => (
+                                <div key={i} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+                                    <h4 className="font-bold text-brand-700 text-lg mb-4 flex items-center gap-2">
+                                        <CalendarDays className="w-5 h-5"/> Semana {week.weekNumber}: {week.theme}
+                                    </h4>
+                                    <div className="grid md:grid-cols-3 gap-4">
+                                        {week.posts && week.posts.map((post: any, idx: number) => (
+                                            <div key={idx} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex flex-col justify-between h-full">
+                                                <div>
+                                                    <div className="flex justify-between mb-2">
+                                                        <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">
+                                                            {getCalculatedDate(startDate, i, post.day)}
+                                                        </span>
+                                                        <span className="text-[10px] bg-white dark:bg-slate-900 border px-2 py-0.5 rounded text-slate-500 uppercase font-bold">{post.format}</span>
+                                                    </div>
+                                                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">{post.idea}</p>
+                                                </div>
+                                                
+                                                {post.generatedPostId ? (
+                                                    <div className="mt-auto pt-2 flex items-center justify-center text-green-600 text-xs font-bold gap-1 bg-green-50 dark:bg-green-900/20 py-1 rounded">
+                                                        <CheckCircle className="w-3 h-3 text-green-500" />
+                                                    </div>
+                                                ) : (
+                                                    <Button 
+                                                        size="sm" 
+                                                        variant="outline" 
+                                                        className="w-full mt-auto text-xs"
+                                                        onClick={() => onGenerateSinglePost(post, i, idx)}
+                                                    >
+                                                        <Sparkles className="w-3 h-3 mr-1"/> Gerar Post
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm overflow-x-auto">
+                            <PlanCalendarView weeks={result.weeks} startDate={startDate} />
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Other views omitted for brevity as they remain largely same, 
+               but essentially the single post, carousel logic is here inside !result.isPlan block */}
             {!result.isPlan && !result.isStory && (
                 <div className="grid md:grid-cols-2 gap-6">
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
@@ -520,45 +658,6 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate }:
                 </div>
             )}
 
-            {/* PLAN VIEW */}
-            {result.isPlan && result.weeks && (
-                <div className="space-y-6">
-                    <div className="flex justify-end">
-                        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-                            <button onClick={() => setViewMode('list')} className={`px-3 py-1 text-xs font-bold rounded ${viewMode === 'list' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}>Lista</button>
-                            <button onClick={() => setViewMode('calendar')} className={`px-3 py-1 text-xs font-bold rounded ${viewMode === 'calendar' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}>Calendário</button>
-                        </div>
-                    </div>
-
-                    {viewMode === 'list' ? (
-                        <div className="space-y-4">
-                            {result.weeks.map((week: any, i: number) => (
-                                <div key={i} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
-                                    <h4 className="font-bold text-brand-700 text-lg mb-4 flex items-center gap-2">
-                                        <CalendarDays className="w-5 h-5"/> Semana {week.weekNumber}: {week.theme}
-                                    </h4>
-                                    <div className="grid md:grid-cols-3 gap-4">
-                                        {week.posts && week.posts.map((post: any, idx: number) => (
-                                            <div key={idx} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
-                                                <div className="flex justify-between mb-2">
-                                                    <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">{post.day}</span>
-                                                    <span className="text-[10px] bg-white dark:bg-slate-900 border px-2 py-0.5 rounded text-slate-500 uppercase font-bold">{post.format}</span>
-                                                </div>
-                                                <p className="text-sm text-slate-600 dark:text-slate-400">{post.idea}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm overflow-x-auto">
-                            <PlanCalendarView weeks={result.weeks} />
-                        </div>
-                    )}
-                </div>
-            )}
-
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800 flex items-start gap-3">
                 <Lightbulb className="w-5 h-5 text-blue-600 mt-0.5" />
                 <div>
@@ -623,6 +722,11 @@ export const MarketingAgent: React.FC = () => {
   const [savedPosts, setSavedPosts] = useState<SavedContent[]>([]);
   const [isGeneratingIdeas, setIsGeneratingIdeas] = useState(false);
 
+  // Single Post Generation from Plan state
+  const [previewPost, setPreviewPost] = useState<GeneratedContent | null>(null);
+  const [isSavingPost, setIsSavingPost] = useState(false);
+  const [generatingInfo, setGeneratingInfo] = useState<{ weekIdx: number; postIdx: number } | null>(null);
+
   const [formData, setFormData] = useState<MarketingFormData>({
     mode: 'single', // Default
     goal: '',
@@ -633,7 +737,8 @@ export const MarketingAgent: React.FC = () => {
     format: 'auto',
     style: 'Brand Persona',
     frequency: 3,
-    selectedFormats: ['Post Estático', 'Reels / Vídeo', 'Carrossel']
+    selectedFormats: ['Post Estático', 'Reels / Vídeo', 'Carrossel'],
+    startDate: new Date().toISOString().split('T')[0] // Default today
   });
 
   // Load saved posts on mount
@@ -647,8 +752,7 @@ export const MarketingAgent: React.FC = () => {
       if(user?.id) {
         fetchSavedPosts(user.id).then(posts => {
             const mapped = posts.map(p => {
-                // Safety check for legacy data
-                const req = (p.request || {}) as any; // Cast to any to avoid TS error on {}
+                const req = (p.request || {}) as any; 
                 return {
                     id: p.id,
                     date: new Date(p.createdAt).toLocaleDateString(),
@@ -694,7 +798,6 @@ export const MarketingAgent: React.FC = () => {
     
     try {
       // 1. Generate Text Structure
-      // Force format: auto if not available in current step context
       const requestData = { ...formData };
       if (formData.mode === 'plan') requestData.format = 'auto'; // Plan mode doesn't select single format
 
@@ -703,14 +806,11 @@ export const MarketingAgent: React.FC = () => {
       if (!content) throw new Error("Falha na geração. Tente novamente.");
 
       // 2. Image Generation Logic (Only for Single/Story/Carousel)
-      // Carousel (6 images)
       if (content.carouselCards && content.carouselCards.length > 0) {
           setLoadingMsg("Gerando 6 imagens de alta qualidade para o Carrossel (isso pode levar 1 min)...");
           
           const cardPromises = content.carouselCards.map(async (card: any, idx: number) => {
-              // Add delay to avoid immediate rate limit if strict
               await new Promise(r => setTimeout(r, idx * 800));
-              
               const imgRequest: ContentRequest = {
                   format: 'Carrossel',
                   objective: formData.goal,
@@ -721,8 +821,6 @@ export const MarketingAgent: React.FC = () => {
                   tone: 'Visual',
                   imageStyle: formData.style
               };
-              
-              // Enhanced Prompt prefix for better quality
               const enhancedPrompt = `Photorealistic, 8k, cinematic lighting, professional photography: ${card.visualPrompt}`;
               const img = await generatePilatesImage(imgRequest, null, enhancedPrompt);
               return { ...card, generatedImage: img };
@@ -731,7 +829,6 @@ export const MarketingAgent: React.FC = () => {
           const cardsWithImages = await Promise.all(cardPromises);
           content.carouselCards = cardsWithImages;
       } 
-      // Static Post (1 image)
       else if (formData.mode === 'single' && !content.isReels && !content.isPlan) {
           setLoadingMsg("Criando a imagem do post...");
           const visualPrompt = content.visualPrompt || `Pilates post about ${formData.topic}. Style: ${formData.style}`;
@@ -763,6 +860,93 @@ export const MarketingAgent: React.FC = () => {
     }
   };
 
+  // --- SINGLE POST FROM PLAN LOGIC ---
+  const handleGenerateSinglePost = async (postItem: any, weekIdx: number, postIdx: number) => {
+      setIsLoading(true);
+      setLoadingMsg(`Criando post para: ${postItem.idea}...`);
+      
+      try {
+          const singleRequestData: MarketingFormData = {
+              ...formData,
+              mode: 'single',
+              format: postItem.format.includes('Carrossel') ? 'Carrossel' : (postItem.format.includes('Reels') ? 'Reels' : 'Post Estático'),
+              topic: postItem.idea
+          };
+
+          const content = await generateMarketingContent(singleRequestData);
+          
+          if (!content) throw new Error("Falha na geração do post.");
+
+          // Generate Image if needed
+          if (!content.isReels && !content.carouselCards) {
+              setLoadingMsg("Gerando imagem...");
+              const visualPrompt = content.visualPrompt || `Pilates post about ${postItem.idea}. Style: ${formData.style}`;
+              const imgRequest: ContentRequest = {
+                  format: singleRequestData.format,
+                  objective: formData.goal,
+                  theme: visualPrompt,
+                  audience: formData.audience,
+                  tone: 'Visual',
+                  imageStyle: formData.style
+              };
+              const img = await generatePilatesImage(imgRequest, null, `Photorealistic, 8k: ${visualPrompt}`);
+              content.generatedImage = img || undefined;
+          }
+
+          setPreviewPost(content);
+          setGeneratingInfo({ weekIdx, postIdx });
+
+      } catch (e: any) {
+          alert("Erro ao gerar post: " + e.message);
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
+  const handleSaveSinglePost = async () => {
+      if (!previewPost || !user?.id || !generatingInfo || !result) return;
+      setIsSavingPost(true);
+
+      try {
+          // 1. Save the individual post
+          const newPostId = crypto.randomUUID();
+          const newPost: any = {
+              id: newPostId,
+              request: {
+                  format: previewPost.suggestedFormat,
+                  objective: formData.goal,
+                  theme: formData.topic,
+                  audience: formData.audience
+              },
+              content: JSON.stringify(previewPost),
+              imageUrl: previewPost.generatedImage || null,
+              createdAt: new Date().toISOString(),
+              data: previewPost
+          };
+          await savePost(user.id, newPost);
+
+          // 2. Update the Plan Result in state with the new ID
+          const updatedWeeks = [...result.weeks!];
+          if (updatedWeeks[generatingInfo.weekIdx]?.posts[generatingInfo.postIdx]) {
+              updatedWeeks[generatingInfo.weekIdx].posts[generatingInfo.postIdx].generatedPostId = newPostId;
+          }
+          
+          setResult({ ...result, weeks: updatedWeeks });
+          
+          // 3. Close modal
+          setPreviewPost(null);
+          setGeneratingInfo(null);
+          
+          // If the plan itself was already saved (id exists), we should update it in DB too.
+          // For simplicity in this flow, we assume user will click "Save Plan" again or we handle purely local state until saving plan.
+          
+      } catch (e) {
+          alert("Erro ao salvar post.");
+      } finally {
+          setIsSavingPost(false);
+      }
+  };
+
   const handleRegenerateAction = async () => {
     if (!canRegenerate) return;
     handleGenerateAction(); 
@@ -770,6 +954,9 @@ export const MarketingAgent: React.FC = () => {
 
   const handleSavePost = async () => {
     if (!result || !user?.id) return;
+    
+    // Check if it's a plan with generated posts inside
+    // If so, we save the structure.
     
     const newPost: any = {
       id: crypto.randomUUID(),
@@ -806,9 +993,9 @@ export const MarketingAgent: React.FC = () => {
 
   const handleOpenSaved = (post: SavedContent) => {
       setResult(post);
-      setCanRegenerate(false); // Cannot regenerate saved item directly without resetting inputs
+      setCanRegenerate(false); 
       setActiveTab('create');
-      setStep(5); // Show result view
+      setStep(5); 
   };
 
   const handleGenerateIdeas = async () => {
@@ -850,7 +1037,8 @@ export const MarketingAgent: React.FC = () => {
       format: 'auto',
       style: 'Brand Persona',
       frequency: 3,
-      selectedFormats: ['Post Estático', 'Reels / Vídeo', 'Carrossel']
+      selectedFormats: ['Post Estático', 'Reels / Vídeo', 'Carrossel'],
+      startDate: new Date().toISOString().split('T')[0]
     });
   };
 
@@ -959,6 +1147,8 @@ export const MarketingAgent: React.FC = () => {
                         onSave={handleSavePost} 
                         onRegenerate={handleRegenerateAction}
                         canRegenerate={canRegenerate}
+                        startDate={formData.startDate}
+                        onGenerateSinglePost={handleGenerateSinglePost}
                     />
                 )}
                 </>
@@ -1009,6 +1199,16 @@ export const MarketingAgent: React.FC = () => {
           <div className="w-full bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 p-6 md:p-10">
               <SavedPostsList savedPosts={savedPosts} onDelete={handleDeleteSaved} onOpen={handleOpenSaved} />
           </div>
+      )}
+
+      {/* SINGLE POST PREVIEW MODAL */}
+      {previewPost && (
+          <GeneratedPostPreview 
+              content={previewPost} 
+              onClose={() => { setPreviewPost(null); setGeneratingInfo(null); }} 
+              onSave={handleSaveSinglePost}
+              isSaving={isSavingPost}
+          />
       )}
     </div>
   );
