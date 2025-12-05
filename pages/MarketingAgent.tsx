@@ -98,9 +98,6 @@ const getCalculatedDate = (startStr: string | undefined, weekIndex: number, dayN
     
     // Find the date of the specific day in that week
     const date = new Date(currentWeekStart);
-    // Adjust logic: assume startDate is the first day of the plan logic.
-    // If startDate is Wednesday, and Plan Week 1 says "Monday", that implies NEXT Monday? Or should we map strictly?
-    // Simplification: Find the next occurrence of 'targetDay' starting from 'currentWeekStart'
     
     const startDay = currentWeekStart.getDay();
     let daysToAdd = targetDay - startDay;
@@ -360,7 +357,7 @@ const StepTopic = ({ formData, updateFormData, suggestions, onGenerateIdeas, isG
     </div>
 );
 
-const PlanCalendarView = ({ weeks, startDate }: { weeks: any[], startDate?: string }) => {
+const PlanCalendarView = ({ weeks, startDate, onViewPost }: { weeks: any[], startDate?: string, onViewPost: (id: string) => void }) => {
     const days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
     
     return (
@@ -391,8 +388,13 @@ const PlanCalendarView = ({ weeks, startDate }: { weeks: any[], startDate?: stri
                                                 <span className="text-[9px] font-bold uppercase text-brand-600 mb-1 mt-3">{post.format}</span>
                                                 <p className="text-[10px] text-slate-700 dark:text-slate-300 leading-tight line-clamp-3" title={post.idea}>{post.idea}</p>
                                                 {post.generatedPostId && (
-                                                    <div className="mt-auto pt-1 flex justify-center">
-                                                        <CheckCircle className="w-3 h-3 text-green-500" />
+                                                    <div className="mt-auto pt-1 flex justify-center gap-1">
+                                                        <span className="flex items-center justify-center text-green-600 text-xs font-bold bg-green-50 dark:bg-green-900/20 px-1 rounded">
+                                                            <CheckCircle className="w-3 h-3 mr-1" /> Criado
+                                                        </span>
+                                                        <button onClick={() => onViewPost(post.generatedPostId)} className="text-slate-400 hover:text-brand-600 p-0.5">
+                                                            <Eye className="w-3 h-3" />
+                                                        </button>
                                                     </div>
                                                 )}
                                             </>
@@ -411,13 +413,25 @@ const PlanCalendarView = ({ weeks, startDate }: { weeks: any[], startDate?: stri
 };
 
 // --- PREVIEW MODAL ---
-const GeneratedPostPreview = ({ content, onClose, onSave, isSaving }: { content: GeneratedContent, onClose: () => void, onSave: () => void, isSaving: boolean }) => {
+const GeneratedPostPreview = ({ 
+    content, 
+    onClose, 
+    onSave, 
+    isSaving, 
+    readOnly = false 
+}: { 
+    content: GeneratedContent, 
+    onClose: () => void, 
+    onSave?: () => void, 
+    isSaving?: boolean,
+    readOnly?: boolean
+}) => {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                 <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
                     <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
-                        <Sparkles className="w-5 h-5 text-brand-600"/> Post Gerado
+                        <Sparkles className="w-5 h-5 text-brand-600"/> {readOnly ? 'Visualizar Post' : 'Post Gerado'}
                     </h3>
                     <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg text-slate-500">
                         <X className="w-5 h-5"/>
@@ -449,17 +463,19 @@ const GeneratedPostPreview = ({ content, onClose, onSave, isSaving }: { content:
                 </div>
 
                 <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 bg-slate-50 dark:bg-slate-950">
-                    <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-                    <Button onClick={onSave} isLoading={isSaving} className="bg-brand-600 hover:bg-brand-700 text-white">
-                        <Save className="w-4 h-4 mr-2"/> Salvar Post
-                    </Button>
+                    <Button variant="ghost" onClick={onClose}>{readOnly ? 'Fechar' : 'Cancelar'}</Button>
+                    {!readOnly && onSave && (
+                        <Button onClick={onSave} isLoading={isSaving} className="bg-brand-600 hover:bg-brand-700 text-white">
+                            <Save className="w-4 h-4 mr-2"/> Salvar Post
+                        </Button>
+                    )}
                 </div>
             </div>
         </div>
     );
 };
 
-const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate, startDate, onGenerateSinglePost }: any) => {
+const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate, startDate, onGenerateSinglePost, onViewPost }: any) => {
     const [captionType, setCaptionType] = useState<'short' | 'long'>('long');
     const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
@@ -522,8 +538,11 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate, s
                                                 </div>
                                                 
                                                 {post.generatedPostId ? (
-                                                    <div className="mt-auto pt-2 flex items-center justify-center text-green-600 text-xs font-bold gap-1 bg-green-50 dark:bg-green-900/20 py-1 rounded">
-                                                        <CheckCircle className="w-3 h-3 text-green-500" />
+                                                    <div className="mt-auto pt-2 flex items-center justify-between text-green-600 text-xs font-bold gap-1 bg-green-50 dark:bg-green-900/20 py-1 px-2 rounded">
+                                                        <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-green-500" /> Criado</span>
+                                                        <button onClick={() => onViewPost(post.generatedPostId)} className="text-slate-500 hover:text-brand-600 p-1 bg-white rounded border border-slate-200 hover:border-brand-200">
+                                                            <Eye className="w-3 h-3" />
+                                                        </button>
                                                     </div>
                                                 ) : (
                                                     <Button 
@@ -543,7 +562,7 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate, s
                         </div>
                     ) : (
                         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm overflow-x-auto">
-                            <PlanCalendarView weeks={result.weeks} startDate={startDate} />
+                            <PlanCalendarView weeks={result.weeks} startDate={startDate} onViewPost={onViewPost} />
                         </div>
                     )}
                 </div>
@@ -726,6 +745,7 @@ export const MarketingAgent: React.FC = () => {
   const [previewPost, setPreviewPost] = useState<GeneratedContent | null>(null);
   const [isSavingPost, setIsSavingPost] = useState(false);
   const [generatingInfo, setGeneratingInfo] = useState<{ weekIdx: number; postIdx: number } | null>(null);
+  const [isViewingSavedPost, setIsViewingSavedPost] = useState(false);
 
   const [formData, setFormData] = useState<MarketingFormData>({
     mode: 'single', // Default
@@ -752,6 +772,7 @@ export const MarketingAgent: React.FC = () => {
       if(user?.id) {
         fetchSavedPosts(user.id).then(posts => {
             const mapped = posts.map(p => {
+                // Ensure robustness against old data structure
                 const req = (p.request || {}) as any; 
                 return {
                     id: p.id,
@@ -895,6 +916,7 @@ export const MarketingAgent: React.FC = () => {
 
           setPreviewPost(content);
           setGeneratingInfo({ weekIdx, postIdx });
+          setIsViewingSavedPost(false); // Mode = Generation
 
       } catch (e: any) {
           alert("Erro ao gerar post: " + e.message);
@@ -937,13 +959,34 @@ export const MarketingAgent: React.FC = () => {
           setPreviewPost(null);
           setGeneratingInfo(null);
           
-          // If the plan itself was already saved (id exists), we should update it in DB too.
-          // For simplicity in this flow, we assume user will click "Save Plan" again or we handle purely local state until saving plan.
+          // Refresh list to have the new post available in history
+          loadSaved();
           
       } catch (e) {
           alert("Erro ao salvar post.");
       } finally {
           setIsSavingPost(false);
+      }
+  };
+
+  // --- VIEW SAVED POST FROM PLAN ---
+  const handleViewPost = (postId: string) => {
+      const savedPost = savedPosts.find(p => p.id === postId);
+      if (savedPost) {
+          // Map SavedContent back to GeneratedContent for preview
+          const content: GeneratedContent = {
+              ...savedPost,
+              // Ensure critical fields match if they differ slightly
+              captionLong: savedPost.captionLong,
+              captionShort: savedPost.captionShort,
+              generatedImage: savedPost.generatedImage,
+              carouselCards: savedPost.carouselCards,
+              isReels: savedPost.isReels,
+              reelsOptions: savedPost.reelsOptions,
+              visualPrompt: savedPost.visualPrompt
+          };
+          setPreviewPost(content);
+          setIsViewingSavedPost(true); // Read-only mode
       }
   };
 
@@ -1149,6 +1192,7 @@ export const MarketingAgent: React.FC = () => {
                         canRegenerate={canRegenerate}
                         startDate={formData.startDate}
                         onGenerateSinglePost={handleGenerateSinglePost}
+                        onViewPost={handleViewPost}
                     />
                 )}
                 </>
@@ -1208,6 +1252,7 @@ export const MarketingAgent: React.FC = () => {
               onClose={() => { setPreviewPost(null); setGeneratingInfo(null); }} 
               onSave={handleSaveSinglePost}
               isSaving={isSavingPost}
+              readOnly={isViewingSavedPost}
           />
       )}
     </div>
