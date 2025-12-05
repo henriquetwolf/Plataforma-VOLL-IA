@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { fetchProfile } from '../services/storage';
 import { generateFullReport } from '../services/geminiService';
+import { saveStrategicPlan, fetchStrategicPlans, deleteStrategicPlan } from '../services/strategyService';
 import { StrategicPlan, SavedPlan, StrategyStep } from '../types';
 import { VisionStep, SwotStep, GoalsStep, ActionsStep } from '../components/strategy/StrategyForms';
 import { GeneratedPlan } from '../components/strategy/GeneratedPlan';
@@ -39,42 +40,39 @@ export const StrategicPlanning: React.FC = () => {
   const [planData, setPlanData] = useState<StrategicPlan>(initialPlanData);
   const [generatedReport, setGeneratedReport] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
-  // Gestão de Planos Salvos (LocalStorage)
+  // Gestão de Planos Salvos
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const [showSavedList, setShowSavedList] = useState(false);
   const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
 
-  // Carregar dados iniciais (Perfil do Studio e Planos Salvos)
+  // Carregar dados iniciais
   useEffect(() => {
     const initializeData = async () => {
-      // 1. Carregar planos salvos
-      try {
-        const stored = localStorage.getItem('pilates_strategic_plans');
-        if (stored) setSavedPlans(JSON.parse(stored));
-      } catch (e) { console.error(e); }
+      if (!user?.id) return;
 
-      // 2. Preencher Nome do Studio automaticamente a partir do Perfil
-      if (user?.id) {
-        try {
-          const profile = await fetchProfile(user.id);
-          // Força a atualização se tivermos o nome do studio, mesmo que o usuário já tenha aberto o form antes
-          if (profile?.studioName) {
-            setPlanData(prev => ({ ...prev, studioName: profile.studioName }));
-          }
-        } catch (error) {
-          console.error("Erro ao carregar perfil para estratégia:", error);
+      // 1. Carregar planos salvos do Supabase
+      try {
+        const dbPlans = await fetchStrategicPlans(user.id);
+        setSavedPlans(dbPlans);
+      } catch (e) { 
+        console.error("Erro ao carregar planos:", e); 
+      }
+
+      // 2. Preencher Nome do Studio
+      try {
+        const profile = await fetchProfile(user.id);
+        if (profile?.studioName) {
+          setPlanData(prev => ({ ...prev, studioName: profile.studioName }));
         }
+      } catch (error) {
+        console.error("Erro ao carregar perfil:", error);
       }
     };
     
     initializeData();
   }, [user]);
-
-  const updateLocalStorage = (plans: SavedPlan[]) => {
-    localStorage.setItem('pilates_strategic_plans', JSON.stringify(plans));
-    setSavedPlans(plans);
-  };
 
   const updatePlanData = (updates: Partial<StrategicPlan>) => {
     setPlanData(prev => ({ ...prev, ...updates }));
@@ -100,26 +98,29 @@ export const StrategicPlanning: React.FC = () => {
     setCurrentStep(StrategyStep.GeneratedPlan);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!user?.id) return;
+    setIsSaving(true);
+
     const newPlan: SavedPlan = {
-      id: currentPlanId || new Date().toISOString(),
+      id: currentPlanId || crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       planData,
       report: generatedReport
     };
 
-    const existingIndex = savedPlans.findIndex(p => p.id === newPlan.id);
-    let updatedList;
+    const result = await saveStrategicPlan(user.id, newPlan);
     
-    if (existingIndex > -1) {
-      updatedList = [...savedPlans];
-      updatedList[existingIndex] = newPlan;
+    if (result.success) {
+        alert("Planejamento salvo no banco de dados!");
+        // Refresh List
+        const updatedPlans = await fetchStrategicPlans(user.id);
+        setSavedPlans(updatedPlans);
+        setCurrentPlanId(newPlan.id);
     } else {
-      updatedList = [newPlan, ...savedPlans];
+        alert("Erro ao salvar: " + result.error);
     }
-    
-    updateLocalStorage(updatedList);
-    setCurrentPlanId(newPlan.id);
+    setIsSaving(false);
   };
 
   const handleLoadPlan = (plan: SavedPlan) => {
@@ -130,19 +131,23 @@ export const StrategicPlanning: React.FC = () => {
     setCurrentStep(StrategyStep.GeneratedPlan);
   };
 
-  const handleDeletePlan = (id: string) => {
+  const handleDeletePlan = async (id: string) => {
+    if (!user?.id) return;
     if (confirm('Tem certeza?')) {
-      const updated = savedPlans.filter(p => p.id !== id);
-      updateLocalStorage(updated);
+      const result = await deleteStrategicPlan(id, user.id);
+      if (result.success) {
+          const updated = await fetchStrategicPlans(user.id);
+          setSavedPlans(updated);
+      } else {
+          alert("Erro ao deletar: " + result.error);
+      }
     }
   };
 
   const handleStartOver = () => {
-    // Preserva o nome do estúdio atual ao reiniciar
     const currentName = planData.studioName;
     setPlanData({ ...initialPlanData, studioName: currentName });
     
-    // Recarrega do perfil para garantir
     if (user?.id) {
        fetchProfile(user.id).then(profile => {
         if (profile?.studioName) {
@@ -171,7 +176,6 @@ export const StrategicPlanning: React.FC = () => {
           {t('strategy_agent_desc')}
         </p>
 
-        {/* Process Steps Summary */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-12 max-w-4xl mx-auto text-left">
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex items-center gap-3 mb-2">
@@ -300,7 +304,7 @@ export const StrategicPlanning: React.FC = () => {
             report={generatedReport} 
             onStartOver={handleStartOver}
             onSave={handleSave}
-            isSaved={!!currentPlanId}
+            isSaved={!!currentPlanId || isSaving}
           />
         )}
       </div>

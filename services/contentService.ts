@@ -70,11 +70,13 @@ export const savePost = async (studioId: string, post: SavedPost) => {
 
 export const fetchSavedPosts = async (studioId: string): Promise<SavedPost[]> => {
   try {
+    // PERFORMANCE FIX: Limit to 15 items to avoid loading too many base64 images
     const { data, error } = await supabase
       .from('content_posts')
       .select('data')
       .eq('studio_id', studioId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(15);
 
     if (error) throw error;
     return data.map((row: any) => row.data);
@@ -123,7 +125,6 @@ export const getTodayPostCount = async (studioId: string): Promise<number> => {
         }
 
         // 2. Fallback: Conta posts salvos (se a tabela nova não existir ou der erro)
-        // Isso mantém a compatibilidade até o SQL ser rodado
         const { count } = await supabase
             .from('content_posts')
             .select('*', { count: 'exact', head: true })
@@ -137,7 +138,7 @@ export const getTodayPostCount = async (studioId: string): Promise<number> => {
     }
 };
 
-// --- STRATEGIC PLANS ---
+// --- STRATEGIC PLANS (CONTENT PLANS) ---
 // Assumes table 'content_plans' exists: id, studio_id, data (jsonb), created_at
 
 export const saveContentPlan = async (studioId: string, plan: StrategicContentPlan) => {
@@ -163,7 +164,8 @@ export const fetchContentPlans = async (studioId: string): Promise<StrategicCont
           .from('content_plans')
           .select('data')
           .eq('studio_id', studioId)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(10); // Limit to avoid heavy load
     
         if (error) throw error;
         return data.map((row: any) => row.data);

@@ -31,7 +31,6 @@ export const fetchDashboardNotifications = async (studioId: string): Promise<Das
     const lastDismissedSurvey = localStorage.getItem('pilates_dismiss_survey');
     
     // Determine the cutoff time: Max(24h ago, lastDismissedTime)
-    // This ensures we show new responses that arrived AFTER the user clicked
     let cutoffTime = yesterday;
     if (lastDismissedSurvey) {
         const dismissedDate = new Date(lastDismissedSurvey);
@@ -40,10 +39,12 @@ export const fetchDashboardNotifications = async (studioId: string): Promise<Das
         }
     }
 
+    // Optimization: Fetch only active survey IDs first
     const { data: surveys } = await supabase
         .from('surveys')
         .select('id')
-        .eq('studio_id', studioId);
+        .eq('studio_id', studioId)
+        .eq('is_active', true);
     
     if (surveys && surveys.length > 0) {
         const surveyIds = surveys.map(s => s.id);
@@ -51,7 +52,8 @@ export const fetchDashboardNotifications = async (studioId: string): Promise<Das
             .from('survey_responses')
             .select('user_type, created_at')
             .in('survey_id', surveyIds)
-            .gte('created_at', cutoffTime.toISOString());
+            .gte('created_at', cutoffTime.toISOString())
+            .limit(50); // Limit response check
 
         if (responses && responses.length > 0) {
             const studentCount = responses.filter(r => r.user_type === 'student').length;
@@ -78,32 +80,30 @@ export const fetchDashboardNotifications = async (studioId: string): Promise<Das
         }
     }
 
-    // 2. Today's Content Plan (Local Dismissal Check)
+    // 2. Today's Content Plan
     const dismissedContentDate = localStorage.getItem('pilates_dismiss_content');
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
 
     // Only fetch if not dismissed today
     if (dismissedContentDate !== todayStr) {
+        // Optimization: Only fetch the most recent plan
         const { data: plans } = await supabase
             .from('content_plans')
             .select('data')
-            .eq('studio_id', studioId);
+            .eq('studio_id', studioId)
+            .order('created_at', { ascending: false })
+            .limit(1);
 
-        if (plans) {
-            // Map JS getDay() (0=Sun) to common Portuguese/English names found in plans
+        if (plans && plans.length > 0) {
+            const plan: StrategicContentPlan = plans[0].data;
+            // Map JS getDay() (0=Sun) to names
             const dayNames = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
             const dayNamesEn = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-            const currentDayIndex = today.getDay(); // 0-6
+            const currentDayIndex = today.getDay(); 
             
-            // Loop through plans to find match
-            for (const row of plans) {
-                const plan: StrategicContentPlan = row.data;
-                if (!plan.startDate || !plan.weeks) continue;
-
+            if (plan.startDate && plan.weeks) {
                 const start = new Date(plan.startDate);
-                // Adjust timezone offset issues roughly or assume local string
-                // Simply calculating diffDays
                 const diffTime = Math.abs(today.getTime() - start.getTime());
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
                 
@@ -126,8 +126,6 @@ export const fetchDashboardNotifications = async (studioId: string): Promise<Das
                                 detail: `Tema: "${todaysIdea.theme}"`,
                                 link: '/content-agent'
                             });
-                            // Found one, break to avoid duplicates
-                            break; 
                         }
                     }
                 }
