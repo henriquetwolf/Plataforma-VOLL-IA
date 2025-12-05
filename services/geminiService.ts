@@ -6,7 +6,7 @@ import {
   TriageStep, TriageStatus, RecipeResponse, WorkoutResponse, Suggestion, 
   NewsletterAudience, ContentRequest, StudioPersona, ClassEvaluation,
   StudioInfo, StudentEvolution, TreatmentPlanResponse, WhatsAppScriptRequest,
-  ActionInput, ActionIdea, MarketingFormData, GeneratedContent
+  ActionInput, ActionIdea, MarketingFormData, GeneratedContent, CategorizedTopics
 } from "../types";
 
 // Initialize AI Client
@@ -125,20 +125,22 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
     } else {
         // Single Post / Reels / Carousel
         responseSchema.properties.isReels = { type: Type.BOOLEAN };
-        responseSchema.properties.visualContent = { type: Type.ARRAY, items: { type: Type.STRING } };
         
         responseSchema.properties.reelsOptions = {
             type: Type.ARRAY,
             items: {
                 type: Type.OBJECT,
                 properties: {
-                    style: { type: Type.STRING },
+                    type: { type: Type.STRING, description: 'Viral, Standard, Selfie, or Box' },
                     title: { type: Type.STRING },
+                    hook: { type: Type.STRING, description: 'Must be impactful (3s)' },
                     purpose: { type: Type.STRING },
                     script: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    audioSuggestion: { type: Type.STRING },
+                    audioSuggestions: { type: Type.ARRAY, items: { type: Type.STRING }, description: '1 Viral/Trend, 1 Cinematic/Emotional' },
+                    microDetails: { type: Type.STRING, description: 'Describe expressions, scenery, movements' },
                     duration: { type: Type.STRING }
-                }
+                },
+                required: ['type', 'title', 'hook', 'script', 'audioSuggestions', 'microDetails']
             }
         };
 
@@ -150,11 +152,13 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
                     properties: {
                         order: { type: Type.INTEGER },
                         textOverlay: { type: Type.STRING, description: "Short text to place on the image" },
-                        visualPrompt: { type: Type.STRING, description: "Photorealistic image description for this card" },
+                        visualPrompt: { type: Type.STRING, description: "Description for this specific card, part of a panoramic sequence" },
                     },
                     required: ['order', 'textOverlay', 'visualPrompt']
                 }
             };
+            // For carousel, we also want a main prompt for the panoramic generation
+            responseSchema.properties.visualPrompt = { type: Type.STRING, description: "A panoramic 16:9 image prompt describing the flow of 6 cards" };
         } else {
             responseSchema.properties.visualPrompt = { type: Type.STRING, description: "Photorealistic image description for the post" };
         }
@@ -162,9 +166,11 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
   }
 
   let prompt = `
-  Atue como um Especialista em Marketing Digital para Studios de Pilates.
-  Gere conteúdo para Instagram com base nestes dados:
+  Atue como um Diretor de Marketing Sênior (Estratégico, Persuasivo e Humanizado).
+  Idioma: Português Brasileiro Nativo (proibido termos robóticos ou traduções literais).
+  Evite clichês vazios como "Venha conferir" ou "O melhor para você".
   
+  Dados:
   Modo: ${formData.mode}
   Objetivo: ${formData.customGoal || formData.goal}
   Público: ${formData.customAudience || formData.audience}
@@ -196,8 +202,17 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
     `;
   } else if (isCarousel) {
     prompt += `
-    Crie um Carrossel Educativo de 6 Cards.
-    Preencha 'carouselCards' com exatamente 6 itens.
+    Crie um Carrossel Educativo de EXATAMENTE 6 Cards.
+    Preencha 'carouselCards' com 6 itens.
+    Estrutura Obrigatória:
+    1. Capa (Gancho Visual + Título Forte)
+    2. Consciência (Aprofunda a dor ou quebra mito)
+    3. Solução (Pilates como a chave)
+    4. Mecanismo (Como funciona na prática)
+    5. Prova (Resultado ou identificação)
+    6. CTA (Chamada para ação clara)
+    
+    Gere também um 'visualPrompt' único para uma imagem panorâmica 16:9 que represente visualmente a sequência desses 6 cards lado a lado.
     SEMPRE retorne 'captionShort' E 'captionLong'.
     `;
   } else {
@@ -205,13 +220,18 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
     Crie um post único completo.
     SEMPRE retorne 'captionShort' E 'captionLong'.
     
-    Se o formato for Reels ou Vídeo:
-    - Forneça 3 (TRÊS) opções distintas de roteiro detalhado em 'reelsOptions'.
-    - Cada opção deve ter uma abordagem ou gancho diferente.
+    Se o formato for Reels/Vídeo (ou 'auto' decidir por vídeo):
     - Marque 'isReels' como true.
+    - Gere EXATAMENTE 4 opções de roteiro em 'reelsOptions', uma para cada tipo abaixo:
+      1. type: 'Viral' (Max 35s). Foco em trends, cortes rápidos, visual. Estrutura: Situação Rápida (POV) -> Ação Imediata -> Resultado Visual.
+      2. type: 'Standard' (Max 60s). Foco em autoridade/técnica. Estrutura: Antes (Dor) -> Durante (Técnica) -> Depois (Transformação).
+      3. type: 'Selfie' (Max 45s). Foco em intimidade/conexão. Estrutura: Pergunta desconfortável ou verdade dura -> Mini-história -> Conclusão.
+      4. type: 'Box' (Max 45s). Foco em responder UMA pergunta profunda. Estrutura: Clareza técnica + Demonstração prática + Autoridade.
+    - OBRIGATÓRIO: 'hook' inicial de 3s deve ser impactante ("fodástico").
+    - 'audioSuggestions': Forneça sempre 2 opções (1 Viral/Trend e 1 Emocional/Cinematográfica).
     
-    Se o formato for Post Estático (ou 'auto' que decidiu ser estático):
-    - Forneça 'visualPrompt'.
+    Se o formato for Post Estático (ou 'auto' decidir por estático):
+    - Forneça 'visualPrompt' detalhado.
     - NÃO marque 'isReels'.
     `;
   }
@@ -241,26 +261,41 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
   }
 };
 
-export const generateTopicSuggestions = async (goal: string, audience: string): Promise<string[]> => {
+export const generateTopicSuggestions = async (goal: string, audience: string): Promise<CategorizedTopics | null> => {
   const prompt = `
-  Como um especialista em marketing para Studios de Pilates, sugira 5 tópicos criativos e específicos para posts no Instagram.
+  Como um Diretor de Marketing Sênior para Studios de Pilates, sugira 6 temas para posts no Instagram.
   Objetivo: ${goal}
   Público: ${audience}
   
-  Retorne APENAS um array JSON de strings com os títulos dos tópicos.
-  Exemplo: ["Benefícios do Pilates na gravidez", "Como aliviar dor nas costas"]
+  Retorne um JSON com 3 categorias, contendo 2 temas cada:
+  1. "cliche": Temas que todos buscam (ex: dor nas costas), mas com uma abordagem bem feita.
+  2. "innovative": Temas fora da caixa, que surpreendem.
+  3. "visceral": Temas profundos/emocionais que tocam na ferida ou desejo ardente.
+  
+  Schema: { "cliche": ["Tema 1", "Tema 2"], "innovative": ["Tema 3", "Tema 4"], "visceral": ["Tema 5", "Tema 6"] }
   `;
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
-      config: { responseMimeType: 'application/json' }
+      config: { 
+          responseMimeType: 'application/json',
+          responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                  cliche: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  innovative: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  visceral: { type: Type.ARRAY, items: { type: Type.STRING } }
+              },
+              required: ['cliche', 'innovative', 'visceral']
+          }
+      }
     });
-    return cleanAndParseJSON(response.text || '[]') || [];
+    return cleanAndParseJSON(response.text || '{}');
   } catch (e) {
     console.error("Error generating topics:", e);
-    return [];
+    return null;
   }
 };
 

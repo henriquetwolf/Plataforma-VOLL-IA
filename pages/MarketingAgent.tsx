@@ -5,26 +5,42 @@ import { useLanguage } from '../context/LanguageContext';
 import { 
     generateMarketingContent, 
     generateTopicSuggestions,
-    generatePilatesImage
+    generatePilatesImage,
+    generatePilatesContentStream, 
+    generatePilatesVideo, 
+    generateContentPlan,
+    generatePlannerSuggestion
 } from '../services/geminiService';
 import { 
     saveStudioPersona, 
     fetchStudioPersona, 
     savePost, 
     fetchSavedPosts, 
-    deleteSavedPost
+    deleteSavedPost,
+    saveContentPlan,
+    fetchContentPlans,
+    deleteContentPlan,
+    getTodayPostCount,
+    recordGenerationUsage
 } from '../services/contentService';
 import { fetchProfile } from '../services/storage';
+import { compositeImageWithLogo } from '../services/imageService';
 import { 
     ContentRequest, 
     StudioPersona, 
     MarketingFormData,
     SavedContent,
-    GeneratedContent
+    GeneratedContent,
+    CategorizedTopics,
+    ReelOption,
+    SavedPost,
+    StrategicContentPlan,
+    LogoConfig,
+    AppRoute
 } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Wand2, CalendarDays, FileText, Heart, ShoppingBag, BookOpen, Camera, MessageCircle, Star, Users, RotateCcw, Dumbbell, History, Zap, Layout, Sparkles, ArrowRight, CheckCircle, Save, Trash2, Eye, X, Video, Image as LucideImage, Copy, Lightbulb, RefreshCw } from 'lucide-react';
+import { Wand2, CalendarDays, FileText, Heart, ShoppingBag, BookOpen, Camera, MessageCircle, Star, Users, RotateCcw, Dumbbell, History, Zap, Layout, Sparkles, ArrowRight, CheckCircle, Save, Trash2, Eye, X, Video, Image as LucideImage, Copy, Lightbulb, RefreshCw, Box, PlayCircle, Rocket, Settings2, MessageSquarePlus, Lock, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const GOALS = [
@@ -69,6 +85,72 @@ const STYLES = [
   'Cinematográfico',
   'Energético / Vibrante'
 ];
+
+const INITIAL_REQUEST: ContentRequest = {
+    format: 'Post Estático',
+    objective: 'Educação',
+    theme: '',
+    audience: 'Alunos Iniciantes',
+    tone: 'Inspirador',
+    imageStyle: 'Fotorealista',
+    logoConfig: {
+        enabled: false,
+        type: 'normal',
+        position: 'bottom-right',
+        size: 'small'
+    }
+};
+
+const SuggestionInput = ({ 
+    label, 
+    value, 
+    onChange, 
+    onSuggestion, 
+    loading,
+    hasStrategy 
+}: { 
+    label: string, 
+    value: string, 
+    onChange: (val: string) => void, 
+    onSuggestion: (type: 'strategy' | 'random') => void,
+    loading: boolean,
+    hasStrategy: boolean
+}) => (
+    <div>
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{label}</label>
+        <div className="space-y-2">
+            <textarea 
+                className="w-full p-3 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 h-20 resize-none focus:ring-2 focus:ring-brand-500 outline-none"
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                placeholder="Digite ou use a IA..."
+            />
+            <div className="flex gap-2">
+                <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-xs" 
+                    onClick={() => onSuggestion('strategy')}
+                    disabled={loading || !hasStrategy}
+                    title={!hasStrategy ? "Crie um Planejamento Estratégico primeiro" : "Usar base estratégica"}
+                >
+                    <Lightbulb className="w-3 h-3 mr-1 text-yellow-500" /> Sugerir (Estratégia)
+                </Button>
+                <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-xs" 
+                    onClick={() => onSuggestion('random')}
+                    disabled={loading}
+                >
+                    <Zap className="w-3 h-3 mr-1 text-blue-500" /> Sugerir (Aleatório)
+                </Button>
+            </div>
+        </div>
+    </div>
+);
 
 // --- HELPER FUNCTIONS ---
 const getCalculatedDate = (startStr: string | undefined, weekIndex: number, dayName: string) => {
@@ -203,6 +285,110 @@ const StepAudience = ({ formData, updateFormData, toggleSelection }: any) => (
     </div>
 );
 
+const StepTopic = ({ formData, updateFormData, suggestions, onGenerateIdeas, isGeneratingIdeas }: any) => (
+    <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
+        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Sobre qual tema você quer falar?</h2>
+        
+        <textarea 
+            className="w-full p-4 border border-slate-300 dark:border-slate-700 rounded-xl h-32 resize-none focus:ring-2 focus:ring-brand-500 outline-none bg-white dark:bg-slate-900 text-lg"
+            placeholder={formData.mode === 'plan' ? "Ex: Foco em emagrecimento e bem-estar para o mês de Novembro..." : "Ex: Benefícios do Pilates para dor nas costas..."}
+            value={formData.topic}
+            onChange={e => updateFormData('topic', e.target.value)}
+        />
+
+        <div className="flex justify-end">
+            <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={onGenerateIdeas} 
+                isLoading={isGeneratingIdeas}
+                disabled={(!formData.goals?.length && !formData.customGoal) || (!formData.audiences?.length && !formData.customAudience)}
+            >
+                <Sparkles className="w-4 h-4 mr-2"/> Sugerir 6 Temas (IA)
+            </Button>
+        </div>
+
+        {suggestions && (suggestions.cliche || suggestions.innovative || suggestions.visceral) && (
+            <div className="mt-6 grid gap-4">
+                {suggestions.cliche && suggestions.cliche.length > 0 && (
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                        <p className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2"><CheckCircle className="w-4 h-4"/> Clichês que Funcionam</p>
+                        <div className="flex flex-wrap gap-2">
+                            {suggestions.cliche.map((s: string, i: number) => (
+                                <button key={i} onClick={() => updateFormData('topic', s)} className="bg-white hover:bg-slate-100 text-slate-700 px-4 py-2 rounded-full text-sm border border-slate-200 transition-colors shadow-sm">{s}</button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+                
+                {suggestions.innovative && suggestions.innovative.length > 0 && (
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
+                        <p className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Lightbulb className="w-4 h-4"/> Inovadores (Fora da Caixa)</p>
+                        <div className="flex flex-wrap gap-2">
+                            {suggestions.innovative.map((s: string, i: number) => (
+                                <button key={i} onClick={() => updateFormData('topic', s)} className="bg-white hover:bg-blue-50 text-blue-800 px-4 py-2 rounded-full text-sm border border-blue-200 transition-colors shadow-sm">{s}</button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {suggestions.visceral && suggestions.visceral.length > 0 && (
+                    <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-100 dark:border-purple-800">
+                        <p className="text-xs font-bold text-purple-600 uppercase mb-3 flex items-center gap-2"><Heart className="w-4 h-4"/> Viscerais (Emocionais)</p>
+                        <div className="flex flex-wrap gap-2">
+                            {suggestions.visceral.map((s: string, i: number) => (
+                                <button key={i} onClick={() => updateFormData('topic', s)} className="bg-white hover:bg-purple-50 text-purple-800 px-4 py-2 rounded-full text-sm border border-purple-200 transition-colors shadow-sm">{s}</button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        )}
+    </div>
+);
+
+const StepFormatStyle = ({ formData, updateFormData }: any) => (
+    <div className="space-y-8 animate-in fade-in slide-in-from-right-8">
+        <div>
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                <Layout className="w-5 h-5 text-brand-600"/> Formato do Conteúdo
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {FORMATS.map((item) => (
+                    <button
+                        key={item.id}
+                        onClick={() => updateFormData('format', item.id)}
+                        className={`p-4 rounded-xl border-2 text-left transition-all ${formData.format === item.id ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 ring-1 ring-brand-500' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
+                    >
+                        <div className="flex justify-between items-start mb-1">
+                            <span className="font-bold text-slate-800 dark:text-white">{item.label}</span>
+                            {item.recommended && <span className="text-[10px] bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full font-bold">TOP</span>}
+                        </div>
+                        <p className="text-sm text-slate-500">{item.description}</p>
+                    </button>
+                ))}
+            </div>
+        </div>
+
+        <div>
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-brand-600"/> Estilo Visual
+            </h2>
+            <div className="flex flex-wrap gap-3">
+                {STYLES.map((style) => (
+                    <button
+                        key={style}
+                        onClick={() => updateFormData('style', style)}
+                        className={`px-4 py-2 rounded-full border transition-all text-sm font-medium ${formData.style === style ? 'bg-brand-600 text-white border-brand-600' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-brand-300'}`}
+                    >
+                        {style}
+                    </button>
+                ))}
+            </div>
+        </div>
+    </div>
+);
+
 const StepPlanSettings = ({ formData, updateFormData }: any) => {
     const formats = ['Post Estático', 'Reels / Vídeo', 'Carrossel'];
     
@@ -283,90 +469,6 @@ const StepPlanSettings = ({ formData, updateFormData }: any) => {
     );
 };
 
-const StepFormatStyle = ({ formData, updateFormData }: any) => (
-    <div className="space-y-8 animate-in fade-in slide-in-from-right-8">
-        <div>
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                <Layout className="w-5 h-5 text-brand-600"/> Formato do Conteúdo
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {FORMATS.map((item) => (
-                    <button
-                        key={item.id}
-                        onClick={() => updateFormData('format', item.id)}
-                        className={`p-4 rounded-xl border-2 text-left transition-all ${formData.format === item.id ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 ring-1 ring-brand-500' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
-                    >
-                        <div className="flex justify-between items-start mb-1">
-                            <span className="font-bold text-slate-800 dark:text-white">{item.label}</span>
-                            {item.recommended && <span className="text-[10px] bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full font-bold">TOP</span>}
-                        </div>
-                        <p className="text-sm text-slate-500">{item.description}</p>
-                    </button>
-                ))}
-            </div>
-        </div>
-
-        <div>
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-brand-600"/> Estilo Visual
-            </h2>
-            <div className="flex flex-wrap gap-3">
-                {STYLES.map((style) => (
-                    <button
-                        key={style}
-                        onClick={() => updateFormData('style', style)}
-                        className={`px-4 py-2 rounded-full border transition-all text-sm font-medium ${formData.style === style ? 'bg-brand-600 text-white border-brand-600' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-brand-300'}`}
-                    >
-                        {style}
-                    </button>
-                ))}
-            </div>
-        </div>
-    </div>
-);
-
-const StepTopic = ({ formData, updateFormData, suggestions, onGenerateIdeas, isGeneratingIdeas }: any) => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Sobre qual tema você quer falar?</h2>
-        
-        <textarea 
-            className="w-full p-4 border border-slate-300 dark:border-slate-700 rounded-xl h-32 resize-none focus:ring-2 focus:ring-brand-500 outline-none bg-white dark:bg-slate-900 text-lg"
-            placeholder={formData.mode === 'plan' ? "Ex: Foco em emagrecimento e bem-estar para o mês de Novembro..." : "Ex: Benefícios do Pilates para dor nas costas..."}
-            value={formData.topic}
-            onChange={e => updateFormData('topic', e.target.value)}
-        />
-
-        <div className="flex justify-end">
-            <Button 
-                variant="secondary" 
-                size="sm" 
-                onClick={onGenerateIdeas} 
-                isLoading={isGeneratingIdeas}
-                disabled={(!formData.goals?.length && !formData.customGoal) || (!formData.audiences?.length && !formData.customAudience)}
-            >
-                <Sparkles className="w-4 h-4 mr-2"/> Gerar Ideias com IA
-            </Button>
-        </div>
-
-        {suggestions.length > 0 && (
-            <div className="mt-6">
-                <p className="text-xs font-bold text-brand-600 uppercase mb-3 flex items-center gap-2"><Lightbulb className="w-4 h-4"/> Sugestões para você</p>
-                <div className="flex flex-wrap gap-2">
-                    {suggestions.map((s: string, i: number) => (
-                        <button 
-                            key={i}
-                            onClick={() => updateFormData('topic', s)}
-                            className="bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300 px-4 py-2 rounded-full text-sm border border-brand-100 dark:border-brand-800 transition-colors"
-                        >
-                            {s}
-                        </button>
-                    ))}
-                </div>
-            </div>
-        )}
-    </div>
-);
-
 const PlanCalendarView = ({ weeks, startDate, onViewPost }: { weeks: any[], startDate?: string, onViewPost: (id: string) => void }) => {
     const days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
     
@@ -422,72 +524,10 @@ const PlanCalendarView = ({ weeks, startDate, onViewPost }: { weeks: any[], star
     );
 };
 
-// --- PREVIEW MODAL ---
-const GeneratedPostPreview = ({ 
-    content, 
-    onClose, 
-    onSave, 
-    isSaving, 
-    readOnly = false 
-}: { 
-    content: GeneratedContent, 
-    onClose: () => void, 
-    onSave?: () => void, 
-    isSaving?: boolean,
-    readOnly?: boolean
-}) => {
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
-                    <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
-                        <Sparkles className="w-5 h-5 text-brand-600"/> {readOnly ? 'Visualizar Post' : 'Post Gerado'}
-                    </h3>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg text-slate-500">
-                        <X className="w-5 h-5"/>
-                    </button>
-                </div>
-                
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                    <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                        <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                            <FileText className="w-4 h-4"/> Legenda
-                        </h4>
-                        <p className="text-sm whitespace-pre-wrap text-slate-600 dark:text-slate-400">{content.captionLong}</p>
-                        <p className="text-xs text-brand-600 mt-2 font-medium">{content.hashtags?.join(' ')}</p>
-                    </div>
-
-                    <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                        <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                            <LucideImage className="w-4 h-4"/> Imagem Sugerida
-                        </h4>
-                        {content.generatedImage ? (
-                            <img src={content.generatedImage} alt="Post" className="w-full rounded-lg object-contain h-64 bg-slate-200 dark:bg-slate-900" />
-                        ) : (
-                            <div className="h-40 bg-slate-200 dark:bg-slate-900 rounded-lg flex items-center justify-center text-slate-400 text-sm">
-                                Imagem não gerada
-                            </div>
-                        )}
-                        <p className="text-xs text-slate-500 mt-2 italic">Prompt: {content.visualPrompt}</p>
-                    </div>
-                </div>
-
-                <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 bg-slate-50 dark:bg-slate-950">
-                    <Button variant="ghost" onClick={onClose}>{readOnly ? 'Fechar' : 'Cancelar'}</Button>
-                    {!readOnly && onSave && (
-                        <Button onClick={onSave} isLoading={isSaving} className="bg-brand-600 hover:bg-brand-700 text-white">
-                            <Save className="w-4 h-4 mr-2"/> Salvar Post
-                        </Button>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-};
-
 const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate, startDate, onGenerateSinglePost, onViewPost }: any) => {
     const [captionType, setCaptionType] = useState<'short' | 'long'>('long');
     const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+    const [selectedReelOption, setSelectedReelOption] = useState<number>(0);
 
     if (!result) return null;
     return (
@@ -578,8 +618,6 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate, s
                 </div>
             )}
 
-            {/* Other views omitted for brevity as they remain largely same, 
-               but essentially the single post, carousel logic is here inside !result.isPlan block */}
             {!result.isPlan && !result.isStory && (
                 <div className="grid md:grid-cols-2 gap-6">
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
@@ -604,45 +642,99 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate, s
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
                         <h4 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
                             {result.isReels ? <Video className="w-5 h-5"/> : <LucideImage className="w-5 h-5"/>} 
-                            {result.isReels ? 'Roteiros de Vídeo (3 Opções)' : (result.carouselCards ? 'Carrossel (6 Cards)' : 'Imagem Sugerida')}
+                            {result.isReels ? '4 Opções Ultraviscerais' : (result.carouselCards ? 'Carrossel Panorâmico' : 'Imagem Sugerida')}
                         </h4>
                         
                         {/* REELS VIEW */}
                         {result.isReels && result.reelsOptions && (
-                            <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl text-sm h-80 overflow-y-auto space-y-4">
-                                {result.reelsOptions.map((opt: any, i: number) => (
-                                    <div key={i} className="pb-4 border-b last:border-0 border-slate-200 dark:border-slate-800">
-                                        <p className="font-bold text-brand-700 mb-1">Opção {i+1}: {opt.title}</p>
-                                        <ul className="list-disc pl-4 space-y-1 text-slate-600 dark:text-slate-400">
-                                            {opt.script.map((line: string, idx: number) => <li key={idx}>{line}</li>)}
-                                        </ul>
-                                        <div className="mt-2 flex items-center gap-2 text-xs bg-white dark:bg-slate-900 p-2 rounded border border-slate-200 dark:border-slate-800">
-                                            <span>🎵 Áudio: {opt.audioSuggestion}</span>
+                            <div className="flex flex-col h-[400px]">
+                                {/* Tabs */}
+                                <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+                                    {result.reelsOptions.map((opt: ReelOption, i: number) => (
+                                        <button
+                                            key={i}
+                                            onClick={() => setSelectedReelOption(i)}
+                                            className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all border ${
+                                                selectedReelOption === i 
+                                                ? 'bg-brand-600 text-white border-brand-600 shadow-md' 
+                                                : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                                            }`}
+                                        >
+                                            {opt.type || `Opção ${i+1}`}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Content */}
+                                <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl text-sm overflow-y-auto flex-1 border border-slate-100 dark:border-slate-800">
+                                    {result.reelsOptions[selectedReelOption] && (
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-start">
+                                                <h5 className="font-bold text-lg text-slate-800 dark:text-white">{result.reelsOptions[selectedReelOption].title}</h5>
+                                                <span className="text-[10px] bg-slate-200 dark:bg-slate-800 px-2 py-1 rounded font-mono">{result.reelsOptions[selectedReelOption].duration}</span>
+                                            </div>
+                                            
+                                            <div className="bg-yellow-50 text-yellow-800 p-2 rounded border border-yellow-100 text-xs">
+                                                <strong>🪝 Gancho (3s):</strong> {result.reelsOptions[selectedReelOption].hook}
+                                            </div>
+
+                                            <div className="space-y-2 pl-4 border-l-2 border-brand-200">
+                                                <p className="font-bold text-xs uppercase text-slate-400">Roteiro:</p>
+                                                <ul className="list-disc pl-4 space-y-1 text-slate-600 dark:text-slate-400">
+                                                    {result.reelsOptions[selectedReelOption].script.map((line: string, idx: number) => <li key={idx}>{line}</li>)}
+                                                </ul>
+                                            </div>
+
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded border border-slate-200 dark:border-slate-700 text-xs space-y-2">
+                                                <p><strong>🎥 Detalhes Visuais:</strong> {result.reelsOptions[selectedReelOption].microDetails}</p>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {result.reelsOptions[selectedReelOption].audioSuggestions.map((audio: string, idx: number) => (
+                                                        <span key={idx} className="bg-purple-50 text-purple-700 px-2 py-1 rounded border border-purple-100">🎵 {audio}</span>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    )}
+                                </div>
                             </div>
                         )}
 
                         {/* CAROUSEL VIEW */}
                         {result.carouselCards && (
-                            <div className="h-[340px] flex overflow-x-auto gap-4 p-2 pb-4 scrollbar-thin">
-                                {result.carouselCards.map((card: any, idx: number) => (
-                                    <div key={idx} className="min-w-[200px] w-[200px] bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden group shadow-sm">
-                                        <div className="h-40 bg-slate-200 dark:bg-slate-900 relative">
-                                            {card.generatedImage ? (
-                                                <img src={card.generatedImage} alt={`Card ${idx+1}`} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="flex items-center justify-center h-full text-slate-400 text-xs">Gerando imagem...</div>
-                                            )}
-                                            <span className="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded font-bold backdrop-blur-sm">{idx+1}/6</span>
+                            <div className="flex flex-col h-full">
+                                <div className="mb-4">
+                                    {result.generatedImage ? (
+                                        <div className="relative group">
+                                            <img src={result.generatedImage} alt="Panoramic Preview" className="w-full h-auto rounded-lg shadow-sm border border-slate-200 dark:border-slate-700" />
+                                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+                                                <a href={result.generatedImage} download="carousel_panoramic.png" className="bg-white text-slate-900 px-4 py-2 rounded-full font-bold text-sm shadow-lg hover:scale-105 transition-transform flex items-center gap-2">
+                                                    <Copy className="w-4 h-4"/> Baixar Panorâmica
+                                                </a>
+                                            </div>
                                         </div>
-                                        <div className="p-3 flex-1 flex flex-col bg-white dark:bg-slate-900">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Texto Overlay</p>
-                                            <p className="text-xs text-slate-700 dark:text-slate-300 leading-tight flex-1">{card.textOverlay}</p>
+                                    ) : (
+                                        <div className="h-32 bg-slate-200 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-400 text-xs italic">
+                                            Imagem panorâmica não gerada
                                         </div>
-                                    </div>
-                                ))}
+                                    )}
+                                    <p className="text-[10px] text-slate-400 text-center mt-1">Preview Panorâmico (Simulação do Grid)</p>
+                                </div>
+
+                                <div className="h-[250px] flex overflow-x-auto gap-4 p-2 scrollbar-thin">
+                                    {result.carouselCards.map((card: any, idx: number) => (
+                                        <div key={idx} className="min-w-[180px] w-[180px] bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col shadow-sm">
+                                            <div className="p-2 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 rounded-t-xl flex justify-between items-center">
+                                                <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Card {idx+1}</span>
+                                            </div>
+                                            <div className="p-3 flex-1 overflow-y-auto">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Texto</p>
+                                                <p className="text-xs text-slate-800 dark:text-slate-200">{card.textOverlay}</p>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase mt-3 mb-1">Visual</p>
+                                                <p className="text-[10px] text-slate-500 leading-tight">{card.visualPrompt}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
 
@@ -734,7 +826,119 @@ const SavedPostsList = ({ savedPosts, onDelete, onOpen }: any) => (
     </div>
 );
 
-// --- MAIN COMPONENT ---
+const GeneratedPostPreview = ({ content, onClose, onSave, isSaving, readOnly }: { 
+    content: GeneratedContent, 
+    onClose: () => void, 
+    onSave: () => void, 
+    isSaving: boolean,
+    readOnly: boolean 
+}) => {
+    const [selectedReelOption, setSelectedReelOption] = useState<number>(0);
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-4xl h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col relative border border-slate-200 dark:border-slate-800">
+                <button onClick={onClose} className="absolute top-4 right-4 z-10 bg-slate-100 dark:bg-slate-800 p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                    <X className="w-5 h-5 text-slate-500" />
+                </button>
+
+                <div className="flex-1 overflow-y-auto p-6 md:p-8">
+                    <div className="flex justify-between items-start mb-6">
+                        <div>
+                            <span className="bg-brand-100 text-brand-700 text-xs font-bold px-2 py-1 rounded uppercase mb-2 inline-block">
+                                {content.suggestedFormat}
+                            </span>
+                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Pré-visualização do Post</h2>
+                        </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-8">
+                        {/* Visual Content */}
+                        <div className="space-y-4">
+                            <h3 className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                {content.isReels ? <Video className="w-5 h-5"/> : <LucideImage className="w-5 h-5"/>} 
+                                Mídia
+                            </h3>
+                            
+                            <div className="bg-slate-100 dark:bg-slate-950 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 min-h-[300px] flex items-center justify-center relative">
+                                {content.generatedImage ? (
+                                    <img src={content.generatedImage} alt="Post Visual" className="w-full h-auto max-h-[500px] object-contain" />
+                                ) : (
+                                    <div className="text-center text-slate-400 p-8">
+                                        <LucideImage className="w-12 h-12 mx-auto mb-2 opacity-50"/>
+                                        <p>Imagem não gerada ou indisponível.</p>
+                                        <p className="text-xs mt-2 italic">{content.visualPrompt}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Text Content */}
+                        <div className="space-y-4">
+                            <h3 className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                <FileText className="w-5 h-5"/> Conteúdo
+                            </h3>
+
+                            {content.isReels && content.reelsOptions ? (
+                                <div className="space-y-4">
+                                    <div className="flex gap-2 overflow-x-auto pb-2">
+                                        {content.reelsOptions.map((opt, i) => (
+                                            <button
+                                                key={i}
+                                                onClick={() => setSelectedReelOption(i)}
+                                                className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap border ${selectedReelOption === i ? 'bg-brand-600 text-white border-brand-600' : 'bg-slate-100 text-slate-600 border-slate-200'}`}
+                                            >
+                                                Opção {i+1}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 h-[400px] overflow-y-auto">
+                                        <h4 className="font-bold text-lg mb-2">{content.reelsOptions[selectedReelOption].title}</h4>
+                                        <div className="text-sm space-y-3">
+                                            <p className="bg-yellow-50 text-yellow-800 p-2 rounded text-xs"><strong>Gancho:</strong> {content.reelsOptions[selectedReelOption].hook}</p>
+                                            <div>
+                                                <p className="font-bold text-xs uppercase text-slate-400 mb-1">Roteiro:</p>
+                                                <ul className="list-disc pl-4 space-y-1">
+                                                    {content.reelsOptions[selectedReelOption].script.map((line, idx) => (
+                                                        <li key={idx} className="text-slate-600 dark:text-slate-400">{line}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                            <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+                                                <p className="text-xs"><strong>Legenda Sugerida:</strong></p>
+                                                <p className="text-slate-600 dark:text-slate-400 whitespace-pre-wrap">{content.reelsOptions[selectedReelOption].captionLong}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 h-[400px] overflow-y-auto">
+                                    <div className="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300">
+                                        {content.captionLong || content.captionShort}
+                                    </div>
+                                    {content.hashtags && (
+                                        <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 text-brand-600 font-medium text-sm">
+                                            {content.hashtags.join(' ')}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3">
+                    <Button variant="ghost" onClick={onClose}>Fechar</Button>
+                    {!readOnly && (
+                        <Button onClick={onSave} isLoading={isSaving} className="bg-brand-600 hover:bg-brand-700 text-white">
+                            <Save className="w-4 h-4 mr-2"/> Salvar Post no Plano
+                        </Button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export const MarketingAgent: React.FC = () => {
   const { user } = useAuth();
@@ -746,7 +950,7 @@ export const MarketingAgent: React.FC = () => {
   const [loadingMsg, setLoadingMsg] = useState('');
   const [result, setResult] = useState<GeneratedContent | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [topicSuggestions, setTopicSuggestions] = useState<string[]>([]);
+  const [topicSuggestions, setTopicSuggestions] = useState<CategorizedTopics | null>(null);
   const [canRegenerate, setCanRegenerate] = useState(true);
   const [savedPosts, setSavedPosts] = useState<SavedContent[]>([]);
   const [isGeneratingIdeas, setIsGeneratingIdeas] = useState(false);
@@ -851,27 +1055,14 @@ export const MarketingAgent: React.FC = () => {
 
       // 2. Image Generation Logic (Only for Single/Story/Carousel)
       if (content.carouselCards && content.carouselCards.length > 0) {
-          setLoadingMsg("Gerando 6 imagens de alta qualidade para o Carrossel (isso pode levar 1 min)...");
+          // For Carousel, we now generate ONE panoramic image as per updated architecture
+          setLoadingMsg("Gerando imagem panorâmica do carrossel (Layout 6 Cards)...");
           
-          const cardPromises = content.carouselCards.map(async (card: any, idx: number) => {
-              await new Promise(r => setTimeout(r, idx * 800));
-              const imgRequest: ContentRequest = {
-                  format: 'Carrossel',
-                  objective: requestData.goal,
-                  customObjective: formData.customGoal,
-                  theme: card.visualPrompt, 
-                  audience: requestData.audience,
-                  customAudience: formData.customAudience,
-                  tone: 'Visual',
-                  imageStyle: formData.style
-              };
-              const enhancedPrompt = `Photorealistic, 8k, cinematic lighting, professional photography: ${card.visualPrompt}`;
-              const img = await generatePilatesImage(imgRequest, null, enhancedPrompt);
-              return { ...card, generatedImage: img };
-          });
-
-          const cardsWithImages = await Promise.all(cardPromises);
-          content.carouselCards = cardsWithImages;
+          if (content.visualPrompt) {
+              const enhancedPrompt = `Photorealistic, 8k, cinematic lighting: ${content.visualPrompt}`;
+              const img = await generatePilatesImage(requestData, null, enhancedPrompt);
+              content.generatedImage = img || undefined;
+          }
       } 
       else if (formData.mode === 'single' && !content.isReels && !content.isPlan) {
           setLoadingMsg("Criando a imagem do post...");
@@ -921,8 +1112,8 @@ export const MarketingAgent: React.FC = () => {
           
           if (!content) throw new Error("Falha na geração do post.");
 
-          // Generate Image if needed
-          if (!content.isReels && !content.carouselCards) {
+          // Generate Image if needed (Carousel Panoramic or Static)
+          if (!content.isReels) {
               setLoadingMsg("Gerando imagem...");
               const visualPrompt = content.visualPrompt || `Pilates post about ${postItem.idea}. Style: ${formData.style}`;
               const imgRequest: ContentRequest = {
@@ -1106,7 +1297,7 @@ export const MarketingAgent: React.FC = () => {
   const handleReset = () => {
     setStep(0);
     setResult(null);
-    setTopicSuggestions([]);
+    setTopicSuggestions(null);
     setFormData({
       mode: 'single',
       goal: '',

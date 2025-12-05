@@ -22,13 +22,16 @@ export interface MarketingFormData {
 }
 
 export interface ReelOption {
-  style: string;
+  type: 'Viral' | 'Standard' | 'Selfie' | 'Box'; // New field for specific types
+  style: string; // Keeping for compatibility
   title: string;
+  hook: string; // "Gancho Inicial"
   purpose: string;
   captionShort: string;
   captionLong: string;
   script: string[];
-  audioSuggestion: string;
+  audioSuggestions: string[]; // Array for "Viral/Trend" and "Emotional/Cinematic"
+  microDetails: string; // "Microdetalhes"
   duration: string;
 }
 
@@ -84,6 +87,12 @@ export interface GeneratedContent {
   isStory?: boolean;
   storySequence?: StorySequence;
   carouselCards?: CarouselCard[]; // New field for carousel cards
+}
+
+export interface CategorizedTopics {
+  cliche: string[];
+  innovative: string[];
+  visceral: string[];
 }
 
 export interface SavedContent extends GeneratedContent {
