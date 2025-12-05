@@ -1,20 +1,43 @@
-
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { MarketingFormData, GeneratedContent, SavedContent, ContentRequest, LogoConfig, StudioPersona } from '../types';
-import { generateMarketingContent, generateTopicSuggestions, generatePilatesContentStream, generatePilatesImage, generatePilatesVideo } from '../services/geminiService';
-import { savePost, fetchSavedPosts, deleteSavedPost } from '../services/contentService';
-import { Button } from '../components/ui/Button';
+import { useLanguage } from '../context/LanguageContext';
 import { 
-  Sparkles, ArrowRight, Dumbbell, Trash2, CalendarDays, FileText, 
-  Target, Users, Lightbulb, Zap, ShoppingBag, Heart, BookOpen, Camera, MessageCircle, Star, Image as ImageIcon, Video, Eye,
-  Layout, RotateCcw, Save, RefreshCw, Copy, Loader2, History
-} from 'lucide-react';
+    generatePilatesContentStream, 
+    generatePilatesImage, 
+    generatePilatesVideo, 
+    generateContentPlan,
+    generatePlannerSuggestion
+} from '../services/geminiService';
+import { 
+    saveStudioPersona, 
+    fetchStudioPersona, 
+    savePost, 
+    fetchSavedPosts, 
+    deleteSavedPost,
+    saveContentPlan,
+    fetchContentPlans,
+    deleteContentPlan,
+    getTodayPostCount,
+    recordGenerationUsage
+} from '../services/contentService';
+import { fetchProfile } from '../services/storage';
 import { compositeImageWithLogo } from '../services/imageService';
+import { 
+    ContentRequest, 
+    StudioPersona, 
+    SavedPost, 
+    StrategicContentPlan,
+    LogoConfig,
+    AppRoute,
+    GeneratedContent,
+    MarketingFormData,
+    SavedContent
+} from '../types';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Wand2, Calendar, Layout, Loader2, Sparkles, Copy, Trash2, Video, Image as ImageIcon, CheckCircle, Save, UserCircle, Eye, ArrowRight, X, Settings2, RefreshCw, MessageSquarePlus, Lock, ArrowLeft, Lightbulb, Zap, Rocket, CalendarDays, FileText, Heart, ShoppingBag, BookOpen, Camera, MessageCircle, Star, Users, RotateCcw, Dumbbell } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { generateMarketingContent, generateTopicSuggestions } from '../services/geminiService';
 
 const GOALS = [
   { id: 'attract', label: 'Atrair Novos Alunos', icon: Users },
@@ -59,7 +82,22 @@ const STYLES = [
   'Energético / Vibrante'
 ];
 
-// --- EXTRACTED COMPONENTS ---
+const INITIAL_REQUEST: ContentRequest = {
+    format: 'Post Estático',
+    objective: 'Educação',
+    theme: '',
+    audience: 'Alunos Iniciantes',
+    tone: 'Inspirador',
+    imageStyle: 'Fotorealista',
+    logoConfig: {
+        enabled: false,
+        type: 'normal',
+        position: 'bottom-right',
+        size: 'small'
+    }
+};
+
+// --- COMPONENTS ---
 
 const StepMode = ({ formData, updateFormData }: any) => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-right-8">
@@ -144,13 +182,124 @@ const StepAudience = ({ formData, updateFormData }: any) => (
     </div>
 );
 
+const StepPlanSettings = ({ formData, updateFormData }: any) => {
+    const formats = ['Post Estático', 'Reels / Vídeo', 'Carrossel'];
+    
+    const toggleFormat = (format: string) => {
+        const current = formData.selectedFormats || [];
+        if (current.includes(format)) {
+            updateFormData('selectedFormats', current.filter((f: string) => f !== format));
+        } else {
+            updateFormData('selectedFormats', [...current, format]);
+        }
+    };
+
+    return (
+        <div className="space-y-8 animate-in fade-in slide-in-from-right-8">
+            <div>
+                <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                    <CalendarDays className="w-5 h-5 text-brand-600"/> Configuração do Plano
+                </h2>
+                
+                <div className="mb-6">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Quantos posts por semana?</label>
+                    <div className="flex gap-2">
+                        {[1, 2, 3, 4, 5].map(num => (
+                            <button
+                                key={num}
+                                onClick={() => updateFormData('frequency', num)}
+                                className={`flex-1 p-3 rounded-lg border text-sm font-bold transition-all ${
+                                    formData.frequency === num 
+                                    ? 'bg-brand-600 text-white border-brand-600' 
+                                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-brand-300'
+                                }`}
+                            >
+                                {num}x
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Quais formatos você prefere?</label>
+                    <p className="text-xs text-slate-500 mb-3">A IA irá distribuir os conteúdos entre os formatos selecionados.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {formats.map(fmt => {
+                            const isSelected = (formData.selectedFormats || []).includes(fmt);
+                            return (
+                                <button
+                                    key={fmt}
+                                    onClick={() => toggleFormat(fmt)}
+                                    className={`p-3 rounded-lg border text-sm font-medium transition-all flex items-center justify-between ${
+                                        isSelected 
+                                        ? 'bg-purple-50 border-purple-500 text-purple-700' 
+                                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    {fmt}
+                                    {isSelected && <CheckCircle className="w-4 h-4 text-purple-600" />}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {(!formData.selectedFormats || formData.selectedFormats.length === 0) && (
+                        <p className="text-xs text-red-500 mt-2">Selecione pelo menos um formato.</p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const StepFormatStyle = ({ formData, updateFormData }: any) => (
+    <div className="space-y-8 animate-in fade-in slide-in-from-right-8">
+        <div>
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                <Layout className="w-5 h-5 text-brand-600"/> Formato do Conteúdo
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {FORMATS.map((item) => (
+                    <button
+                        key={item.id}
+                        onClick={() => updateFormData('format', item.id)}
+                        className={`p-4 rounded-xl border-2 text-left transition-all ${formData.format === item.id ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 ring-1 ring-brand-500' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
+                    >
+                        <div className="flex justify-between items-start mb-1">
+                            <span className="font-bold text-slate-800 dark:text-white">{item.label}</span>
+                            {item.recommended && <span className="text-[10px] bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full font-bold">TOP</span>}
+                        </div>
+                        <p className="text-sm text-slate-500">{item.description}</p>
+                    </button>
+                ))}
+            </div>
+        </div>
+
+        <div>
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-brand-600"/> Estilo Visual
+            </h2>
+            <div className="flex flex-wrap gap-3">
+                {STYLES.map((style) => (
+                    <button
+                        key={style}
+                        onClick={() => updateFormData('style', style)}
+                        className={`px-4 py-2 rounded-full border transition-all text-sm font-medium ${formData.style === style ? 'bg-brand-600 text-white border-brand-600' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-brand-300'}`}
+                    >
+                        {style}
+                    </button>
+                ))}
+            </div>
+        </div>
+    </div>
+);
+
 const StepTopic = ({ formData, updateFormData, suggestions, onGenerateIdeas, isGeneratingIdeas }: any) => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
         <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Sobre qual tema você quer falar?</h2>
         
         <textarea 
             className="w-full p-4 border border-slate-300 dark:border-slate-700 rounded-xl h-32 resize-none focus:ring-2 focus:ring-brand-500 outline-none bg-white dark:bg-slate-900 text-lg"
-            placeholder="Ex: Benefícios do Pilates para dor nas costas, Promoção de verão..."
+            placeholder={formData.mode === 'plan' ? "Ex: Foco em emagrecimento e bem-estar para o mês de Novembro..." : "Ex: Benefícios do Pilates para dor nas costas..."}
             value={formData.topic}
             onChange={e => updateFormData('topic', e.target.value)}
         />
@@ -186,45 +335,56 @@ const StepTopic = ({ formData, updateFormData, suggestions, onGenerateIdeas, isG
     </div>
 );
 
-const StepFormatStyle = ({ formData, updateFormData }: any) => (
-    <div className="space-y-8 animate-in fade-in slide-in-from-right-8">
-        <div>
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2"><Layout className="w-5 h-5 text-brand-600"/> Formato do Conteúdo</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {FORMATS.map((item) => (
-                    <button
-                        key={item.id}
-                        onClick={() => updateFormData('format', item.id)}
-                        className={`p-4 rounded-xl border-2 text-left relative overflow-hidden ${formData.format === item.id ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'}`}
-                    >
-                        {item.recommended && <span className="absolute top-0 right-0 bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg">RECOMENDADO</span>}
-                        <h3 className="font-bold text-slate-900 dark:text-white">{item.label}</h3>
-                        <p className="text-sm text-slate-500">{item.description}</p>
-                        {formData.format === item.id && <div className="absolute top-1/2 right-4 -translate-y-1/2 w-3 h-3 bg-brand-500 rounded-full"></div>}
-                    </button>
-                ))}
+const PlanCalendarView = ({ weeks }: { weeks: any[] }) => {
+    const days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+    
+    // Flatten posts for easier rendering in a grid if needed, or map per week
+    // We will render Week Rows
+    
+    return (
+        <div className="overflow-x-auto pb-4">
+            <div className="min-w-[800px]">
+                <div className="grid grid-cols-8 gap-2 mb-2 text-center text-xs font-bold text-slate-500 uppercase">
+                    <div className="col-span-1 p-2">Semana</div>
+                    {days.map(d => <div key={d} className="col-span-1 p-2">{d}</div>)}
+                </div>
+                
+                <div className="space-y-2">
+                    {weeks.map((week, idx) => (
+                        <div key={idx} className="grid grid-cols-8 gap-2">
+                            <div className="col-span-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-2 flex flex-col justify-center items-center text-center">
+                                <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">Semana {week.weekNumber}</span>
+                                <span className="text-[10px] text-slate-500 mt-1 line-clamp-2">{week.theme}</span>
+                            </div>
+                            
+                            {days.map(dayName => {
+                                // Find post for this day (rough matching)
+                                const post = week.posts?.find((p: any) => p.day.toLowerCase().includes(dayName.toLowerCase().split('-')[0]));
+                                
+                                return (
+                                    <div key={dayName} className={`col-span-1 rounded-lg p-2 border min-h-[80px] flex flex-col ${post ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm' : 'bg-slate-50/50 dark:bg-slate-950/50 border-transparent'}`}>
+                                        {post ? (
+                                            <>
+                                                <span className="text-[9px] font-bold uppercase text-brand-600 mb-1">{post.format}</span>
+                                                <p className="text-[10px] text-slate-700 dark:text-slate-300 leading-tight line-clamp-3" title={post.idea}>{post.idea}</p>
+                                            </>
+                                        ) : (
+                                            <span className="text-slate-300 text-xs text-center mt-4">-</span>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
-
-        <div>
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2"><Sparkles className="w-5 h-5 text-brand-600"/> Estilo Visual</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {STYLES.map((style) => (
-                    <button
-                        key={style}
-                        onClick={() => updateFormData('style', style)}
-                        className={`p-3 rounded-lg border text-sm transition-all ${formData.style === style ? 'border-brand-500 bg-brand-100 text-brand-800 font-bold' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600'}`}
-                    >
-                        {style}
-                    </button>
-                ))}
-            </div>
-        </div>
-    </div>
-);
+    );
+};
 
 const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate }: any) => {
     const [captionType, setCaptionType] = useState<'short' | 'long'>('long');
+    const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
     if (!result) return null;
     return (
@@ -233,7 +393,7 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate }:
                 <div className="flex justify-between items-start mb-4">
                     <div>
                         <span className="bg-brand-200 text-brand-800 text-xs font-bold px-2 py-1 rounded uppercase mb-2 inline-block">
-                            {result.suggestedFormat}
+                            {result.suggestedFormat || (result.isPlan ? 'Planejamento' : 'Post')}
                         </span>
                         <h3 className="text-xl font-bold text-brand-900 dark:text-brand-100">Estratégia Escolhida</h3>
                         <p className="text-brand-700 dark:text-brand-300 text-sm mt-1">{result.reasoning}</p>
@@ -335,7 +495,7 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate }:
                 </div>
             )}
 
-            {/* STORIES & PLANS Views */}
+            {/* STORIES VIEW */}
             {result.isStory && result.storySequence && (
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm overflow-x-auto">
                     <h4 className="font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2"><Zap className="w-5 h-5 text-yellow-500"/> Sequência Estratégica</h4>
@@ -359,26 +519,42 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate }:
                 </div>
             )}
 
+            {/* PLAN VIEW */}
             {result.isPlan && result.weeks && (
-                <div className="space-y-4">
-                    {result.weeks.map((week: any, i: number) => (
-                        <div key={i} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
-                            <h4 className="font-bold text-brand-700 text-lg mb-4 flex items-center gap-2">
-                                <CalendarDays className="w-5 h-5"/> Semana {week.weekNumber}: {week.theme}
-                            </h4>
-                            <div className="grid md:grid-cols-3 gap-4">
-                                {week.posts && week.posts.map((post: any, idx: number) => (
-                                    <div key={idx} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
-                                        <div className="flex justify-between mb-2">
-                                            <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">{post.day}</span>
-                                            <span className="text-[10px] bg-white dark:bg-slate-900 border px-2 py-0.5 rounded text-slate-500 uppercase font-bold">{post.format}</span>
-                                        </div>
-                                        <p className="text-sm text-slate-600 dark:text-slate-400">{post.idea}</p>
-                                    </div>
-                                ))}
-                            </div>
+                <div className="space-y-6">
+                    <div className="flex justify-end">
+                        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                            <button onClick={() => setViewMode('list')} className={`px-3 py-1 text-xs font-bold rounded ${viewMode === 'list' ? 'bg-white shadow' : ''}`}>Lista</button>
+                            <button onClick={() => setViewMode('calendar')} className={`px-3 py-1 text-xs font-bold rounded ${viewMode === 'calendar' ? 'bg-white shadow' : ''}`}>Calendário</button>
                         </div>
-                    ))}
+                    </div>
+
+                    {viewMode === 'list' ? (
+                        <div className="space-y-4">
+                            {result.weeks.map((week: any, i: number) => (
+                                <div key={i} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+                                    <h4 className="font-bold text-brand-700 text-lg mb-4 flex items-center gap-2">
+                                        <CalendarDays className="w-5 h-5"/> Semana {week.weekNumber}: {week.theme}
+                                    </h4>
+                                    <div className="grid md:grid-cols-3 gap-4">
+                                        {week.posts && week.posts.map((post: any, idx: number) => (
+                                            <div key={idx} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                                                <div className="flex justify-between mb-2">
+                                                    <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">{post.day}</span>
+                                                    <span className="text-[10px] bg-white dark:bg-slate-900 border px-2 py-0.5 rounded text-slate-500 uppercase font-bold">{post.format}</span>
+                                                </div>
+                                                <p className="text-sm text-slate-600 dark:text-slate-400">{post.idea}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm overflow-x-auto">
+                            <PlanCalendarView weeks={result.weeks} />
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -393,7 +569,7 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate }:
     );
 };
 
-const SavedPostsList = ({ savedPosts, onDelete }: any) => (
+const SavedPostsList = ({ savedPosts, onDelete, onOpen }: any) => (
     <div className="animate-in fade-in">
         {savedPosts.length === 0 ? (
             <div className="text-center py-10 text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
@@ -419,6 +595,9 @@ const SavedPostsList = ({ savedPosts, onDelete }: any) => (
                         </div>
                         <h3 className="font-bold text-slate-800 dark:text-white mb-1">{post.topic}</h3>
                         <p className="text-sm text-slate-500 line-clamp-2">{post.reasoning}</p>
+                        <Button size="sm" variant="outline" className="w-full mt-3" onClick={() => onOpen(post)}>
+                            <Eye className="w-4 h-4 mr-2"/> Abrir
+                        </Button>
                     </div>
                 ))}
             </div>
@@ -432,7 +611,7 @@ export const MarketingAgent: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'create' | 'saved'>('create');
   
-  // Steps: 0=Mode, 1=Goal, 2=Audience, 3=Topic, 4=Format/Style (Single Only), 5=Result
+  // Steps: 0=Mode, 1=Goal, 2=Audience, 3=Topic, 4=Format/Style (Single) OR PlanSettings (Plan), 5=Result
   const [step, setStep] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingMsg, setLoadingMsg] = useState('');
@@ -451,7 +630,9 @@ export const MarketingAgent: React.FC = () => {
     customAudience: '',
     topic: '',
     format: 'auto',
-    style: 'Brand Persona'
+    style: 'Brand Persona',
+    frequency: 3,
+    selectedFormats: ['Post Estático', 'Reels / Vídeo', 'Carrossel']
   });
 
   // Load saved posts on mount
@@ -481,13 +662,23 @@ export const MarketingAgent: React.FC = () => {
       }
   };
 
-  const handleNext = () => setStep((prev) => prev + 1);
+  const handleNext = () => {
+      if (formData.mode === 'plan' && step === 3) {
+          // If in plan mode, step 4 is Plan Settings, not Format/Style
+          setStep(4);
+      } else {
+          setStep((prev) => prev + 1);
+      }
+  };
+  
   const handleBack = () => setStep((prev) => Math.max(0, prev - 1));
 
   const isReadyToGenerate = () => {
-    // For Plan AND Stories, we generate after Step 3 (Topic)
-    if ((formData.mode === 'plan' || formData.mode === 'story') && step === 3) return true;
-    // For Single Post, we generate after Step 4 (Format/Style)
+    // For Plan: Generate after Step 4 (PlanSettings)
+    if (formData.mode === 'plan' && step === 4) return true;
+    // For Stories: Generate after Step 3 (Topic) - simple flow
+    if (formData.mode === 'story' && step === 3) return true;
+    // For Single Post: Generate after Step 4 (Format/Style)
     if (formData.mode === 'single' && step === 4) return true;
     return false;
   };
@@ -502,7 +693,7 @@ export const MarketingAgent: React.FC = () => {
       // 1. Generate Text Structure
       // Force format: auto if not available in current step context
       const requestData = { ...formData };
-      if (formData.mode === 'plan') requestData.format = 'auto'; // Plan mode doesn't select format
+      if (formData.mode === 'plan') requestData.format = 'auto'; // Plan mode doesn't select single format
 
       const content = await generateMarketingContent(requestData);
       
@@ -610,6 +801,13 @@ export const MarketingAgent: React.FC = () => {
     }
   };
 
+  const handleOpenSaved = (post: SavedContent) => {
+      setResult(post);
+      setCanRegenerate(false); // Cannot regenerate saved item directly without resetting inputs
+      setActiveTab('create');
+      setStep(5); // Show result view
+  };
+
   const handleGenerateIdeas = async () => {
     if ((!formData.goal && !formData.customGoal) || (!formData.audience && !formData.customAudience)) {
         alert("Preencha o Objetivo e o Público antes de gerar ideias.");
@@ -647,12 +845,14 @@ export const MarketingAgent: React.FC = () => {
       customAudience: '',
       topic: '',
       format: 'auto',
-      style: 'Brand Persona'
+      style: 'Brand Persona',
+      frequency: 3,
+      selectedFormats: ['Post Estático', 'Reels / Vídeo', 'Carrossel']
     });
   };
 
   // Progress Bar Calculation
-  const totalSteps = (formData.mode === 'plan' || formData.mode === 'story') ? 3 : 4; 
+  const totalSteps = (formData.mode === 'plan' || formData.mode === 'story') ? (formData.mode === 'plan' ? 4 : 3) : 4; 
   const progress = Math.min((step / totalSteps) * 100, 100);
 
   // Validation logic
@@ -747,7 +947,8 @@ export const MarketingAgent: React.FC = () => {
                         isGeneratingIdeas={isGeneratingIdeas}
                     />
                 )}
-                {step === 4 && <StepFormatStyle formData={formData} updateFormData={updateFormData} />}
+                {step === 4 && formData.mode === 'single' && <StepFormatStyle formData={formData} updateFormData={updateFormData} />}
+                {step === 4 && formData.mode === 'plan' && <StepPlanSettings formData={formData} updateFormData={updateFormData} />}
                 {step === 5 && (
                     <ResultDisplay 
                         result={result} 
@@ -803,7 +1004,7 @@ export const MarketingAgent: React.FC = () => {
 
       {activeTab === 'saved' && (
           <div className="w-full bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 p-6 md:p-10">
-              <SavedPostsList savedPosts={savedPosts} onDelete={handleDeleteSaved} />
+              <SavedPostsList savedPosts={savedPosts} onDelete={handleDeleteSaved} onOpen={handleOpenSaved} />
           </div>
       )}
     </div>

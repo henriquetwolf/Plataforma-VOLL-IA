@@ -1,8 +1,4 @@
 
-
-
-
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
   StrategicPlan, CalculatorInputs, FinancialModel, CompensationResult, 
@@ -178,10 +174,17 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
   `;
 
   if (isPlan) {
+    const frequency = formData.frequency || 3;
+    const preferredFormats = formData.selectedFormats && formData.selectedFormats.length > 0 
+        ? formData.selectedFormats.join(', ') 
+        : "Reels, Post Estático, Carrossel";
+
     prompt += `
     Crie um planejamento de 4 semanas.
+    Frequência: ${frequency} posts por semana.
+    Distribua os conteúdos entre os seguintes formatos permitidos: ${preferredFormats}.
     Para cada semana, defina um tema macro.
-    Sugira 3 posts por semana (Dias alternados, ex: Seg, Qua, Sex).
+    Use os dias da semana (ex: Segunda-feira, Quarta-feira, etc) de acordo com a frequência.
     Preencha 'isPlan' como true.
     IMPORTANTE: Retorne APENAS o JSON conforme o schema. Certifique-se que o array 'weeks' tenha 4 itens.
     `;
@@ -266,6 +269,7 @@ export const generateTopicSuggestions = async (goal: string, audience: string): 
   }
 };
 
+// ... Rest of the file unchanged ...
 export const generateStudioDescription = async (name: string, owner: string, specialties: string[]): Promise<string> => {
   const prompt = `Escreva uma biografia curta e profissional (max 300 caracteres) para o perfil de um Studio de Pilates chamado "${name}", proprietário "${owner}", especialidades: ${specialties.join(', ')}. Tom acolhedor e profissional.`;
   const response = await ai.models.generateContent({
@@ -763,6 +767,7 @@ export const generatePilatesVideo = async (script: string, onProgress: (msg: str
 
 export const generateContentPlan = async (
     inputs: {
+        name: string;
         mainGoal: string;
         audience: string;
         message: string;

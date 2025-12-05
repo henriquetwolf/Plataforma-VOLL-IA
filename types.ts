@@ -1,15 +1,295 @@
 
+export type MarketingMode = 'single' | 'plan' | 'story';
+
+export interface MarketingFormData {
+  mode: MarketingMode;
+  goal: string; 
+  customGoal?: string; 
+  audience: string;
+  customAudience?: string;
+  topic: string;
+  format: string; 
+  style: string;
+  // New fields for Planner
+  frequency?: number;
+  selectedFormats?: string[];
+}
+
+export interface ReelOption {
+  style: string;
+  title: string;
+  purpose: string;
+  captionShort: string;
+  captionLong: string;
+  script: string[];
+  audioSuggestion: string;
+  duration: string;
+}
+
+export interface ContentItem {
+  day: string;
+  format: string;
+  idea: string;
+}
+
+export interface WeekPlan {
+  weekNumber: number;
+  theme: string;
+  posts: ContentItem[];
+}
+
+export interface StoryFrame {
+  order: number;
+  type: 'video' | 'static' | 'poll' | 'box' | 'repost';
+  action: string;
+  spokenText?: string;
+  directAction: string;
+  emotion: string;
+}
+
+export interface StorySequence {
+  category: string;
+  reasoning: string;
+  frames: StoryFrame[];
+}
+
+export interface CarouselCard {
+  order: number;
+  textOverlay: string;
+  visualPrompt: string;
+  generatedImage?: string;
+}
+
+export interface GeneratedContent {
+  suggestedFormat: string;
+  reasoning: string;
+  hashtags?: string[];
+  tips: string;
+  captionShort?: string;
+  captionLong?: string;
+  visualContent?: string[];
+  visualPrompt?: string; 
+  generatedImage?: string;
+  isReels?: boolean;
+  reelsOptions?: ReelOption[];
+  isPlan?: boolean;
+  weeks?: WeekPlan[];
+  isStory?: boolean;
+  storySequence?: StorySequence;
+  carouselCards?: CarouselCard[]; // New field for carousel cards
+}
+
+export interface SavedContent extends GeneratedContent {
+  id: string;
+  date: string;
+  topic: string;
+}
+
+// ... existing types below ...
+// (Retaining the rest of the file content as is, starting from ClassEvaluation Types)
+export interface ClassEvaluation {
+  id: string;
+  studioId: string;
+  studentId: string;
+  studentName: string;
+  instructorId: string;
+  instructorName: string;
+  classDate: string;
+  rating: number; // 1-5
+  feeling: string;
+  pace: string;
+  discomfort?: string;
+  suggestions?: string;
+  createdAt: string;
+}
+
+export interface SavedEvaluationAnalysis {
+  id: string;
+  studioId: string;
+  title: string;
+  content: string; // HTML report
+  evaluationCount: number;
+  dateRange?: string;
+  createdAt: string;
+}
+
+export interface StudentEvolution {
+  id: string;
+  studioId: string;
+  studentId: string;
+  studentName: string;
+  instructorId?: string;
+  instructorName?: string;
+  date: string;
+  
+  // 1. Execução
+  stability: string;
+  mobility: string;
+  strength: string;
+  coordination: string;
+  
+  // 2. Queixas e Cuidados
+  pain: boolean;
+  painLocation?: string;
+  limitation: boolean;
+  limitationDetails?: string;
+  contraindication: boolean;
+  contraindicationDetails?: string;
+  
+  // 3. Observations
+  observations?: string;
+
+  createdAt: string;
+}
+
+export interface SavedEvolutionReport {
+  id: string;
+  studioId: string;
+  title: string;
+  content: string; // HTML report
+  filterDescription: string; // Ex: "Aluno: João, Instrutor: Maria, Fev/2025"
+  recordCount: number;
+  createdAt: string;
+}
+
+// ... existing types from Content Agent, WhatsApp, Action, etc (no changes needed there) ...
+export interface StudioInfo {
+    name?: string;
+    phone?: string;
+    address?: string;
+    whatsapp?: string;
+}
+
+export interface LogoConfig {
+    enabled: boolean;
+    type: 'normal' | 'watermark';
+    position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+    size: 'small' | 'medium' | 'large';
+}
+
+export interface ContentRequest {
+    format: string;
+    objective: string;
+    customObjective?: string;
+    theme: string;
+    audience: string;
+    customAudience?: string;
+    tone: string;
+    imageStyle: string;
+    studioInfo?: StudioInfo;
+    modificationPrompt?: string;
+    logoConfig?: LogoConfig;
+}
+
+export interface PerformanceMetrics {
+    likes?: number;
+    comments?: number;
+    notes?: string;
+}
+
+export interface SavedPost {
+    id: string;
+    request: ContentRequest;
+    content: string;
+    imageUrl: string | null;
+    videoUrl?: string | null;
+    createdAt: string;
+    performance?: PerformanceMetrics;
+}
+
+export interface StudioPersona {
+    philosophy: string;
+    differentiators: string;
+    instructorProfile: string;
+    languageToAvoid: string;
+}
+
+export interface StrategicContentPlan {
+    id: string;
+    createdAt: string;
+    startDate?: string;
+    frequency?: number;
+    goals: {
+        mainObjective: string;
+        targetAudience: string[];
+        keyThemes: string[];
+    };
+    inputs?: {
+        name: string;
+        mainGoal: string;
+        audience: string;
+        message: string;
+        differentiators: string;
+        objections: string;
+        tone: string;
+        events: string;
+        frequency: number;
+    };
+    weeks: {
+        week: string; // "Semana 1"
+        theme: string;
+        ideas: {
+            day: string;
+            theme: string;
+            format: string;
+            objective: string;
+            generatedPostId?: string; // Links to SavedPost ID
+        }[];
+    }[];
+}
+
+export interface WhatsAppScriptRequest {
+  objective: string;
+  clientName?: string;
+  productService?: string;
+  tone: string;
+  context?: string;
+}
+
+export interface SavedWhatsAppScript {
+  id: string;
+  studioId: string;
+  title: string;
+  content: string;
+  category: string;
+  createdAt: string;
+}
+
+export interface ActionInput {
+  theme: string;
+  objective: string;
+  studentCount: number;
+  hasBudget: boolean;
+  budgetPerStudent?: number;
+}
+
+export interface ActionIdea {
+  id: string;
+  title: string;
+  summary: string;
+  effort: 'Baixo' | 'Médio' | 'Alto';
+}
+
+export interface SavedActionPlan {
+  id: string;
+  studioId: string;
+  title: string;
+  theme: string;
+  content: string; // HTML report
+  inputs: ActionInput;
+  createdAt: string;
+}
 
 export interface User {
   id: string;
-  dbId?: string; // ID interno do banco de dados (PK da tabela students/instructors)
+  dbId?: string; 
   email: string;
   name: string;
   password: string;
   isAdmin?: boolean; 
   isInstructor?: boolean; 
   isStudent?: boolean; 
-  isOwner?: boolean; // Novo flag para segurança estrita
+  isOwner?: boolean; 
   studioId?: string; 
 }
 
@@ -25,7 +305,7 @@ export interface SubscriptionPlan {
   id: string;
   name: string;
   maxStudents: number;
-  maxDailyPosts: number; // Novo limitador
+  maxDailyPosts: number;
 }
 
 export interface StudioProfile {
@@ -33,39 +313,39 @@ export interface StudioProfile {
   userId: string;
   studioName: string;
   ownerName: string;
-  ownerCpf?: string; // Novo
-  ownerBirthDate?: string; // Novo
-  ownerPhotoUrl?: string; // Novo: Foto do Proprietário
-  cnpj?: string; // Novo
+  ownerCpf?: string; 
+  ownerBirthDate?: string; 
+  ownerPhotoUrl?: string; 
+  cnpj?: string; 
   email?: string; 
   description: string;
   address: string;
-  city?: string; // Novo
-  state?: string; // Novo
-  cep?: string; // Novo
+  city?: string; 
+  state?: string; 
+  cep?: string; 
   phone: string;
-  whatsapp?: string; // Novo
-  instagram?: string; // Novo
+  whatsapp?: string; 
+  instagram?: string; 
   website: string;
   specialties: string[];
   logoUrl?: string;
   brandColor?: string;
   isAdmin: boolean; 
   isActive: boolean;
-  maxStudents?: number; // Mantido para legado ou override manual se necessário
-  planId?: string; // ID do Plano vinculado
-  planName?: string; // Nome do plano (join)
-  planLimit?: number; // Limite do plano (join)
-  planMaxDailyPosts?: number; // Limite de posts diários do plano
+  maxStudents?: number; 
+  planId?: string; 
+  planName?: string; 
+  planLimit?: number; 
+  planMaxDailyPosts?: number; 
   settings?: {
-    sender_email?: string; // Email configurado para envios (Gmail)
-    language?: 'pt' | 'en' | 'es' | 'fr' | 'de' | 'it' | 'zh' | 'ja' | 'ru' | 'ko'; // Language preference
+    sender_email?: string; 
+    language?: 'pt' | 'en' | 'es' | 'fr' | 'de' | 'it' | 'zh' | 'ja' | 'ru' | 'ko'; 
     instructor_permissions?: {
       rehab?: boolean;
       newsletters?: boolean;
       students?: boolean;
     };
-    content_persona?: StudioPersona; // Added for Content Agent
+    content_persona?: StudioPersona; 
   };
 }
 
@@ -77,13 +357,13 @@ export interface Instructor {
   email: string;
   cpf?: string; 
   phone: string;
-  birthDate?: string; // Novo
+  birthDate?: string; 
   address: string;
-  city?: string; // Novo
-  state?: string; // Novo
-  cep?: string; // Novo
-  photoUrl?: string; // Novo
-  certifications?: string[]; // Novo: Lista de Certificações
+  city?: string; 
+  state?: string; 
+  cep?: string; 
+  photoUrl?: string; 
+  certifications?: string[]; 
   active: boolean;
   createdAt: string;
 }
@@ -96,22 +376,15 @@ export interface Student {
   email: string;
   cpf?: string; 
   phone: string;
-  
-  // Novos Campos
   photoUrl?: string;
   birthDate?: string;
   goals?: string;
-  
-  // Endereço
   address?: string;
   city?: string;
   state?: string;
   cep?: string;
-  
-  // Emergência
   emergencyContactName?: string;
   emergencyContactPhone?: string;
-
   observations?: string;
   createdAt?: string;
 }
@@ -138,42 +411,25 @@ export enum AppRoute {
   ADMIN = '/admin', 
   SETTINGS = '/settings', 
   INSTRUCTOR_WELCOME = '/instructor-welcome',
-  
-  // Rotas de Newsletter
   NEWSLETTER_AGENT = '/newsletter-agent',
   INSTRUCTOR_NEWSLETTERS = '/instructor/newsletters',
-  INSTRUCTOR_SURVEYS = '/instructor/surveys', // Nova rota
-  
-  // Rotas de Evolução
+  INSTRUCTOR_SURVEYS = '/instructor/surveys', 
   EVOLUTION = '/evolution',
-
-  // Rotas do Aluno
   STUDENT_DASHBOARD = '/student/dashboard',
   STUDENT_RECIPES = '/student/recipes',
   STUDENT_WORKOUT = '/student/workout',
   STUDENT_SUGGESTIONS = '/student/suggestions',
   STUDENT_NEWSLETTERS = '/student/newsletters',
   STUDENT_EVALUATION = '/student/evaluation',
-  STUDENT_SURVEYS = '/student/surveys', // Nova rota
-  
-  // Rotas do Studio
+  STUDENT_SURVEYS = '/student/surveys', 
   STUDIO_SUGGESTIONS = '/suggestions',
   STUDIO_EVALUATIONS = '/evaluations',
-  SURVEY_MANAGER = '/surveys', // Nova rota
-  STUDENT_ASSESSMENT = '/assessments', // Nova rota Avaliação Física
-  
-  // Novo Agente de Conteúdo
+  SURVEY_MANAGER = '/surveys', 
+  STUDENT_ASSESSMENT = '/assessments', 
   CONTENT_AGENT = '/content-agent',
-  
-  // Novo Agente WhatsApp
   WHATSAPP_AGENT = '/whatsapp-agent',
-  
-  // Novo Agente de Ação
   ACTION_AGENT = '/action-agent',
-
-  // Novo Agente de Marketing
   MARKETING_AGENT = '/marketing-agent',
-
   ROOT = '/'
 }
 
@@ -188,8 +444,6 @@ export interface Newsletter {
   createdAt: string;
 }
 
-// --- SURVEY TYPES ---
-
 export type SurveyTarget = 'students' | 'instructors' | 'both';
 export type QuestionType = 'text' | 'long_text' | 'radio' | 'checkbox' | 'select';
 
@@ -197,7 +451,7 @@ export interface SurveyQuestion {
   id: string;
   text: string;
   type: QuestionType;
-  options?: string[]; // Para radio, checkbox, select
+  options?: string[]; 
   required: boolean;
 }
 
@@ -210,7 +464,7 @@ export interface Survey {
   questions: SurveyQuestion[];
   isActive: boolean;
   createdAt: string;
-  responseCount?: number; // Calculado
+  responseCount?: number; 
 }
 
 export interface SurveyResponse {
@@ -223,10 +477,6 @@ export interface SurveyResponse {
   createdAt: string;
 }
 
-// --- END SURVEY TYPES ---
-
-// --- STUDENT ASSESSMENT TYPES ---
-
 export interface StudentAssessment {
   id: string;
   studioId: string;
@@ -236,7 +486,7 @@ export interface StudentAssessment {
   instructorName?: string;
   type: 'simple' | 'custom';
   title: string;
-  content: any; // JSONB data (Flexible structure)
+  content: any; 
   createdAt: string;
 }
 
@@ -244,11 +494,9 @@ export interface AssessmentTemplate {
   id: string;
   studioId: string;
   title: string;
-  fields: any[]; // The structure
+  fields: any[]; 
   createdAt: string;
 }
-
-// --- END ASSESSMENT TYPES ---
 
 export interface Suggestion {
   id: string;
@@ -295,7 +543,7 @@ export interface StrategicPlan {
   planningYear: string;
   vision: string;
   mission: string;
-  values?: string; // New field
+  values?: string; 
   swot: {
     strengths: string[];
     weaknesses: string[];
@@ -502,7 +750,7 @@ export interface LessonExercise {
   instructions: string;
   focus: string;
   userNotes?: string;
-  videoUrl?: string; // Added for YouTube link
+  videoUrl?: string; 
 }
 
 export interface LessonPlanResponse {
@@ -512,7 +760,6 @@ export interface LessonPlanResponse {
   exercises: LessonExercise[]; 
 }
 
-// New Types for Treatment Planning
 export interface TreatmentSession {
   sessionNumber: number;
   goal: string;
@@ -531,14 +778,14 @@ export interface SavedRehabLesson extends LessonPlanResponse {
   patientName: string;
   customName: string;
   createdAt: string;
-  treatmentPhase?: number; // 1-4
+  treatmentPhase?: number; 
 }
 
 export interface SavedTreatmentPlan extends TreatmentPlanResponse {
   id: string;
   patientName: string;
   createdAt: string;
-  assessmentContext?: ChatMessage[]; // Store history to allow generation of specific lessons later
+  assessmentContext?: ChatMessage[]; 
 }
 
 export interface StudioExercise {
@@ -580,291 +827,4 @@ export enum StrategyStep {
   Actions,
   Review,
   GeneratedPlan
-}
-
-// --- Content Agent Types ---
-
-export interface StudioInfo {
-    name?: string;
-    phone?: string;
-    address?: string;
-    whatsapp?: string;
-}
-
-export interface LogoConfig {
-    enabled: boolean;
-    type: 'normal' | 'watermark';
-    position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
-    size: 'small' | 'medium' | 'large';
-}
-
-export interface ContentRequest {
-    format: string;
-    objective: string;
-    customObjective?: string;
-    theme: string;
-    audience: string;
-    customAudience?: string;
-    tone: string;
-    imageStyle: string;
-    studioInfo?: StudioInfo;
-    modificationPrompt?: string;
-    logoConfig?: LogoConfig;
-}
-
-export interface PerformanceMetrics {
-    likes?: number;
-    comments?: number;
-    notes?: string;
-}
-
-export interface SavedPost {
-    id: string;
-    request: ContentRequest;
-    content: string;
-    imageUrl: string | null;
-    videoUrl?: string | null;
-    createdAt: string;
-    performance?: PerformanceMetrics;
-}
-
-export interface StudioPersona {
-    philosophy: string;
-    differentiators: string;
-    instructorProfile: string;
-    languageToAvoid: string;
-}
-
-export interface StrategicContentPlan {
-    id: string;
-    createdAt: string;
-    startDate?: string;
-    frequency?: number;
-    goals: {
-        mainObjective: string;
-        targetAudience: string[];
-        keyThemes: string[];
-    };
-    inputs?: {
-        name: string;
-        mainGoal: string;
-        audience: string;
-        message: string;
-        differentiators: string;
-        objections: string;
-        tone: string;
-        events: string;
-        frequency: number;
-    };
-    weeks: {
-        week: string; // "Semana 1"
-        theme: string;
-        ideas: {
-            day: string;
-            theme: string;
-            format: string;
-            objective: string;
-            generatedPostId?: string; // Links to SavedPost ID
-        }[];
-    }[];
-}
-
-// --- WhatsApp Agent Types ---
-
-export interface WhatsAppScriptRequest {
-  objective: string;
-  clientName?: string;
-  productService?: string;
-  tone: string;
-  context?: string;
-}
-
-export interface SavedWhatsAppScript {
-  id: string;
-  studioId: string;
-  title: string;
-  content: string;
-  category: string;
-  createdAt: string;
-}
-
-// --- Action Agent Types ---
-
-export interface ActionInput {
-  theme: string;
-  objective: string;
-  studentCount: number;
-  hasBudget: boolean;
-  budgetPerStudent?: number;
-}
-
-export interface ActionIdea {
-  id: string;
-  title: string;
-  summary: string;
-  effort: 'Baixo' | 'Médio' | 'Alto';
-}
-
-export interface SavedActionPlan {
-  id: string;
-  studioId: string;
-  title: string;
-  theme: string;
-  content: string; // HTML report
-  inputs: ActionInput;
-  createdAt: string;
-}
-
-// --- Marketing Agent Types ---
-
-export type MarketingMode = 'single' | 'plan' | 'story';
-
-export interface MarketingFormData {
-  mode: MarketingMode;
-  goal: string; 
-  customGoal?: string; 
-  audience: string;
-  customAudience?: string;
-  topic: string;
-  format: string; 
-  style: string;
-}
-
-export interface ReelOption {
-  style: string;
-  title: string;
-  purpose: string;
-  captionShort: string;
-  captionLong: string;
-  script: string[];
-  audioSuggestion: string;
-  duration: string;
-}
-
-export interface ContentItem {
-  day: string;
-  format: string;
-  idea: string;
-}
-
-export interface WeekPlan {
-  weekNumber: number;
-  theme: string;
-  posts: ContentItem[];
-}
-
-export interface StoryFrame {
-  order: number;
-  type: 'video' | 'static' | 'poll' | 'box' | 'repost';
-  action: string;
-  spokenText?: string;
-  directAction: string;
-  emotion: string;
-}
-
-export interface StorySequence {
-  category: string;
-  reasoning: string;
-  frames: StoryFrame[];
-}
-
-export interface CarouselCard {
-  order: number;
-  textOverlay: string;
-  visualPrompt: string;
-  generatedImage?: string;
-}
-
-export interface GeneratedContent {
-  suggestedFormat: string;
-  reasoning: string;
-  hashtags?: string[];
-  tips: string;
-  captionShort?: string;
-  captionLong?: string;
-  visualContent?: string[];
-  visualPrompt?: string; 
-  generatedImage?: string;
-  isReels?: boolean;
-  reelsOptions?: ReelOption[];
-  isPlan?: boolean;
-  weeks?: WeekPlan[];
-  isStory?: boolean;
-  storySequence?: StorySequence;
-  carouselCards?: CarouselCard[]; // New field for carousel cards
-}
-
-export interface SavedContent extends GeneratedContent {
-  id: string;
-  date: string;
-  topic: string;
-}
-
-// --- Class Evaluation Types ---
-
-export interface ClassEvaluation {
-  id: string;
-  studioId: string;
-  studentId: string;
-  studentName: string;
-  instructorId: string;
-  instructorName: string;
-  classDate: string;
-  rating: number; // 1-5
-  feeling: string;
-  pace: string;
-  discomfort?: string;
-  suggestions?: string;
-  createdAt: string;
-}
-
-export interface SavedEvaluationAnalysis {
-  id: string;
-  studioId: string;
-  title: string;
-  content: string; // HTML report
-  evaluationCount: number;
-  dateRange?: string;
-  createdAt: string;
-}
-
-// --- Student Evolution Types ---
-
-export interface StudentEvolution {
-  id: string;
-  studioId: string;
-  studentId: string;
-  studentName: string;
-  instructorId?: string;
-  instructorName?: string;
-  date: string;
-  
-  // 1. Execução
-  stability: string;
-  mobility: string;
-  strength: string;
-  coordination: string;
-  
-  // 2. Queixas e Cuidados
-  pain: boolean;
-  painLocation?: string;
-  limitation: boolean;
-  limitationDetails?: string;
-  contraindication: boolean;
-  contraindicationDetails?: string;
-  
-  // 3. Observations
-  observations?: string;
-
-  createdAt: string;
-}
-
-export interface SavedEvolutionReport {
-  id: string;
-  studioId: string;
-  title: string;
-  content: string; // HTML report
-  filterDescription: string; // Ex: "Aluno: João, Instrutor: Maria, Fev/2025"
-  recordCount: number;
-  createdAt: string;
 }
