@@ -9,6 +9,7 @@ import {
   ActionInput, ActionIdea, MarketingFormData, GeneratedContent
 } from "../types";
 
+// Initialize AI Client
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // Helper to handle JSON parsing from Gemini response
@@ -257,9 +258,6 @@ export const generateTopicSuggestions = async (goal: string, audience: string): 
     return [];
   }
 };
-
-// ... Rest of the existing functions (generateStudioDescription, generateFullReport, etc) ...
-// Ensure they are preserved below.
 
 export const generateStudioDescription = async (name: string, owner: string, specialties: string[]): Promise<string> => {
   const prompt = `Escreva uma biografia curta e profissional (max 300 caracteres) para o perfil de um Studio de Pilates chamado "${name}", proprietário "${owner}", especialidades: ${specialties.join(', ')}. Tom acolhedor e profissional.`;

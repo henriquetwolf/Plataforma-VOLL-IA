@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -6,7 +7,9 @@ import {
     generatePilatesImage, 
     generatePilatesVideo, 
     generateContentPlan,
-    generatePlannerSuggestion
+    generatePlannerSuggestion,
+    generateMarketingContent, 
+    generateTopicSuggestions
 } from '../services/geminiService';
 import { 
     saveStudioPersona, 
@@ -35,9 +38,8 @@ import {
 } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Wand2, Calendar, Layout, Loader2, Sparkles, Copy, Trash2, Video, Image as ImageIcon, CheckCircle, Save, UserCircle, Eye, ArrowRight, X, Settings2, RefreshCw, MessageSquarePlus, Lock, ArrowLeft, Lightbulb, Zap, Rocket, CalendarDays, FileText, Heart, ShoppingBag, BookOpen, Camera, MessageCircle, Star, Users, RotateCcw, Dumbbell } from 'lucide-react';
+import { Wand2, Calendar, Layout, Loader2, Sparkles, Copy, Trash2, Video, Image as LucideImage, CheckCircle, Save, UserCircle, Eye, ArrowRight, X, Settings2, RefreshCw, MessageSquarePlus, Lock, ArrowLeft, Lightbulb, Zap, Rocket, CalendarDays, FileText, Heart, ShoppingBag, BookOpen, Camera, MessageCircle, Star, Users, RotateCcw, Dumbbell, History } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { generateMarketingContent, generateTopicSuggestions } from '../services/geminiService';
 
 const GOALS = [
   { id: 'attract', label: 'Atrair Novos Alunos', icon: Users },
@@ -336,10 +338,9 @@ const StepTopic = ({ formData, updateFormData, suggestions, onGenerateIdeas, isG
 );
 
 const PlanCalendarView = ({ weeks }: { weeks: any[] }) => {
+    // Determine the days to show based on what's present in the posts, or fixed standard week
+    // Standard week: Mon-Sun
     const days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
-    
-    // Flatten posts for easier rendering in a grid if needed, or map per week
-    // We will render Week Rows
     
     return (
         <div className="overflow-x-auto pb-4">
@@ -435,7 +436,7 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate }:
 
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
                         <h4 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                            {result.isReels ? <Video className="w-5 h-5"/> : <ImageIcon className="w-5 h-5"/>} 
+                            {result.isReels ? <Video className="w-5 h-5"/> : <LucideImage className="w-5 h-5"/>} 
                             {result.isReels ? 'Roteiro de Vídeo' : (result.carouselCards ? 'Carrossel (6 Cards)' : 'Imagem Sugerida')}
                         </h4>
                         
@@ -485,7 +486,7 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate }:
                                     <img src={result.generatedImage} alt="Sugestão" className="w-full h-full object-contain rounded-lg shadow-sm" />
                                 ) : (
                                     <div className="flex flex-col items-center justify-center text-slate-400 h-full">
-                                        <ImageIcon className="w-12 h-12 mb-2 opacity-50"/>
+                                        <LucideImage className="w-12 h-12 mb-2 opacity-50"/>
                                         <p>Imagem não gerada.</p>
                                     </div>
                                 )}
@@ -524,8 +525,8 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate }:
                 <div className="space-y-6">
                     <div className="flex justify-end">
                         <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-                            <button onClick={() => setViewMode('list')} className={`px-3 py-1 text-xs font-bold rounded ${viewMode === 'list' ? 'bg-white shadow' : ''}`}>Lista</button>
-                            <button onClick={() => setViewMode('calendar')} className={`px-3 py-1 text-xs font-bold rounded ${viewMode === 'calendar' ? 'bg-white shadow' : ''}`}>Calendário</button>
+                            <button onClick={() => setViewMode('list')} className={`px-3 py-1 text-xs font-bold rounded ${viewMode === 'list' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}>Lista</button>
+                            <button onClick={() => setViewMode('calendar')} className={`px-3 py-1 text-xs font-bold rounded ${viewMode === 'calendar' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}>Calendário</button>
                         </div>
                     </div>
 
@@ -646,12 +647,14 @@ export const MarketingAgent: React.FC = () => {
       if(user?.id) {
         fetchSavedPosts(user.id).then(posts => {
             const mapped = posts.map(p => {
+                // Safety check for legacy data
+                const req = (p.request || {}) as any; // Cast to any to avoid TS error on {}
                 return {
                     id: p.id,
                     date: new Date(p.createdAt).toLocaleDateString(),
-                    topic: p.request.theme || 'Sem tema',
+                    topic: req.theme || 'Sem tema',
                     reasoning: 'Salvo',
-                    suggestedFormat: p.request.format,
+                    suggestedFormat: req.format,
                     hashtags: [],
                     tips: '',
                     ...((p as any).data || {})

@@ -14,6 +14,7 @@ export const compositeImageWithLogo = async (
       return;
     }
 
+    // Use document.createElement('img') instead of new Image() to avoid "Illegal constructor" conflicts
     const baseImg = document.createElement('img');
     baseImg.crossOrigin = "anonymous";
     baseImg.src = baseImageUrl;
