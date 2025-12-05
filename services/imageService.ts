@@ -14,7 +14,7 @@ export const compositeImageWithLogo = async (
       return;
     }
 
-    const baseImg = new Image();
+    const baseImg = document.createElement('img');
     baseImg.crossOrigin = "anonymous";
     baseImg.src = baseImageUrl;
 
@@ -25,7 +25,7 @@ export const compositeImageWithLogo = async (
       // Draw base image
       ctx.drawImage(baseImg, 0, 0);
 
-      const logoImg = new Image();
+      const logoImg = document.createElement('img');
       logoImg.crossOrigin = "anonymous";
       logoImg.src = logoUrl;
 
