@@ -165,6 +165,15 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
     }
   }
 
+  // Combine multiple goals/audiences if arrays are present
+  const combinedGoals = (formData.goals && formData.goals.length > 0) 
+    ? formData.goals.join(', ') + (formData.customGoal ? `, ${formData.customGoal}` : '')
+    : formData.customGoal || formData.goal;
+
+  const combinedAudiences = (formData.audiences && formData.audiences.length > 0)
+    ? formData.audiences.join(', ') + (formData.customAudience ? `, ${formData.customAudience}` : '')
+    : formData.customAudience || formData.audience;
+
   let prompt = `
   Atue como um Diretor de Marketing Sênior (Estratégico, Persuasivo e Humanizado).
   Idioma: Português Brasileiro Nativo (proibido termos robóticos ou traduções literais).
@@ -172,8 +181,8 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
   
   Dados:
   Modo: ${formData.mode}
-  Objetivo: ${formData.customGoal || formData.goal}
-  Público: ${formData.customAudience || formData.audience}
+  Objetivo: ${combinedGoals}
+  Público: ${combinedAudiences}
   Tópico: ${formData.topic}
   Formato Preferido: ${formData.format}
   Estilo Visual: ${formData.style}
@@ -206,7 +215,7 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
     Preencha 'carouselCards' com 6 itens.
     Estrutura Obrigatória:
     1. Capa (Gancho Visual + Título Forte)
-    2. Consciência (Aprofunda a dor ou quebra mito)
+    2. Consciência (Aprofunda a dor ou quebra um mito)
     3. Solução (Pilates como a chave)
     4. Mecanismo (Como funciona na prática)
     5. Prova (Resultado ou identificação)
@@ -222,13 +231,39 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
     
     Se o formato for Reels/Vídeo (ou 'auto' decidir por vídeo):
     - Marque 'isReels' como true.
-    - Gere EXATAMENTE 4 opções de roteiro em 'reelsOptions', uma para cada tipo abaixo:
-      1. type: 'Viral' (Max 35s). Foco em trends, cortes rápidos, visual. Estrutura: Situação Rápida (POV) -> Ação Imediata -> Resultado Visual.
-      2. type: 'Standard' (Max 60s). Foco em autoridade/técnica. Estrutura: Antes (Dor) -> Durante (Técnica) -> Depois (Transformação).
-      3. type: 'Selfie' (Max 45s). Foco em intimidade/conexão. Estrutura: Pergunta desconfortável ou verdade dura -> Mini-história -> Conclusão.
-      4. type: 'Box' (Max 45s). Foco em responder UMA pergunta profunda. Estrutura: Clareza técnica + Demonstração prática + Autoridade.
+    - Gere EXATAMENTE 4 opções de roteiro em 'reelsOptions', seguindo RIGOROSAMENTE as estruturas abaixo:
+
+      1. type: 'Viral' (Max 35s)
+         Foco: Simplicidade visual, cortes rápidos, poucas falas. Analisar trends do TikTok/Instagram.
+         Estrutura:
+         - [00–03s] Gancho visual rápido (ex: "Pare agora", gesto, choque, erro comum).
+         - [03–25s] Desenvolvimento ágil (3 a 4 cenas curtas mostrando erro/acerto ou transformação).
+         - [25–35s] Twist final ou resultado visual forte.
+
+      2. type: 'Standard' (Max 60s)
+         Foco: Autoridade técnica, clareza e demonstração.
+         Estrutura:
+         - [00–05s] Gancho de dor ou desejo (ex: "Sente dor aqui?").
+         - [05–45s] Desenvolvimento prendendo a atenção e passando autoridade técnica.
+         - [45–60s] Conclusão forte + CTA para agendamento.
+
+      3. type: 'Selfie' (Max 45s)
+         Foco: Conexão direta, tom íntimo, "olho no olho".
+         Estrutura:
+         - [00–05s] Quebra de padrão (ex: "Vou te contar uma verdade…").
+         - [05–35s] História curta, opinião forte sobre o mercado/técnica ou assunto importante.
+         - [35–45s] Pergunta direta para gerar comentários ou interação.
+
+      4. type: 'Box' (Caixinha de Perguntas - Max 45s)
+         Foco: Responder UMA única dúvida com profundidade e clareza.
+         Estrutura:
+         - [00–05s] Mostrar ou ler a pergunta (comum ou polêmica).
+         - [05–35s] Resposta técnica definitiva, matando a objeção e explicando o essencial.
+         - [35–45s] Convite direto para saber mais (ex: "Link na bio", "Me chama no direct").
+
     - OBRIGATÓRIO: 'hook' inicial de 3s deve ser impactante ("fodástico").
     - 'audioSuggestions': Forneça sempre 2 opções (1 Viral/Trend e 1 Emocional/Cinematográfica).
+    - 'microDetails': Descreva expressões, cenário, movimentos.
     
     Se o formato for Post Estático (ou 'auto' decidir por estático):
     - Forneça 'visualPrompt' detalhado.
