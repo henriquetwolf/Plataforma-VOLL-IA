@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -5,7 +7,7 @@ import { generateMarketingContent, generateTopicSuggestions, generatePilatesImag
 import { MarketingFormData, GeneratedContent, CategorizedTopics, SavedPost, ReelOption, CarouselCard, ContentRequest } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Megaphone, Sparkles, Video, Image as LucideImage, Copy, Loader2, Lightbulb, UserCircle, Calendar, ArrowRight, ArrowLeft, RefreshCw, X, Eye, CheckCircle, Smartphone, Grid, Layers, Type, Save, Trash2, History } from 'lucide-react';
+import { Megaphone, Sparkles, Video, Image as LucideImage, Copy, Loader2, Lightbulb, UserCircle, Calendar, ArrowRight, ArrowLeft, RefreshCw, X, Eye, CheckCircle, Smartphone, Grid, Layers, Type, Save, Trash2, History, Download } from 'lucide-react';
 import { fetchStudioPersona, savePost, fetchSavedPosts, deleteSavedPost } from '../services/contentService';
 import { fetchProfile } from '../services/storage';
 
@@ -137,9 +139,9 @@ const StepFormatStyle = ({ format, setFormat, style, setStyle, carouselType, set
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
                     { id: 'IA Decide (Recomendado)', icon: Sparkles, label: 'IA Decide (Recomendado)' },
-                    { id: 'Reels / Vídeo Curto', icon: Video, label: 'Reels / Vídeo Curto' },
+                    { id: 'Post Estático', icon: LucideImage, label: 'Post Estático' },
                     { id: 'Carrossel (6 Cards)', icon: Layers, label: 'Carrossel (6 Cards)' },
-                    { id: 'Post Estático', icon: LucideImage, label: 'Post Estático' }
+                    { id: 'Reels / Vídeo Curto', icon: Video, label: 'Reels / Vídeo Curto' },
                 ].map(item => (
                     <button
                         key={item.id}
@@ -210,6 +212,10 @@ const StepFormatStyle = ({ format, setFormat, style, setStyle, carouselType, set
 const ResultView = ({ result, onSave, onRegenerate }: { result: GeneratedContent, onSave: () => void, onRegenerate: () => void }) => {
     const [activeReelTab, setActiveReelTab] = useState(0);
 
+    // Filter to prioritize specific formats
+    const isCarousel = result.carouselCards && result.carouselCards.length > 0;
+    const isReels = result.reelsOptions && result.reelsOptions.length > 0;
+
     return (
         <div className="space-y-6 animate-in fade-in zoom-in-95">
             <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-lg">
@@ -228,7 +234,7 @@ const ResultView = ({ result, onSave, onRegenerate }: { result: GeneratedContent
                 </div>
 
                 {/* --- CAROUSEL VIEW --- */}
-                {result.carouselCards && (
+                {isCarousel && result.carouselCards && (
                     <div className="mb-8">
                         {/* Display the Generated Image if available */}
                         {result.generatedImage && (
@@ -242,21 +248,23 @@ const ResultView = ({ result, onSave, onRegenerate }: { result: GeneratedContent
                                     className="w-full h-auto object-cover"
                                 />
                                 <div className="p-2 bg-slate-50 dark:bg-slate-950 flex justify-center border-t border-slate-200 dark:border-slate-700">
-                                    <a href={result.generatedImage} download="carousel_storyboard.png" className="text-xs text-brand-600 font-bold hover:underline">
-                                        Baixar Imagem (Use no Canva para cortar)
+                                    <a href={result.generatedImage} download="carousel_storyboard.png" className="text-xs text-brand-600 font-bold hover:underline flex items-center gap-1">
+                                        <Download className="w-3 h-3"/> Baixar imagem para recortar no Canva
                                     </a>
                                 </div>
                             </div>
                         )}
 
-                        <div className="mb-4">
-                            <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2 mb-2">
-                                <LucideImage className="w-4 h-4"/> Visual Prompt (Texto)
-                            </h4>
-                            <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400 italic">
-                                "{result.visualPrompt}"
+                        {!result.generatedImage && result.visualPrompt && (
+                             <div className="mb-4">
+                                <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2 mb-2">
+                                    <LucideImage className="w-4 h-4"/> Visual Prompt (Texto)
+                                </h4>
+                                <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400 italic">
+                                    "{result.visualPrompt}"
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2 mb-3">
                             <Layers className="w-4 h-4"/> Estrutura (6 Cards)
@@ -274,17 +282,17 @@ const ResultView = ({ result, onSave, onRegenerate }: { result: GeneratedContent
                 )}
 
                 {/* --- REELS VIEW (4 OPTIONS) --- */}
-                {result.reelsOptions && result.reelsOptions.length > 0 && (
+                {isReels && result.reelsOptions && result.reelsOptions.length > 0 && (
                     <div className="mb-8">
-                        <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+                        <div className="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
                             {result.reelsOptions.map((reel, idx) => (
                                 <button 
                                     key={idx}
                                     onClick={() => setActiveReelTab(idx)}
-                                    className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all border ${
                                         activeReelTab === idx 
-                                        ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-900 shadow-md' 
-                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                                        ? 'bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900 shadow-md' 
+                                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50'
                                     }`}
                                 >
                                     Opção {idx + 1}: {reel.type}
@@ -294,9 +302,12 @@ const ResultView = ({ result, onSave, onRegenerate }: { result: GeneratedContent
 
                         <div className="p-5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-950/50 animate-in fade-in">
                             <div className="flex justify-between items-start mb-4">
-                                <h4 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                                    <Video className="w-5 h-5 text-brand-600"/> {result.reelsOptions[activeReelTab].title}
-                                </h4>
+                                <div>
+                                    <span className="text-xs font-bold text-brand-600 uppercase mb-1 block">{result.reelsOptions[activeReelTab].type}</span>
+                                    <h4 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                        <Video className="w-5 h-5 text-brand-600"/> {result.reelsOptions[activeReelTab].title}
+                                    </h4>
+                                </div>
                                 <span className="text-xs font-bold bg-white dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">
                                     {result.reelsOptions[activeReelTab].duration}
                                 </span>
@@ -309,20 +320,20 @@ const ResultView = ({ result, onSave, onRegenerate }: { result: GeneratedContent
                                 </div>
 
                                 <div>
-                                    <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Roteiro</span>
-                                    <ul className="list-disc pl-5 space-y-1 text-slate-600 dark:text-slate-300">
+                                    <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Roteiro Passo a Passo</span>
+                                    <ul className="list-disc pl-5 space-y-2 text-slate-600 dark:text-slate-300">
                                         {result.reelsOptions[activeReelTab].script.map((line, i) => <li key={i}>{line}</li>)}
                                     </ul>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                                     <div>
-                                        <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Áudio</span>
-                                        <p className="text-slate-600 dark:text-slate-400">{result.reelsOptions[activeReelTab].audioSuggestions.join(', ')}</p>
+                                        <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Sugestão de Áudio</span>
+                                        <p className="text-slate-600 dark:text-slate-400 text-xs bg-slate-100 dark:bg-slate-800 p-2 rounded">{result.reelsOptions[activeReelTab].audioSuggestions.join(' OU ')}</p>
                                     </div>
                                     <div>
                                         <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Microdetalhes</span>
-                                        <p className="text-slate-600 dark:text-slate-400 italic">{result.reelsOptions[activeReelTab].microDetails}</p>
+                                        <p className="text-slate-600 dark:text-slate-400 italic text-xs bg-slate-100 dark:bg-slate-800 p-2 rounded">{result.reelsOptions[activeReelTab].microDetails}</p>
                                     </div>
                                 </div>
                             </div>
@@ -331,7 +342,7 @@ const ResultView = ({ result, onSave, onRegenerate }: { result: GeneratedContent
                 )}
 
                 {/* --- STATIC POST VIEW --- */}
-                {result.visualPrompt && !result.carouselCards && !result.reelsOptions && (
+                {result.visualPrompt && !isCarousel && !isReels && (
                     <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800">
                         <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
                             <LucideImage className="w-4 h-4"/> Sugestão Visual

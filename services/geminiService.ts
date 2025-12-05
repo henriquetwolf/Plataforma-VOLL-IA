@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
   MarketingFormData, GeneratedContent, CategorizedTopics, ContentRequest, 
@@ -31,7 +32,7 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
   const isAiDecide = selectedFormat === 'IA Decide (Recomendado)' || selectedFormat === 'IA Decide';
   const formatLower = selectedFormat.toLowerCase();
   
-  const isCarousel = formatLower.includes('carrossel') || formatLower.includes('carousel');
+  const isCarousel = formatLower.includes('carrossel') || formatLower.includes('carousel') || (formData.carouselType !== undefined);
   const isReels = formatLower.includes('reels') || formatLower.includes('vídeo') || formatLower.includes('video');
   const isStatic = !isCarousel && !isReels && !isAiDecide;
 
@@ -66,18 +67,37 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
   if (isReels || (isAiDecide && (formData.goal.includes('Novos') || formData.goal.includes('Viral')))) {
     userPrompt += `
     FORMATO: VÍDEO / REELS.
-    Tarefa: Crie 4 opções de roteiro "Ultraviscerais" para este tópico.
+    Tarefa: Crie 4 opções de roteiro exatas e distintas para este tópico.
     
-    Regras para TODOS os Reels:
-    - Gancho Inicial (3s): Obrigatório ser impactante para prender a atenção.
-    - Áudios: Sugerir 2 opções (1 Viral/Trend e 1 Emocional/Cinematográfica).
-    - Microdetalhes: Descrever expressões faciais, cenário, movimentos de câmera.
+    Opções Obrigatórias:
     
-    Gere as seguintes 4 opções exatas:
-    1. Viral (Max 35s): Foco em cortes rápidos, visual, pouca fala. (Estrutura: POV -> Ação -> Resultado).
-    2. Standard (Max 60s): Profissionalismo e autoridade. (Estrutura: Antes/Dor -> Durante/Técnica -> Depois/Transformação).
-    3. Selfie Falada (Max 45s): Intimidade, segurando o celular. (Estrutura: Pergunta desconfortável/Verdade dura -> História -> Conclusão).
-    4. Box (Caixinha de Perguntas) (Max 45s): Responder UMA dúvida profundamente. (Estrutura: Clareza técnica + Demonstração).
+    ➡️ OPÇÃO 1 — ROTEIRO VIRAL (máx. 35s)
+    Foco: Simplicidade visual, cortes rápidos, poucas falas. Use tendências atuais.
+    Estrutura: 
+    - [00–03s] Gancho visual rápido (ex: "Pare agora", gesto, choque).
+    - [03–25s] Desenvolvimento ágil (3-4 cenas curtas).
+    - [25–35s] Twist final ou resultado.
+
+    ➡️ OPÇÃO 2 — ROTEIRO PADRÃO (máx. 60s)
+    Foco: Autoridade técnica, clareza e demonstração.
+    Estrutura:
+    - [00–05s] Gancho de dor ou desejo (ex: "Sente dor aqui?").
+    - [05–45s] Prender a atenção e passar autoridade técnica.
+    - [45–60s] Conclusão forte + CTA.
+
+    ➡️ OPÇÃO 3 — SELFIE FALADA (máx. 45s)
+    Foco: Conexão direta, tom íntimo, "olho no olho".
+    Estrutura:
+    - [00–05s] Quebra de padrão ("Vou te contar uma verdade…").
+    - [05–35s] História curta ou opinião forte sobre o mercado/técnica.
+    - [35–45s] Pergunta direta para gerar comentários.
+
+    ➡️ OPÇÃO 4 — CAIXINHA DE PERGUNTAS (máx. 45s)
+    Foco: Responder UMA dúvida profundamente.
+    Estrutura:
+    - [00–05s] Mostrar a pergunta na tela.
+    - [05–35s] Resposta técnica definitiva, matando objeção.
+    - [35–45s] Convite direto ("Link na bio", "Chama no direct").
     `;
 
     responseSchema.properties.reelsOptions = {
@@ -87,8 +107,8 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
             properties: {
                 type: { type: Type.STRING, enum: ['Viral', 'Standard', 'Selfie', 'Box'] },
                 title: { type: Type.STRING },
-                hook: { type: Type.STRING, description: "A frase ou ação dos primeiros 3 segundos" },
-                script: { type: Type.ARRAY, items: { type: Type.STRING }, description: "O roteiro passo a passo" },
+                hook: { type: Type.STRING, description: "A frase ou ação dos primeiros segundos" },
+                script: { type: Type.ARRAY, items: { type: Type.STRING }, description: "O roteiro passo a passo com tempos" },
                 audioSuggestions: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Sugestões de áudio" },
                 microDetails: { type: Type.STRING, description: "Expressões, ângulos, luz" },
                 duration: { type: Type.STRING }
@@ -372,7 +392,8 @@ export const generatePlannerSuggestion = async (label: string, context: string, 
     }
 };
 
-// --- MISSION & STRATEGY ---
+// ... existing functions below (generateMissionOptions, etc) ... 
+// (Retaining the rest of the file content as is)
 
 export const generateMissionOptions = async (studioName: string): Promise<string[]> => {
     const prompt = `Gere 5 opções de Missão para o studio "${studioName}".`;
