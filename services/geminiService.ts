@@ -67,37 +67,36 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
   if (isReels || (isAiDecide && (formData.goal.includes('Novos') || formData.goal.includes('Viral')))) {
     userPrompt += `
     FORMATO: VÍDEO / REELS.
-    Tarefa: Crie 4 opções de roteiro exatas e distintas para este tópico.
-    
-    Opções Obrigatórias:
+    Tarefa: Crie 4 opções de roteiro exatas e distintas para este tópico, seguindo ESTRITAMENTE as estruturas abaixo.
     
     ➡️ OPÇÃO 1 — ROTEIRO VIRAL (máx. 35s)
-    Foco: Simplicidade visual, cortes rápidos, poucas falas. Use tendências atuais.
-    Estrutura: 
-    - [00–03s] Gancho visual rápido (ex: "Pare agora", gesto, choque).
-    - [03–25s] Desenvolvimento ágil (3-4 cenas curtas).
-    - [25–35s] Twist final ou resultado.
+    Foco: simplicidade visual, cortes rápidos, poucas falas.
+    PS: Você sempre vai analisar aquilo que tem de mais atual no tiktok e instagram antes de gerar esse. Lembre que tem que ser viral.
+    Estrutura:
+    • [00–03s] Gancho visual rápido (ex: “Pare agora”, gesto, choque, erro comum).
+    • [03–25s] Desenvolvimento ágil, com 3 a 4 cenas curtas mostrando erro/acerto ou transformação.
+    • [25–35s] Twist final ou resultado visual forte.
 
     ➡️ OPÇÃO 2 — ROTEIRO PADRÃO (máx. 60s)
-    Foco: Autoridade técnica, clareza e demonstração.
+    Foco: autoridade técnica, clareza e demonstração.
     Estrutura:
-    - [00–05s] Gancho de dor ou desejo (ex: "Sente dor aqui?").
-    - [05–45s] Prender a atenção e passar autoridade técnica.
-    - [45–60s] Conclusão forte + CTA.
+    • [00–05s] Gancho de dor ou desejo (ex: “Sente dor aqui?”).
+    • [05–45s] Aqui você tem que pensar em como prender a atenção da pessoa a passar autoridade.
+    • [45–60s] Conclusão forte + CTA para agendamento.
 
     ➡️ OPÇÃO 3 — SELFIE FALADA (máx. 45s)
-    Foco: Conexão direta, tom íntimo, "olho no olho".
+    Foco: conexão direta, tom íntimo, “olho no olho”.
     Estrutura:
-    - [00–05s] Quebra de padrão ("Vou te contar uma verdade…").
-    - [05–35s] História curta ou opinião forte sobre o mercado/técnica.
-    - [35–45s] Pergunta direta para gerar comentários.
+    • [00–05s] Quebra de padrão (“Vou te contar uma verdade…”).
+    • [05–35s] História curta, opinião forte sobre o mercado/técnica ou outro assunto que você ache importante ser falado.
+    • [35–45s] Pergunta direta para gerar comentários ou interação.
 
     ➡️ OPÇÃO 4 — CAIXINHA DE PERGUNTAS (máx. 45s)
-    Foco: Responder UMA dúvida profundamente.
+    Foco: responder UMA única dúvida com profundidade e clareza.
     Estrutura:
-    - [00–05s] Mostrar a pergunta na tela.
-    - [05–35s] Resposta técnica definitiva, matando objeção.
-    - [35–45s] Convite direto ("Link na bio", "Chama no direct").
+    • [00–05s] Mostrar ou ler a pergunta (pode ser comum ou polêmica).
+    • [05–35s] Resposta técnica definitiva, matando a objeção e explicando o essencial.
+    • [35–45s] Convite direto para saber mais (ex: “Link na bio”, “Me chama no direct”).
     `;
 
     responseSchema.properties.reelsOptions = {
