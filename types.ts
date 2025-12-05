@@ -1,4 +1,5 @@
 
+
 export type MarketingMode = 'single' | 'plan' | 'story';
 
 export interface MarketingFormData {
@@ -449,7 +450,6 @@ export enum AppRoute {
   CONTENT_AGENT = '/content-agent',
   WHATSAPP_AGENT = '/whatsapp-agent',
   ACTION_AGENT = '/action-agent',
-  MARKETING_AGENT = '/marketing-agent',
   ROOT = '/'
 }
 

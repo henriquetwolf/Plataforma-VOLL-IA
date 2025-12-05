@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -6,7 +7,7 @@ import { AppRoute, StudioProfile } from '../types';
 import { 
   Users, Sparkles, Compass, ArrowRight, Building2, Calculator, 
   Banknote, Activity, MessageSquare, Newspaper, Wand2, Star, 
-  BookUser, TrendingUp, Layers, LineChart, ClipboardList, User, MessageCircle, FileText, Bell, CheckCircle, Rocket, Megaphone
+  BookUser, TrendingUp, Layers, LineChart, ClipboardList, User, MessageCircle, FileText, Bell, CheckCircle, Rocket
 } from 'lucide-react';
 import { fetchProfile } from '../services/storage';
 import { fetchDashboardNotifications, DashboardNotification, dismissNotificationLocal } from '../services/notificationService';
@@ -251,14 +252,6 @@ export const Dashboard: React.FC = () => {
             desc="Crie campanhas e eventos para o studio."
             icon={Rocket}
             color="bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400"
-            isAi
-          />
-          <ActionCard 
-            to={AppRoute.MARKETING_AGENT}
-            title="Marketing"
-            desc="Crie conteúdo estratégico (Post Único)."
-            icon={Megaphone}
-            color="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
             isAi
           />
           <ActionCard 

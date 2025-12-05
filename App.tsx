@@ -35,7 +35,6 @@ import { SurveyManager } from './pages/SurveyManager';
 import { ContentAgent } from './pages/ContentAgent'; 
 import { WhatsAppAgent } from './pages/WhatsAppAgent';
 import { ActionAgent } from './pages/ActionAgent'; 
-import { MarketingAgent } from './pages/MarketingAgent'; // New Import
 import { StudentEvolutionPage } from './pages/StudentEvolution';
 import { StudentAssessmentPage } from './pages/StudentAssessment';
 import { AppRoute } from './types';
@@ -139,7 +138,6 @@ const AppRoutes = () => {
       <Route path={AppRoute.CONTENT_AGENT} element={<OwnerRoute><ContentAgent /></OwnerRoute>} />
       <Route path={AppRoute.WHATSAPP_AGENT} element={<OwnerRoute><WhatsAppAgent /></OwnerRoute>} />
       <Route path={AppRoute.ACTION_AGENT} element={<OwnerRoute><ActionAgent /></OwnerRoute>} /> 
-      <Route path={AppRoute.MARKETING_AGENT} element={<OwnerRoute><MarketingAgent /></OwnerRoute>} />
       <Route path={AppRoute.SETTINGS} element={<OwnerRoute><Settings /></OwnerRoute>} />
       <Route path={AppRoute.NEWSLETTER_AGENT} element={<OwnerRoute><NewsletterAgent /></OwnerRoute>} />
       <Route path={AppRoute.SURVEY_MANAGER} element={<OwnerRoute><SurveyManager /></OwnerRoute>} /> 
