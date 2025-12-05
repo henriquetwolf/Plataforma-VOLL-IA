@@ -42,8 +42,12 @@ const cleanAndParseJSON = (text: string) => {
 export const generateMarketingContent = async (formData: MarketingFormData): Promise<GeneratedContent | null> => {
   const isPlan = formData.mode === 'plan';
   const isStory = formData.mode === 'story';
-  const isCarousel = formData.format === 'carousel';
+  const isCarousel = formData.format === 'carousel' || formData.format === 'Carrossel';
   
+  // Normalized format checking
+  const formatLower = formData.format.toLowerCase();
+  const isReels = formatLower.includes('reels') || formatLower.includes('vídeo') || formatLower.includes('video');
+
   let responseSchema: any;
 
   if (isPlan) {
@@ -202,7 +206,8 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
     SEMPRE retorne 'captionShort' E 'captionLong'.
     
     Se o formato for Reels ou Vídeo:
-    - Forneça roteiro detalhado em 'reelsOptions'.
+    - Forneça 3 (TRÊS) opções distintas de roteiro detalhado em 'reelsOptions'.
+    - Cada opção deve ter uma abordagem ou gancho diferente.
     - Marque 'isReels' como true.
     
     Se o formato for Post Estático (ou 'auto' que decidiu ser estático):

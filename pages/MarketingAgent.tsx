@@ -132,24 +132,30 @@ const StepMode = ({ formData, updateFormData }: any) => (
     </div>
 );
 
-const StepGoal = ({ formData, updateFormData }: any) => {
+const StepGoal = ({ formData, updateFormData, toggleSelection }: any) => {
     const list = formData.mode === 'story' ? STORY_GOALS : GOALS;
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Qual é o objetivo desse conteúdo?</h2>
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Qual é o objetivo desse conteúdo? (Pode selecionar vários)</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {list.map((item: any) => (
-                    <button
-                        key={item.id}
-                        onClick={() => updateFormData('goal', item.label)}
-                        className={`p-4 rounded-xl border-2 text-left flex items-center gap-4 transition-all ${formData.goal === item.label ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
-                    >
-                        <div className={`p-2 rounded-lg ${formData.goal === item.label ? 'bg-brand-200 text-brand-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
-                            <item.icon className="w-5 h-5" />
-                        </div>
-                        <span className={`font-medium ${formData.goal === item.label ? 'text-brand-900 dark:text-brand-100' : 'text-slate-700 dark:text-slate-300'}`}>{item.label}</span>
-                    </button>
-                ))}
+                {list.map((item: any) => {
+                    const isSelected = (formData.goals || []).includes(item.label);
+                    return (
+                        <button
+                            key={item.id}
+                            onClick={() => toggleSelection('goals', item.label)}
+                            className={`p-4 rounded-xl border-2 text-left flex items-center gap-4 transition-all ${isSelected ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
+                        >
+                            <div className={`p-2 rounded-lg ${isSelected ? 'bg-brand-200 text-brand-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                                <item.icon className="w-5 h-5" />
+                            </div>
+                            <div className="flex-1 flex justify-between items-center">
+                                <span className={`font-medium ${isSelected ? 'text-brand-900 dark:text-brand-100' : 'text-slate-700 dark:text-slate-300'}`}>{item.label}</span>
+                                {isSelected && <CheckCircle className="w-4 h-4 text-brand-600" />}
+                            </div>
+                        </button>
+                    );
+                })}
             </div>
             
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
@@ -165,20 +171,24 @@ const StepGoal = ({ formData, updateFormData }: any) => {
     );
 };
 
-const StepAudience = ({ formData, updateFormData }: any) => (
+const StepAudience = ({ formData, updateFormData, toggleSelection }: any) => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Para quem é esse conteúdo?</h2>
+        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Para quem é esse conteúdo? (Selecione um ou mais)</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {AUDIENCES.map((item) => (
-                <button
-                    key={item.id}
-                    onClick={() => updateFormData('audience', item.label)}
-                    className={`p-4 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center min-h-[120px] ${formData.audience === item.label ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
-                >
-                    <Users className={`w-8 h-8 mb-3 ${formData.audience === item.label ? 'text-brand-600' : 'text-slate-400'}`} />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{item.label}</span>
-                </button>
-            ))}
+            {AUDIENCES.map((item) => {
+                const isSelected = (formData.audiences || []).includes(item.label);
+                return (
+                    <button
+                        key={item.id}
+                        onClick={() => toggleSelection('audiences', item.label)}
+                        className={`p-4 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center min-h-[120px] relative ${isSelected ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
+                    >
+                        {isSelected && <div className="absolute top-2 right-2"><CheckCircle className="w-4 h-4 text-brand-600" /></div>}
+                        <Users className={`w-8 h-8 mb-3 ${isSelected ? 'text-brand-600' : 'text-slate-400'}`} />
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{item.label}</span>
+                    </button>
+                );
+            })}
         </div>
 
         <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
@@ -332,7 +342,7 @@ const StepTopic = ({ formData, updateFormData, suggestions, onGenerateIdeas, isG
                 size="sm" 
                 onClick={onGenerateIdeas} 
                 isLoading={isGeneratingIdeas}
-                disabled={(!formData.goal && !formData.customGoal) || (!formData.audience && !formData.customAudience)}
+                disabled={(!formData.goals?.length && !formData.customGoal) || (!formData.audiences?.length && !formData.customAudience)}
             >
                 <Sparkles className="w-4 h-4 mr-2"/> Gerar Ideias com IA
             </Button>
@@ -594,7 +604,7 @@ const ResultDisplay = ({ result, onReset, onSave, onRegenerate, canRegenerate, s
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
                         <h4 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
                             {result.isReels ? <Video className="w-5 h-5"/> : <LucideImage className="w-5 h-5"/>} 
-                            {result.isReels ? 'Roteiro de Vídeo' : (result.carouselCards ? 'Carrossel (6 Cards)' : 'Imagem Sugerida')}
+                            {result.isReels ? 'Roteiros de Vídeo (3 Opções)' : (result.carouselCards ? 'Carrossel (6 Cards)' : 'Imagem Sugerida')}
                         </h4>
                         
                         {/* REELS VIEW */}
@@ -750,8 +760,10 @@ export const MarketingAgent: React.FC = () => {
   const [formData, setFormData] = useState<MarketingFormData>({
     mode: 'single', // Default
     goal: '',
+    goals: [], // Array for multiple goals
     customGoal: '',
     audience: '',
+    audiences: [], // Array for multiple audiences
     customAudience: '',
     topic: '',
     format: 'auto',
@@ -818,8 +830,19 @@ export const MarketingAgent: React.FC = () => {
     setCanRegenerate(true);
     
     try {
-      // 1. Generate Text Structure
+      // 1. Prepare Request Data (Join Arrays)
       const requestData = { ...formData };
+      
+      // Combine multiple goals if selected
+      if (formData.goals && formData.goals.length > 0) {
+          requestData.goal = formData.goals.join(', ');
+      }
+      
+      // Combine multiple audiences if selected
+      if (formData.audiences && formData.audiences.length > 0) {
+          requestData.audience = formData.audiences.join(', ');
+      }
+
       if (formData.mode === 'plan') requestData.format = 'auto'; // Plan mode doesn't select single format
 
       const content = await generateMarketingContent(requestData);
@@ -834,10 +857,10 @@ export const MarketingAgent: React.FC = () => {
               await new Promise(r => setTimeout(r, idx * 800));
               const imgRequest: ContentRequest = {
                   format: 'Carrossel',
-                  objective: formData.goal,
+                  objective: requestData.goal,
                   customObjective: formData.customGoal,
                   theme: card.visualPrompt, 
-                  audience: formData.audience,
+                  audience: requestData.audience,
                   customAudience: formData.customAudience,
                   tone: 'Visual',
                   imageStyle: formData.style
@@ -856,10 +879,10 @@ export const MarketingAgent: React.FC = () => {
           
           const imgRequest: ContentRequest = {
               format: 'Post Estático',
-              objective: formData.goal,
+              objective: requestData.goal,
               customObjective: formData.customGoal,
               theme: visualPrompt,
-              audience: formData.audience,
+              audience: requestData.audience,
               customAudience: formData.customAudience,
               tone: 'Visual',
               imageStyle: formData.style
@@ -1042,16 +1065,19 @@ export const MarketingAgent: React.FC = () => {
   };
 
   const handleGenerateIdeas = async () => {
-    if ((!formData.goal && !formData.customGoal) || (!formData.audience && !formData.customAudience)) {
+    if ((!formData.goals?.length && !formData.customGoal) || (!formData.audiences?.length && !formData.customAudience)) {
         alert("Preencha o Objetivo e o Público antes de gerar ideias.");
         return;
     }
     
     setIsGeneratingIdeas(true);
     try {
+        const goalString = [...(formData.goals || []), formData.customGoal].filter(Boolean).join(', ');
+        const audienceString = [...(formData.audiences || []), formData.customAudience].filter(Boolean).join(', ');
+
         const ideas = await generateTopicSuggestions(
-            formData.customGoal || formData.goal, 
-            formData.customAudience || formData.audience
+            goalString || formData.goal, 
+            audienceString || formData.audience
         );
         setTopicSuggestions(ideas);
     } catch (e) {
@@ -1066,6 +1092,17 @@ export const MarketingAgent: React.FC = () => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
+  const toggleSelection = (field: 'goals' | 'audiences', value: string) => {
+      setFormData(prev => {
+          const current = prev[field] || [];
+          if (current.includes(value)) {
+              return { ...prev, [field]: current.filter(i => i !== value) };
+          } else {
+              return { ...prev, [field]: [...current, value] };
+          }
+      });
+  };
+
   const handleReset = () => {
     setStep(0);
     setResult(null);
@@ -1073,8 +1110,10 @@ export const MarketingAgent: React.FC = () => {
     setFormData({
       mode: 'single',
       goal: '',
+      goals: [],
       customGoal: '',
       audience: '',
+      audiences: [],
       customAudience: '',
       topic: '',
       format: 'auto',
@@ -1092,8 +1131,8 @@ export const MarketingAgent: React.FC = () => {
   // Validation logic
   const isNextDisabled = () => {
     if (step === 0 && !formData.mode) return true;
-    if (step === 1 && !formData.goal && !formData.customGoal) return true;
-    if (step === 2 && !formData.audience && !formData.customAudience) return true;
+    if (step === 1 && (!formData.goals?.length && !formData.customGoal)) return true;
+    if (step === 2 && (!formData.audiences?.length && !formData.customAudience)) return true;
     if (step === 3 && !formData.topic) return true;
     return false;
   };
@@ -1170,8 +1209,8 @@ export const MarketingAgent: React.FC = () => {
             ) : (
                 <>
                 {step === 0 && <StepMode formData={formData} updateFormData={updateFormData} />}
-                {step === 1 && <StepGoal formData={formData} updateFormData={updateFormData} />}
-                {step === 2 && <StepAudience formData={formData} updateFormData={updateFormData} />}
+                {step === 1 && <StepGoal formData={formData} updateFormData={updateFormData} toggleSelection={toggleSelection} />}
+                {step === 2 && <StepAudience formData={formData} updateFormData={updateFormData} toggleSelection={toggleSelection} />}
                 {step === 3 && (
                     <StepTopic 
                         formData={formData} 

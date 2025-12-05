@@ -3,9 +3,14 @@ export type MarketingMode = 'single' | 'plan' | 'story';
 
 export interface MarketingFormData {
   mode: MarketingMode;
+  // Legacy single string fields (kept for compatibility or singular logic if needed)
   goal: string; 
-  customGoal?: string; 
   audience: string;
+  // New Array fields for multi-selection
+  goals?: string[];
+  audiences?: string[];
+  
+  customGoal?: string; 
   customAudience?: string;
   topic: string;
   format: string; 
