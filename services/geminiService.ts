@@ -112,7 +112,10 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
     Card 5 (Prova): Resultado ou identificação.
     Card 6 (CTA): Chamada para ação clara.
 
-    IMPORTANTE: Gere um 'visualPrompt' ÚNICO que descreva uma imagem panorâmica (ratio 16:9 largo) simulando os 6 cards lado a lado visualmente (Grid Layout), para o usuário visualizar a identidade.
+    IMPORTANTE SOBRE IMAGEM:
+    Gere um 'visualPrompt' ÚNICO que descreva uma "Imagem Storyboard" (Grid Layout).
+    A imagem deve ser uma composição panorâmica dividida em 6 painéis verticais iguais lado a lado, lendo-se da esquerda para a direita.
+    Descreva o que aparece em cada um dos 6 painéis visualmente para que o modelo de imagem gere uma única imagem larga contendo toda a sequência.
     `;
 
     responseSchema.properties.carouselCards = {
@@ -129,7 +132,7 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
             required: ['order', 'visualPrompt']
         }
     };
-    responseSchema.properties.visualPrompt = { type: Type.STRING, description: "Prompt panorâmico 16:9 dos 6 cards juntos" };
+    responseSchema.properties.visualPrompt = { type: Type.STRING, description: "Prompt para imagem única estilo Storyboard (6 painéis lado a lado) descrevendo a sequência inteira." };
   } 
   // --- LOGIC: STATIC POST ---
   else {
@@ -220,17 +223,30 @@ export async function* generatePilatesContentStream(request: ContentRequest, sys
 
 export const generatePilatesImage = async (request: ContentRequest, persona: any, contentContext: string): Promise<string | null> => {
     try {
-        const prompt = `Create a high quality image for a Pilates studio Instagram post.
+        const isCarousel = request.format.toLowerCase().includes('carrossel') || request.format.toLowerCase().includes('carousel');
+        
+        let prompt = `Create a high quality image for a Pilates studio Instagram post.
         Style: ${request.imageStyle}.
         Theme: ${request.theme}.
-        Context from caption: ${contentContext.substring(0, 200)}...
+        Context: ${contentContext.substring(0, 300)}...
         No text in image.`;
 
+        if (isCarousel) {
+            prompt = `Create a wide panoramic image split into 6 equal vertical panels (storyboard style) representing a carousel sequence for Pilates.
+            Style: ${request.imageStyle}.
+            Theme: ${request.theme}.
+            Sequence: ${contentContext.substring(0, 300)}...
+            Make sure the transitions are seamless or distinctly panelled. No text.`;
+        }
+
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image', // Using flash image as per guidelines for general
+            model: 'gemini-2.5-flash-image', 
             contents: prompt,
             config: {
-                // No responseMimeType for image models as per guidelines
+                imageConfig: {
+                    // For carousel, we use 16:9 to simulate the wide strip of 6 cards
+                    aspectRatio: isCarousel ? '16:9' : '1:1'
+                }
             }
         });
 
