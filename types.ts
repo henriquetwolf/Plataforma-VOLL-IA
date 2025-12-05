@@ -70,6 +70,8 @@ export interface CarouselCard {
   textOverlay: string;
   visualPrompt: string;
   generatedImage?: string;
+  title?: string;
+  content?: string;
 }
 
 export interface GeneratedContent {

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { generateMarketingContent, generateTopicSuggestions } from '../services/geminiService';
-import { MarketingFormData, GeneratedContent, CategorizedTopics, SavedPost, ReelOption, CarouselCard } from '../types';
+import { MarketingFormData, GeneratedContent, CategorizedTopics, SavedPost, ReelOption, CarouselCard, ContentRequest } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Megaphone, Sparkles, Video, Image as LucideImage, Copy, Loader2, Lightbulb, UserCircle, Calendar, ArrowRight, ArrowLeft, RefreshCw, X, Eye, CheckCircle, Smartphone, Grid, Layers, Type, Save, Trash2, History } from 'lucide-react';
@@ -14,8 +14,8 @@ import { fetchProfile } from '../services/storage';
 
 const StepGoal = ({ selectedGoals, setSelectedGoals, customGoal, setCustomGoal }: any) => {
     const goals = [
-        'Educar e Informar', 'Inspirar e Motivar', 'Vendas / Matrículas', 
-        'Engajamento / Interação', 'Autoridade / Bastidores', 'Humor / Entretenimento'
+        'Atrair Novos Alunos', 'Fidelizar / Engajar', 'Educativo / Informativo', 
+        'Inspiracional / Motivacional', 'Vendas / Promoção'
     ];
 
     const toggleGoal = (g: string) => {
@@ -38,15 +38,16 @@ const StepGoal = ({ selectedGoals, setSelectedGoals, customGoal, setCustomGoal }
                     </button>
                 ))}
             </div>
-            <Input label="Outro Objetivo (Opcional)" value={customGoal} onChange={e => setCustomGoal(e.target.value)} placeholder="Ex: Divulgar evento X..." />
+            <Input label="Outro objetivo específico" value={customGoal} onChange={e => setCustomGoal(e.target.value)} placeholder="Ex: Divulgar evento X..." />
         </div>
     );
 };
 
 const StepAudience = ({ selectedAudiences, setSelectedAudiences, customAudience, setCustomAudience }: any) => {
     const audiences = [
-        'Iniciantes', 'Intermediários/Avançados', 'Idosos', 
-        'Gestantes', 'Pessoas com Dor/Lesão', 'Atletas'
+        'Iniciantes / Sedentários', 'Mulheres 40+ / Menopausa', 'Alunos com Patologias', 
+        'Foco em Alívio de Dores', 'Gestantes / Pós-Parto', 'Idosos / Terceira Idade',
+        'Avançados / Desafios', 'Público Geral do Studio'
     ];
 
     const toggleAudience = (a: string) => {
@@ -57,7 +58,7 @@ const StepAudience = ({ selectedAudiences, setSelectedAudiences, customAudience,
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
             <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Quem queremos atingir?</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-2 gap-3">
                 {audiences.map(a => (
                     <button 
                         key={a}
@@ -68,7 +69,7 @@ const StepAudience = ({ selectedAudiences, setSelectedAudiences, customAudience,
                     </button>
                 ))}
             </div>
-            <Input label="Outro Público (Opcional)" value={customAudience} onChange={e => setCustomAudience(e.target.value)} placeholder="Ex: Mulheres no pós-parto..." />
+            <Input label="Outro público específico" value={customAudience} onChange={e => setCustomAudience(e.target.value)} placeholder="Ex: Atletas de corrida..." />
         </div>
     );
 };
@@ -76,7 +77,7 @@ const StepAudience = ({ selectedAudiences, setSelectedAudiences, customAudience,
 const StepTopic = ({ topic, setTopic, onGetIdeas, loadingIdeas, suggestions }: any) => {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
-            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Sobre o que vamos falar?</h3>
+            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Sobre o que será falado?</h3>
             
             <div className="flex gap-2">
                 <Input 
@@ -87,14 +88,14 @@ const StepTopic = ({ topic, setTopic, onGetIdeas, loadingIdeas, suggestions }: a
                     autoFocus
                 />
                 <Button onClick={onGetIdeas} isLoading={loadingIdeas} variant="secondary" className="h-[46px]">
-                    <Lightbulb className="w-4 h-4 mr-2" /> Ideias
+                    <Lightbulb className="w-4 h-4 mr-2" /> Sugerir Temas
                 </Button>
             </div>
 
             {suggestions && (
                 <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4">
                     <div>
-                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Clássicos & Educativos</h4>
+                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Clichês (O que todos buscam)</h4>
                         <div className="flex flex-wrap gap-2">
                             {suggestions.cliche?.map((Idea: string, i: number) => (
                                 <button key={i} onClick={() => setTopic(Idea)} className="text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-full hover:border-brand-400 hover:text-brand-600 transition-colors text-left">
@@ -104,10 +105,20 @@ const StepTopic = ({ topic, setTopic, onGetIdeas, loadingIdeas, suggestions }: a
                         </div>
                     </div>
                     <div>
-                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Criativos & Diferentes</h4>
+                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Inovadores (Fora da caixa)</h4>
                         <div className="flex flex-wrap gap-2">
                             {suggestions.innovative?.map((Idea: string, i: number) => (
                                 <button key={i} onClick={() => setTopic(Idea)} className="text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-full hover:border-purple-400 hover:text-purple-600 transition-colors text-left">
+                                    {Idea}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Viscerais (Profundos/Emocionais)</h4>
+                        <div className="flex flex-wrap gap-2">
+                            {suggestions.visceral?.map((Idea: string, i: number) => (
+                                <button key={i} onClick={() => setTopic(Idea)} className="text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-full hover:border-red-400 hover:text-red-600 transition-colors text-left">
                                     {Idea}
                                 </button>
                             ))}
@@ -121,15 +132,15 @@ const StepTopic = ({ topic, setTopic, onGetIdeas, loadingIdeas, suggestions }: a
 
 const StepFormatStyle = ({ format, setFormat, style, setStyle, carouselType, setCarouselType }: any) => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
-        <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Formato & Estilo</h3>
+        <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Formato do Conteúdo</h3>
         
         <div>
-            <label className="block text-sm font-medium mb-3 text-slate-700 dark:text-slate-300">Qual o formato do conteúdo?</label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
-                    { id: 'Post Estático', icon: LucideImage, label: 'Post Estático' },
-                    { id: 'Reels / Vídeo', icon: Video, label: 'Reels / Vídeo' },
-                    { id: 'Carrossel', icon: Layers, label: 'Carrossel' }
+                    { id: 'IA Decide (Recomendado)', icon: Sparkles, label: 'IA Decide (Recomendado)' },
+                    { id: 'Reels / Vídeo Curto', icon: Video, label: 'Reels / Vídeo Curto' },
+                    { id: 'Carrossel (6 Cards)', icon: Layers, label: 'Carrossel (6 Cards)' },
+                    { id: 'Post Estático', icon: LucideImage, label: 'Post Estático' }
                 ].map(item => (
                     <button
                         key={item.id}
@@ -147,7 +158,7 @@ const StepFormatStyle = ({ format, setFormat, style, setStyle, carouselType, set
             </div>
         </div>
 
-        {format === 'Carrossel' && (
+        {format === 'Carrossel (6 Cards)' && (
             <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 animate-in fade-in">
                 <label className="block text-sm font-bold mb-3 text-slate-700 dark:text-slate-300">Tipo de Carrossel</label>
                 <div className="grid grid-cols-1 gap-3">
@@ -198,6 +209,8 @@ const StepFormatStyle = ({ format, setFormat, style, setStyle, carouselType, set
 );
 
 const ResultView = ({ result, onSave, onRegenerate }: { result: GeneratedContent, onSave: () => void, onRegenerate: () => void }) => {
+    const [activeReelTab, setActiveReelTab] = useState(0);
+
     return (
         <div className="space-y-6 animate-in fade-in zoom-in-95">
             <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-lg">
@@ -207,6 +220,7 @@ const ResultView = ({ result, onSave, onRegenerate }: { result: GeneratedContent
                             {result.suggestedFormat}
                         </span>
                         <h2 className="text-xl font-bold text-slate-900 dark:text-white">Conteúdo Gerado</h2>
+                        <p className="text-sm text-slate-500 mt-1">{result.reasoning}</p>
                     </div>
                     <div className="flex gap-2">
                         <Button variant="outline" onClick={onRegenerate} size="sm"><RefreshCw className="w-4 h-4 mr-2"/> Regenerar</Button>
@@ -214,57 +228,102 @@ const ResultView = ({ result, onSave, onRegenerate }: { result: GeneratedContent
                     </div>
                 </div>
 
-                {/* VISUAL PROMPT */}
-                {(result.visualPrompt || result.visualContent) && (
-                    <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800">
-                        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                            <LucideImage className="w-4 h-4"/> Sugestão Visual
-                        </h4>
-                        <p className="text-sm text-slate-600 dark:text-slate-400 italic">"{result.visualPrompt}"</p>
-                        {/* Se tiver imagem gerada (futuro), exibiria aqui */}
-                    </div>
-                )}
-
-                {/* CAROUSEL CARDS */}
+                {/* --- CAROUSEL VIEW --- */}
                 {result.carouselCards && (
-                    <div className="mb-6 space-y-4">
-                        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                            <Layers className="w-4 h-4"/> Estrutura do Carrossel
+                    <div className="mb-8">
+                        <div className="mb-4">
+                            <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2 mb-2">
+                                <LucideImage className="w-4 h-4"/> Visual Panorâmico (Prompt)
+                            </h4>
+                            <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400 italic">
+                                "{result.visualPrompt}"
+                            </div>
+                        </div>
+
+                        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2 mb-3">
+                            <Layers className="w-4 h-4"/> Estrutura (6 Cards)
                         </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {result.carouselCards.map((card, idx) => (
-                                <div key={idx} className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950/50">
-                                    <div className="font-bold text-xs text-brand-600 mb-1">CARD {card.order}</div>
-                                    <div className="text-sm font-medium text-slate-800 dark:text-white mb-2">{card.textOverlay || '(Apenas Imagem)'}</div>
-                                    <div className="text-xs text-slate-500 italic border-t border-slate-200 dark:border-slate-700 pt-2">
-                                        Visual: {card.visualPrompt}
-                                    </div>
+                                <div key={idx} className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950/50 flex flex-col h-full">
+                                    <div className="font-bold text-xs text-brand-600 mb-2 uppercase tracking-wide">CARD {card.order}</div>
+                                    <div className="text-sm font-bold text-slate-800 dark:text-white mb-1">{card.textOverlay || '(Visual)'}</div>
+                                    <div className="text-xs text-slate-500 mb-2 flex-1">{card.content || card.visualPrompt}</div>
                                 </div>
                             ))}
                         </div>
                     </div>
                 )}
 
-                {/* REELS SCRIPT */}
-                {result.reelsOptions && result.reelsOptions.map((reel, idx) => (
-                    <div key={idx} className="mb-6 p-4 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950/50">
-                        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                            <Video className="w-4 h-4"/> Roteiro de Vídeo ({reel.type})
-                        </h4>
-                        <div className="space-y-2 text-sm">
-                            <p><strong>Gancho:</strong> {reel.hook}</p>
-                            <div className="bg-white dark:bg-slate-900 p-3 rounded border border-slate-200 dark:border-slate-800">
-                                <ul className="list-disc pl-4 space-y-1">
-                                    {reel.script.map((line, i) => <li key={i} className="text-slate-600 dark:text-slate-300">{line}</li>)}
-                                </ul>
+                {/* --- REELS VIEW (4 OPTIONS) --- */}
+                {result.reelsOptions && result.reelsOptions.length > 0 && (
+                    <div className="mb-8">
+                        <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+                            {result.reelsOptions.map((reel, idx) => (
+                                <button 
+                                    key={idx}
+                                    onClick={() => setActiveReelTab(idx)}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                                        activeReelTab === idx 
+                                        ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-900 shadow-md' 
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                                    }`}
+                                >
+                                    Opção {idx + 1}: {reel.type}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="p-5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-950/50 animate-in fade-in">
+                            <div className="flex justify-between items-start mb-4">
+                                <h4 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                    <Video className="w-5 h-5 text-brand-600"/> {result.reelsOptions[activeReelTab].title}
+                                </h4>
+                                <span className="text-xs font-bold bg-white dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">
+                                    {result.reelsOptions[activeReelTab].duration}
+                                </span>
                             </div>
-                            <p className="text-xs text-slate-500"><strong>Áudio Sugerido:</strong> {reel.audioSuggestions.join(', ')}</p>
+                            
+                            <div className="space-y-4 text-sm">
+                                <div className="bg-white dark:bg-slate-900 p-3 rounded border border-slate-200 dark:border-slate-800">
+                                    <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Gancho (3s)</span>
+                                    <p className="font-medium text-slate-800 dark:text-white">"{result.reelsOptions[activeReelTab].hook}"</p>
+                                </div>
+
+                                <div>
+                                    <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Roteiro</span>
+                                    <ul className="list-disc pl-5 space-y-1 text-slate-600 dark:text-slate-300">
+                                        {result.reelsOptions[activeReelTab].script.map((line, i) => <li key={i}>{line}</li>)}
+                                    </ul>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                                    <div>
+                                        <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Áudio</span>
+                                        <p className="text-slate-600 dark:text-slate-400">{result.reelsOptions[activeReelTab].audioSuggestions.join(', ')}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Microdetalhes</span>
+                                        <p className="text-slate-600 dark:text-slate-400 italic">{result.reelsOptions[activeReelTab].microDetails}</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                ))}
+                )}
+
+                {/* --- STATIC POST VIEW --- */}
+                {result.visualPrompt && !result.carouselCards && !result.reelsOptions && (
+                    <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800">
+                        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                            <LucideImage className="w-4 h-4"/> Sugestão Visual
+                        </h4>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 italic">"{result.visualPrompt}"</p>
+                    </div>
+                )}
 
                 {/* CAPTIONS */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                     <div>
                         <div className="flex justify-between items-center mb-2">
                             <label className="text-xs font-bold text-slate-500 uppercase">Legenda Curta</label>
@@ -382,7 +441,7 @@ export const MarketingAgent: React.FC = () => {
   const [suggestions, setSuggestions] = useState<CategorizedTopics | null>(null);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   
-  const [format, setFormat] = useState('Post Estático');
+  const [format, setFormat] = useState('IA Decide (Recomendado)');
   const [carouselType, setCarouselType] = useState<'image-only' | 'text-only' | 'text-image'>('text-image');
   const [style, setStyle] = useState('Moderno');
   
@@ -405,13 +464,16 @@ export const MarketingAgent: React.FC = () => {
   };
 
   const handleGetIdeas = async () => {
-      if (!selectedGoals.length) {
+      if (!selectedGoals.length && !customGoal) {
           alert("Selecione um objetivo primeiro (Passo 1).");
           setStep(1);
           return;
       }
       setLoadingSuggestions(true);
-      const ideas = await generateTopicSuggestions(selectedGoals.join(', '), selectedAudiences.join(', '));
+      const ideas = await generateTopicSuggestions(
+          [...selectedGoals, customGoal].filter(Boolean).join(', '), 
+          [...selectedAudiences, customAudience].filter(Boolean).join(', ')
+      );
       setSuggestions(ideas);
       setLoadingSuggestions(false);
   };
@@ -421,10 +483,10 @@ export const MarketingAgent: React.FC = () => {
     try {
         const formData: MarketingFormData = {
             mode: 'single',
-            goal: selectedGoals.join(', '),
+            goal: [...selectedGoals, customGoal].filter(Boolean).join(', '),
             goals: selectedGoals,
             customGoal,
-            audience: selectedAudiences.join(', '),
+            audience: [...selectedAudiences, customAudience].filter(Boolean).join(', '),
             audiences: selectedAudiences,
             customAudience,
             topic,
@@ -461,7 +523,7 @@ export const MarketingAgent: React.FC = () => {
               logoConfig: { enabled: false, type: 'normal', position: 'bottom-right', size: 'small' }
           },
           content: result.captionLong || result.captionShort || '',
-          imageUrl: result.generatedImage || null, // Se a IA gerar imagem real
+          imageUrl: result.generatedImage || null, // Se a IA gerar imagem real no futuro
           videoUrl: null,
           createdAt: new Date().toISOString()
       };
@@ -494,7 +556,7 @@ export const MarketingAgent: React.FC = () => {
                 <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <Megaphone className="h-8 w-8 text-brand-600" /> Marketing Digital
                 </h1>
-                <p className="text-slate-500">Crie conteúdo estratégico para suas redes sociais.</p>
+                <p className="text-slate-500">Crie conteúdo estratégico (Post Único).</p>
             </div>
             
             <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">

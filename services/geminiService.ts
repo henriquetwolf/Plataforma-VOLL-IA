@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
   MarketingFormData, GeneratedContent, CategorizedTopics, ContentRequest, 
@@ -19,78 +20,99 @@ export const handleGeminiError = (err: any): string => {
   </div>`;
 };
 
-const getModel = (task: 'text' | 'image' | 'video' | 'complex') => {
-  if (task === 'video') return 'veo-3.1-fast-generate-preview';
-  if (task === 'image') return 'gemini-2.5-flash-image';
-  if (task === 'complex') return 'gemini-2.5-flash'; // Using flash for general tasks as per guidelines unless specified
-  return 'gemini-2.5-flash';
-};
-
-// --- MARKETING AGENT ---
+// --- MARKETING AGENT (NEW LOGIC) ---
 
 export const generateMarketingContent = async (formData: MarketingFormData): Promise<GeneratedContent | null> => {
   const isPlan = formData.mode === 'plan';
   const isStory = formData.mode === 'story';
-  const formatLower = formData.format.toLowerCase();
+  
+  // Decide format or use user selection
+  let selectedFormat = formData.format;
+  const isAiDecide = selectedFormat === 'IA Decide (Recomendado)' || selectedFormat === 'IA Decide';
+  const formatLower = selectedFormat.toLowerCase();
+  
   const isCarousel = formatLower.includes('carrossel') || formatLower.includes('carousel');
   const isReels = formatLower.includes('reels') || formatLower.includes('vídeo') || formatLower.includes('video');
+  const isStatic = !isCarousel && !isReels && !isAiDecide;
 
-  let systemInstruction = `Você é um especialista em Marketing Digital para Studios de Pilates.
-  Objetivo: ${formData.goal}
-  Público: ${formData.audience}
-  Tópico: ${formData.topic}
-  Tom: ${formData.style}
+  const PERSONA_INSTRUCTION = `
+    Persona: Você é um Diretor de Marketing Sênior especializado em Studios de Pilates.
+    Tom de Voz: Estratégico, Persuasivo e Humanizado (Português Brasileiro Nativo).
+    Proibido: Linguagem robótica, clichês vazios como "Venha conferir", "O melhor para você" ou traduções literais.
+    Objetivo: Criar conteúdo de alta conversão e retenção.
   `;
 
-  let prompt = `Crie conteúdo para ${formData.format}.`;
+  let userPrompt = `
+    Objetivo: ${formData.goal} ${formData.customGoal ? `(${formData.customGoal})` : ''}
+    Público-Alvo: ${formData.audience} ${formData.customAudience ? `(${formData.customAudience})` : ''}
+    Tópico Central: ${formData.topic}
+    Estilo Visual: ${formData.style}
+  `;
 
   const responseSchema: any = {
     type: Type.OBJECT,
     properties: {
-      suggestedFormat: { type: Type.STRING },
-      reasoning: { type: Type.STRING },
-      captionShort: { type: Type.STRING },
-      captionLong: { type: Type.STRING },
+      suggestedFormat: { type: Type.STRING, description: "O formato final escolhido (Reels, Carrossel ou Post Estático)" },
+      reasoning: { type: Type.STRING, description: "Por que este formato/conteúdo é ideal para o objetivo" },
+      captionShort: { type: Type.STRING, description: "Legenda curta e impactante" },
+      captionLong: { type: Type.STRING, description: "Legenda longa e educativa/persuasiva" },
       hashtags: { type: Type.ARRAY, items: { type: Type.STRING } },
-      tips: { type: Type.STRING },
+      tips: { type: Type.STRING, description: "Dicas de execução" },
     },
-    required: ['suggestedFormat', 'reasoning', 'captionShort', 'tips']
+    required: ['suggestedFormat', 'reasoning', 'captionShort', 'captionLong', 'tips']
   };
 
-  if (isCarousel) {
-    const type = formData.carouselType || 'text-image';
+  // --- LOGIC: REELS (4 OPTIONS) ---
+  if (isReels || (isAiDecide && (formData.goal.includes('Novos') || formData.goal.includes('Viral')))) {
+    userPrompt += `
+    FORMATO: VÍDEO / REELS.
+    Tarefa: Crie 4 opções de roteiro "Ultraviscerais" para este tópico.
     
-    prompt += `
-    Crie um Carrossel Educativo de EXATAMENTE 6 Cards.
-    Preencha 'carouselCards' com 6 itens.
-    Modo Selecionado: ${type === 'image-only' ? '1. CARROSSEL SEM TEXTO (Visual)' : type === 'text-only' ? '2. CARROSSEL COM TEXTO (Informativo)' : '3. CARROSSEL HÍBRIDO (Texto + Imagem)'}.
+    Regras para TODOS os Reels:
+    - Gancho Inicial (3s): Obrigatório ser impactante para prender a atenção.
+    - Áudios: Sugerir 2 opções (1 Viral/Trend e 1 Emocional/Cinematográfica).
+    - Microdetalhes: Descrever expressões faciais, cenário, movimentos de câmera.
     
-    Regras Específicas do Modo:
-    ${type === 'image-only' ? 
-      `- Gere APENAS elementos visuais, ilustrações ou fotos.
-       - 'textOverlay' deve ser VAZIO ou conter apenas elementos decorativos.
-       - Priorize storytelling visual.` 
-    : type === 'text-only' ?
-      `- Texto legível, organizado, max 4 linhas por card.
-       - Foco em tipografia limpa e contraste.
-       - Estrutura Narrativa: 
-         Card 1: Título/Gancho
-         Card 2: Problema
-         Card 3: Explicação
-         Card 4: Solução
-         Card 5: Benefício
-         Card 6: Conclusão/CTA`
-    : 
-      `- Equilíbrio perfeito entre imagem e texto.
-       - Imagens conversam com o texto.
-       - Max 4 linhas de texto.
-       - Estrutura Narrativa: Gancho -> Problema -> Solução -> Benefício -> CTA.`
-    }
+    Gere as seguintes 4 opções exatas:
+    1. Viral (Max 35s): Foco em cortes rápidos, visual, pouca fala. (Estrutura: POV -> Ação -> Resultado).
+    2. Standard (Max 60s): Profissionalismo e autoridade. (Estrutura: Antes/Dor -> Durante/Técnica -> Depois/Transformação).
+    3. Selfie Falada (Max 45s): Intimidade, segurando o celular. (Estrutura: Pergunta desconfortável/Verdade dura -> História -> Conclusão).
+    4. Box (Caixinha de Perguntas) (Max 45s): Responder UMA dúvida profundamente. (Estrutura: Clareza técnica + Demonstração).
+    `;
 
-    REGRAS GERAIS:
-    - Gere um 'visualPrompt' único descrevendo uma imagem panorâmica (6480x1350 px ratio) que represente os 6 cards lado a lado visualmente.
-    - Mantenha unidade estética.
-    - SEMPRE retorne 'captionShort' E 'captionLong'.
+    responseSchema.properties.reelsOptions = {
+        type: Type.ARRAY,
+        items: {
+            type: Type.OBJECT,
+            properties: {
+                type: { type: Type.STRING, enum: ['Viral', 'Standard', 'Selfie', 'Box'] },
+                title: { type: Type.STRING },
+                hook: { type: Type.STRING, description: "A frase ou ação dos primeiros 3 segundos" },
+                script: { type: Type.ARRAY, items: { type: Type.STRING }, description: "O roteiro passo a passo" },
+                audioSuggestions: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Sugestões de áudio" },
+                microDetails: { type: Type.STRING, description: "Expressões, ângulos, luz" },
+                duration: { type: Type.STRING }
+            },
+            required: ['type', 'title', 'hook', 'script', 'audioSuggestions', 'microDetails']
+        }
+    };
+  } 
+  // --- LOGIC: CAROUSEL (6 CARDS) ---
+  else if (isCarousel || (isAiDecide && (formData.goal.includes('Educar') || formData.goal.includes('Autoridade')))) {
+    const type = formData.carouselType || 'text-image';
+    userPrompt += `
+    FORMATO: CARROSSEL (6 CARDS).
+    Modo: ${type === 'image-only' ? 'Visual (Sem texto)' : type === 'text-only' ? 'Informativo (Texto)' : 'Híbrido'}.
+    
+    Estrutura Narrativa Obrigatória (6 Cards):
+    Card 1 (Capa): Gancho visual + Título forte.
+    Card 2 (Consciência): Aprofunda a dor ou quebra um mito.
+    Card 3 (Solução): Apresenta o Pilates como a chave.
+    Card 4 (Mecanismo): Como funciona na prática? (Técnica).
+    Card 5 (Prova): Resultado ou identificação.
+    Card 6 (CTA): Chamada para ação clara.
+
+    IMPORTANTE: Gere um 'visualPrompt' ÚNICO que descreva uma imagem panorâmica (ratio 16:9 largo) simulando os 6 cards lado a lado visualmente (Grid Layout), para o usuário visualizar a identidade.
     `;
 
     responseSchema.properties.carouselCards = {
@@ -99,48 +121,32 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
             type: Type.OBJECT,
             properties: {
                 order: { type: Type.INTEGER },
-                textOverlay: { type: Type.STRING, description: "Short text to place on the image (if applicable)" },
-                visualPrompt: { type: Type.STRING, description: "Description for this specific card's visual" },
+                title: { type: Type.STRING },
+                content: { type: Type.STRING, description: "O texto principal do card" },
+                textOverlay: { type: Type.STRING, description: "Texto curto de destaque na imagem" },
+                visualPrompt: { type: Type.STRING, description: "Descrição visual individual deste card" },
             },
             required: ['order', 'visualPrompt']
         }
     };
-    responseSchema.properties.visualPrompt = { type: Type.STRING, description: "A panoramic 16:9 image prompt describing the flow of 6 cards side-by-side" };
-
-  } else if (isReels) {
-    prompt += ` Crie um roteiro para Reels/Vídeo curto.`;
-    responseSchema.properties.reelsOptions = {
-        type: Type.ARRAY,
-        items: {
-            type: Type.OBJECT,
-            properties: {
-                type: { type: Type.STRING, enum: ['Viral', 'Standard', 'Selfie', 'Box'] },
-                style: { type: Type.STRING },
-                title: { type: Type.STRING },
-                hook: { type: Type.STRING },
-                purpose: { type: Type.STRING },
-                captionShort: { type: Type.STRING },
-                captionLong: { type: Type.STRING },
-                script: { type: Type.ARRAY, items: { type: Type.STRING } },
-                audioSuggestions: { type: Type.ARRAY, items: { type: Type.STRING } },
-                microDetails: { type: Type.STRING },
-                duration: { type: Type.STRING }
-            },
-            required: ['type', 'title', 'hook', 'script', 'audioSuggestions']
-        }
-    };
-  } else {
-    // Static Post
-    prompt += ` Crie um post estático (imagem única).`;
-    responseSchema.properties.visualPrompt = { type: Type.STRING, description: "Prompt for image generation" };
+    responseSchema.properties.visualPrompt = { type: Type.STRING, description: "Prompt panorâmico 16:9 dos 6 cards juntos" };
+  } 
+  // --- LOGIC: STATIC POST ---
+  else {
+    userPrompt += `
+    FORMATO: POST ESTÁTICO (IMAGEM ÚNICA).
+    Crie uma imagem profissional e estética (Fotorealista ou Ilustrativa conforme estilo: ${formData.style}).
+    A legenda deve ser focada na imagem.
+    `;
+    responseSchema.properties.visualPrompt = { type: Type.STRING, description: "Prompt detalhado para geração da imagem" };
   }
 
   try {
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
-        contents: prompt,
+        contents: userPrompt,
         config: {
-            systemInstruction: systemInstruction,
+            systemInstruction: PERSONA_INSTRUCTION,
             responseMimeType: "application/json",
             responseSchema: responseSchema
         }
@@ -156,7 +162,17 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
 
 export const generateTopicSuggestions = async (goal: string, audience: string): Promise<CategorizedTopics | null> => {
   try {
-    const prompt = `Sugira tópicos de conteúdo para Pilates. Objetivo: ${goal}, Público: ${audience}.`;
+    const prompt = `
+    Atue como um estrategista de conteúdo para Pilates.
+    Objetivo: ${goal}
+    Público: ${audience}
+    
+    Sugira 6 temas de conteúdo divididos em 3 categorias:
+    1. Clichê (O que todos buscam/perguntam)
+    2. Inovador (Fora da caixa, ângulo diferente)
+    3. Visceral (Profundo, emocional, toca na dor real)
+    `;
+    
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: prompt,
@@ -238,15 +254,6 @@ export const generatePilatesVideo = async (promptText: string, onStatus: (msg: s
             throw new Error("API Key not selected for Veo.");
         }
         
-        // We assume the environment variable or global state is updated, 
-        // but strictly per guidelines we should instantiate with the key if we could access it.
-        // Since we can't access the user selected key directly in code securely without it being in process.env,
-        // and the guidelines say "Create a new GoogleGenAI instance right before making an API call... The selected API key is available via process.env.API_KEY"
-        // We assume the platform injects it or we rely on the default if the env var is updated.
-        // However, in a real browser app, process.env isn't mutable at runtime easily.
-        // We will try to proceed with the `ai` instance assuming it has the key, or re-instantiate if we had a way to get it.
-        // For this code, we proceed with `ai`.
-
         onStatus("Iniciando geração de vídeo (Veo)...");
         
         let operation = await ai.models.generateVideos({
