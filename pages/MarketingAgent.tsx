@@ -1,45 +1,123 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { generateMarketingContent, generateTopicSuggestions } from '../services/geminiService';
-import { MarketingFormData, GeneratedContent, ReelOption, CategorizedTopics, SavedPost } from '../types';
+import { MarketingFormData, GeneratedContent, CategorizedTopics, SavedPost, ReelOption, CarouselCard } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Megaphone, Sparkles, Video, Image as LucideImage, Copy, Loader2, Lightbulb, UserCircle, Calendar, ArrowRight, ArrowLeft, RefreshCw, X, Eye, CheckCircle, Smartphone, Grid, Layers, Type } from 'lucide-react';
-import { fetchStudioPersona, savePost, fetchSavedPosts, getTodayPostCount, recordGenerationUsage } from '../services/contentService';
+import { Megaphone, Sparkles, Video, Image as LucideImage, Copy, Loader2, Lightbulb, UserCircle, Calendar, ArrowRight, ArrowLeft, RefreshCw, X, Eye, CheckCircle, Smartphone, Grid, Layers, Type, Save, Trash2, History } from 'lucide-react';
+import { fetchStudioPersona, savePost, fetchSavedPosts, deleteSavedPost } from '../services/contentService';
 import { fetchProfile } from '../services/storage';
 
-const GeneratedPostPreview: React.FC<{ post: SavedPost; onClose: () => void; readOnly?: boolean; }> = ({ post, onClose, readOnly }) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-        <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
-                <h3 className="font-bold text-slate-800 dark:text-white">Post Gerado</h3>
-                <button onClick={onClose}><X className="w-5 h-5 text-slate-400"/></button>
+// --- SUB-COMPONENTS FOR STEPS ---
+
+const StepGoal = ({ selectedGoals, setSelectedGoals, customGoal, setCustomGoal }: any) => {
+    const goals = [
+        'Educar e Informar', 'Inspirar e Motivar', 'Vendas / Matrículas', 
+        'Engajamento / Interação', 'Autoridade / Bastidores', 'Humor / Entretenimento'
+    ];
+
+    const toggleGoal = (g: string) => {
+        if (selectedGoals.includes(g)) setSelectedGoals(selectedGoals.filter((x: string) => x !== g));
+        else setSelectedGoals([...selectedGoals, g]);
+    };
+
+    return (
+        <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
+            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Qual o objetivo do post?</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {goals.map(g => (
+                    <button 
+                        key={g}
+                        onClick={() => toggleGoal(g)}
+                        className={`p-4 rounded-xl border text-left transition-all flex items-center justify-between ${selectedGoals.includes(g) ? 'bg-brand-50 border-brand-500 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-brand-300'}`}
+                    >
+                        <span className="font-medium">{g}</span>
+                        {selectedGoals.includes(g) && <CheckCircle className="w-5 h-5 text-brand-600" />}
+                    </button>
+                ))}
             </div>
-            <div className="p-6 overflow-y-auto flex-1 space-y-4">
-                <div className="aspect-square bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700">
-                    {post.imageUrl ? (
-                        <img src={post.imageUrl} alt="Generated" className="w-full h-full object-cover" />
-                    ) : (
-                        <div className="text-center p-4">
-                            <LucideImage className="w-12 h-12 mx-auto text-slate-300 mb-2"/>
-                            <p className="text-xs text-slate-400 italic">Imagem não gerada ou indisponível</p>
+            <Input label="Outro Objetivo (Opcional)" value={customGoal} onChange={e => setCustomGoal(e.target.value)} placeholder="Ex: Divulgar evento X..." />
+        </div>
+    );
+};
+
+const StepAudience = ({ selectedAudiences, setSelectedAudiences, customAudience, setCustomAudience }: any) => {
+    const audiences = [
+        'Iniciantes', 'Intermediários/Avançados', 'Idosos', 
+        'Gestantes', 'Pessoas com Dor/Lesão', 'Atletas'
+    ];
+
+    const toggleAudience = (a: string) => {
+        if (selectedAudiences.includes(a)) setSelectedAudiences(selectedAudiences.filter((x: string) => x !== a));
+        else setSelectedAudiences([...selectedAudiences, a]);
+    };
+
+    return (
+        <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
+            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Quem queremos atingir?</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {audiences.map(a => (
+                    <button 
+                        key={a}
+                        onClick={() => toggleAudience(a)}
+                        className={`p-3 rounded-xl border text-center transition-all text-sm ${selectedAudiences.includes(a) ? 'bg-purple-50 border-purple-500 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-purple-300'}`}
+                    >
+                        {a}
+                    </button>
+                ))}
+            </div>
+            <Input label="Outro Público (Opcional)" value={customAudience} onChange={e => setCustomAudience(e.target.value)} placeholder="Ex: Mulheres no pós-parto..." />
+        </div>
+    );
+};
+
+const StepTopic = ({ topic, setTopic, onGetIdeas, loadingIdeas, suggestions }: any) => {
+    return (
+        <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
+            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Sobre o que vamos falar?</h3>
+            
+            <div className="flex gap-2">
+                <Input 
+                    className="flex-1 mb-0" 
+                    value={topic} 
+                    onChange={e => setTopic(e.target.value)} 
+                    placeholder="Ex: Benefícios do Pilates para coluna..."
+                    autoFocus
+                />
+                <Button onClick={onGetIdeas} isLoading={loadingIdeas} variant="secondary" className="h-[46px]">
+                    <Lightbulb className="w-4 h-4 mr-2" /> Ideias
+                </Button>
+            </div>
+
+            {suggestions && (
+                <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4">
+                    <div>
+                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Clássicos & Educativos</h4>
+                        <div className="flex flex-wrap gap-2">
+                            {suggestions.cliche?.map((Idea: string, i: number) => (
+                                <button key={i} onClick={() => setTopic(Idea)} className="text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-full hover:border-brand-400 hover:text-brand-600 transition-colors text-left">
+                                    {Idea}
+                                </button>
+                            ))}
                         </div>
-                    )}
-                </div>
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase text-slate-400">Legenda</label>
-                    <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-lg text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap border border-slate-100 dark:border-slate-800">
-                        {post.content}
+                    </div>
+                    <div>
+                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Criativos & Diferentes</h4>
+                        <div className="flex flex-wrap gap-2">
+                            {suggestions.innovative?.map((Idea: string, i: number) => (
+                                <button key={i} onClick={() => setTopic(Idea)} className="text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-full hover:border-purple-400 hover:text-purple-600 transition-colors text-left">
+                                    {Idea}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-end gap-2">
-                <Button variant="ghost" onClick={onClose}>Fechar</Button>
-            </div>
+            )}
         </div>
-    </div>
-);
+    );
+};
 
 const StepFormatStyle = ({ format, setFormat, style, setStyle, carouselType, setCarouselType }: any) => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
@@ -47,18 +125,23 @@ const StepFormatStyle = ({ format, setFormat, style, setStyle, carouselType, set
         
         <div>
             <label className="block text-sm font-medium mb-3 text-slate-700 dark:text-slate-300">Qual o formato do conteúdo?</label>
-            <div className="grid grid-cols-2 gap-4">
-                {['Reels / Vídeo', 'Post Estático', 'Carrossel'].map(fmt => (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {[
+                    { id: 'Post Estático', icon: LucideImage, label: 'Post Estático' },
+                    { id: 'Reels / Vídeo', icon: Video, label: 'Reels / Vídeo' },
+                    { id: 'Carrossel', icon: Layers, label: 'Carrossel' }
+                ].map(item => (
                     <button
-                        key={fmt}
-                        onClick={() => setFormat(fmt)}
-                        className={`p-4 rounded-xl border text-left transition-all ${
-                            format === fmt 
+                        key={item.id}
+                        onClick={() => setFormat(item.id)}
+                        className={`p-4 rounded-xl border flex flex-col items-center justify-center gap-3 transition-all h-28 ${
+                            format === item.id 
                             ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 ring-1 ring-brand-500' 
-                            : 'border-slate-200 dark:border-slate-700 hover:border-brand-300 dark:hover:border-brand-700'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-brand-300 dark:hover:border-brand-700'
                         }`}
                     >
-                        <div className="font-bold mb-1">{fmt}</div>
+                        <item.icon className="w-6 h-6" />
+                        <span className="font-bold text-sm">{item.label}</span>
                     </button>
                 ))}
             </div>
@@ -103,7 +186,7 @@ const StepFormatStyle = ({ format, setFormat, style, setStyle, carouselType, set
                         className={`py-2 px-3 rounded-lg text-sm border transition-all ${
                             style === s 
                             ? 'bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900' 
-                            : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-400'
+                            : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-400 bg-white dark:bg-slate-900'
                         }`}
                     >
                         {s}
@@ -114,17 +197,181 @@ const StepFormatStyle = ({ format, setFormat, style, setStyle, carouselType, set
     </div>
 );
 
-// ... (PlanCalendarView, StepPlanSettings, StepTopic, StepGoal, StepAudience components remain similar, importing from below if needed or kept here)
+const ResultView = ({ result, onSave, onRegenerate }: { result: GeneratedContent, onSave: () => void, onRegenerate: () => void }) => {
+    return (
+        <div className="space-y-6 animate-in fade-in zoom-in-95">
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-lg">
+                <div className="flex justify-between items-start mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
+                    <div>
+                        <span className="text-xs font-bold text-brand-600 uppercase tracking-wide bg-brand-50 dark:bg-brand-900/20 px-2 py-1 rounded mb-2 inline-block">
+                            {result.suggestedFormat}
+                        </span>
+                        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Conteúdo Gerado</h2>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={onRegenerate} size="sm"><RefreshCw className="w-4 h-4 mr-2"/> Regenerar</Button>
+                        <Button onClick={onSave} size="sm"><Save className="w-4 h-4 mr-2"/> Salvar</Button>
+                    </div>
+                </div>
+
+                {/* VISUAL PROMPT */}
+                {(result.visualPrompt || result.visualContent) && (
+                    <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800">
+                        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                            <LucideImage className="w-4 h-4"/> Sugestão Visual
+                        </h4>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 italic">"{result.visualPrompt}"</p>
+                        {/* Se tiver imagem gerada (futuro), exibiria aqui */}
+                    </div>
+                )}
+
+                {/* CAROUSEL CARDS */}
+                {result.carouselCards && (
+                    <div className="mb-6 space-y-4">
+                        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                            <Layers className="w-4 h-4"/> Estrutura do Carrossel
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {result.carouselCards.map((card, idx) => (
+                                <div key={idx} className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950/50">
+                                    <div className="font-bold text-xs text-brand-600 mb-1">CARD {card.order}</div>
+                                    <div className="text-sm font-medium text-slate-800 dark:text-white mb-2">{card.textOverlay || '(Apenas Imagem)'}</div>
+                                    <div className="text-xs text-slate-500 italic border-t border-slate-200 dark:border-slate-700 pt-2">
+                                        Visual: {card.visualPrompt}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* REELS SCRIPT */}
+                {result.reelsOptions && result.reelsOptions.map((reel, idx) => (
+                    <div key={idx} className="mb-6 p-4 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950/50">
+                        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                            <Video className="w-4 h-4"/> Roteiro de Vídeo ({reel.type})
+                        </h4>
+                        <div className="space-y-2 text-sm">
+                            <p><strong>Gancho:</strong> {reel.hook}</p>
+                            <div className="bg-white dark:bg-slate-900 p-3 rounded border border-slate-200 dark:border-slate-800">
+                                <ul className="list-disc pl-4 space-y-1">
+                                    {reel.script.map((line, i) => <li key={i} className="text-slate-600 dark:text-slate-300">{line}</li>)}
+                                </ul>
+                            </div>
+                            <p className="text-xs text-slate-500"><strong>Áudio Sugerido:</strong> {reel.audioSuggestions.join(', ')}</p>
+                        </div>
+                    </div>
+                ))}
+
+                {/* CAPTIONS */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase">Legenda Curta</label>
+                            <button onClick={() => navigator.clipboard.writeText(result.captionShort || '')} className="text-brand-600 hover:text-brand-700"><Copy className="w-4 h-4"/></button>
+                        </div>
+                        <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-lg text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap h-40 overflow-y-auto border border-slate-200 dark:border-slate-700">
+                            {result.captionShort}
+                        </div>
+                    </div>
+                    <div>
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase">Legenda Longa</label>
+                            <button onClick={() => navigator.clipboard.writeText(result.captionLong || '')} className="text-brand-600 hover:text-brand-700"><Copy className="w-4 h-4"/></button>
+                        </div>
+                        <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-lg text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap h-40 overflow-y-auto border border-slate-200 dark:border-slate-700">
+                            {result.captionLong}
+                        </div>
+                    </div>
+                </div>
+
+                {/* HASHTAGS */}
+                {result.hashtags && (
+                    <div className="mt-6">
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Hashtags</label>
+                        <div className="flex flex-wrap gap-2">
+                            {result.hashtags.map((tag, i) => (
+                                <span key={i} className="text-xs bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300 px-2 py-1 rounded">#{tag}</span>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const GeneratedPostPreview = ({ post, onClose, readOnly }: { post: SavedPost, onClose: () => void, readOnly?: boolean }) => {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-2xl max-h-[90vh] rounded-xl shadow-xl overflow-hidden flex flex-col border border-slate-200 dark:border-slate-800">
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
+                    <div>
+                        <span className="text-xs font-bold uppercase text-brand-600 bg-brand-50 dark:bg-brand-900/20 px-2 py-1 rounded mb-1 inline-block">
+                            {post.request.format}
+                        </span>
+                        <h3 className="font-bold text-lg text-slate-900 dark:text-white line-clamp-1">{post.request.theme}</h3>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg text-slate-500">
+                        <X className="w-5 h-5"/>
+                    </button>
+                </div>
+                
+                <div className="overflow-y-auto p-6 space-y-6">
+                    {(post.imageUrl || post.videoUrl) && (
+                        <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-950 flex justify-center">
+                            {post.videoUrl ? (
+                                <video src={post.videoUrl} controls className="max-h-96 w-full object-contain" />
+                            ) : (
+                                <img src={post.imageUrl!} alt="Visual" className="max-h-96 w-full object-contain" />
+                            )}
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Conteúdo</label>
+                        <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-100 dark:border-slate-800 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                            {post.content}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 text-xs text-slate-500">
+                        <div>
+                            <span className="font-bold block mb-1">Objetivo</span>
+                            {post.request.objective}
+                        </div>
+                        <div>
+                            <span className="font-bold block mb-1">Público</span>
+                            {post.request.audience}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-end gap-2">
+                    <Button variant="outline" onClick={onClose}>Fechar</Button>
+                    <Button onClick={() => {
+                        navigator.clipboard.writeText(post.content);
+                        alert("Conteúdo copiado!");
+                    }}>
+                        <Copy className="w-4 h-4 mr-2"/> Copiar Texto
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- MAIN COMPONENT ---
 
 export const MarketingAgent: React.FC = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   
-  // State for flow
+  // Navigation State
   const [step, setStep] = useState(1); // 1: Goal, 2: Audience, 3: Topic, 4: Format, 5: Result
-  const [mode, setMode] = useState<'single' | 'plan'>('single');
-  
-  // Form Data
+  const [activeTab, setActiveTab] = useState<'create' | 'history'>('create');
+
+  // Form Data State
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [customGoal, setCustomGoal] = useState('');
   
@@ -139,26 +386,41 @@ export const MarketingAgent: React.FC = () => {
   const [carouselType, setCarouselType] = useState<'image-only' | 'text-only' | 'text-image'>('text-image');
   const [style, setStyle] = useState('Moderno');
   
-  // Planner Specific
-  const [frequency, setFrequency] = useState(3);
-  const [planFormats, setPlanFormats] = useState<string[]>(['Reels', 'Post Estático', 'Carrossel']);
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-
-  // Results
+  // Results State
   const [result, setResult] = useState<GeneratedContent | null>(null);
   const [savedHistory, setSavedHistory] = useState<SavedPost[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
-  
-  // Viewer State
-  const [previewPost, setPreviewPost] = useState<SavedPost | null>(null);
+  const [previewPost, setPreviewPost] = useState<SavedPost | null>(null); // For history viewing
 
-  // ... (Load history logic) ...
+  useEffect(() => {
+      if (user?.id && activeTab === 'history') {
+          loadHistory();
+      }
+  }, [user, activeTab]);
+
+  const loadHistory = async () => {
+      if (user?.id) {
+          const posts = await fetchSavedPosts(user.id);
+          setSavedHistory(posts);
+      }
+  };
+
+  const handleGetIdeas = async () => {
+      if (!selectedGoals.length) {
+          alert("Selecione um objetivo primeiro (Passo 1).");
+          setStep(1);
+          return;
+      }
+      setLoadingSuggestions(true);
+      const ideas = await generateTopicSuggestions(selectedGoals.join(', '), selectedAudiences.join(', '));
+      setSuggestions(ideas);
+      setLoadingSuggestions(false);
+  };
 
   const handleGenerate = async () => {
     setLoading(true);
     try {
         const formData: MarketingFormData = {
-            mode,
+            mode: 'single',
             goal: selectedGoals.join(', '),
             goals: selectedGoals,
             customGoal,
@@ -168,10 +430,7 @@ export const MarketingAgent: React.FC = () => {
             topic,
             format,
             style,
-            frequency,
-            selectedFormats: planFormats,
-            startDate,
-            carouselType // Pass carousel type
+            carouselType // Important for logic
         };
 
         const data = await generateMarketingContent(formData);
@@ -187,43 +446,202 @@ export const MarketingAgent: React.FC = () => {
     }
   };
 
-  // ... (Rest of the component logic including render steps) ...
+  const handleSaveResult = async () => {
+      if (!user?.id || !result) return;
+      
+      const newPost: SavedPost = {
+          id: crypto.randomUUID(),
+          request: {
+              format,
+              objective: selectedGoals.join(', '),
+              theme: topic,
+              audience: selectedAudiences.join(', '),
+              tone: style,
+              imageStyle: style,
+              logoConfig: { enabled: false, type: 'normal', position: 'bottom-right', size: 'small' }
+          },
+          content: result.captionLong || result.captionShort || '',
+          imageUrl: result.generatedImage || null, // Se a IA gerar imagem real
+          videoUrl: null,
+          createdAt: new Date().toISOString()
+      };
 
-  // Only showing the StepFormatStyle usage change in the render
-  
+      const res = await savePost(user.id, newPost);
+      if (res.success) {
+          alert("Post salvo!");
+          setActiveTab('history');
+          // Reset flow
+          setStep(1);
+          setResult(null);
+          setTopic('');
+      } else {
+          alert("Erro ao salvar.");
+      }
+  };
+
+  const handleDeleteHistory = async (id: string) => {
+      if (confirm("Apagar este post?")) {
+          await deleteSavedPost(id);
+          loadHistory();
+      }
+  };
+
   return (
-    <div className="max-w-4xl mx-auto pb-20 pt-6 px-4">
-       {/* ... Header ... */}
-       
-       {/* ... Steps 1, 2, 3 ... */}
-
-       {/* Step 4: Format & Style */}
-       {step === 4 && (
-         <div className="space-y-8">
-            {mode === 'single' ? (
-                <StepFormatStyle 
-                    format={format} 
-                    setFormat={setFormat} 
-                    style={style} 
-                    setStyle={setStyle} 
-                    carouselType={carouselType}
-                    setCarouselType={setCarouselType}
-                />
-            ) : (
-                /* Planner Settings Component */
-                <div>Planner Settings (Existing)</div>
-            )}
-            
-            <div className="flex justify-between pt-4">
-                <Button variant="ghost" onClick={() => setStep(3)}>Voltar</Button>
-                <Button onClick={handleGenerate} isLoading={loading} className="bg-brand-600 hover:bg-brand-700 text-white px-8">
-                    <Sparkles className="w-4 h-4 mr-2" /> Gerar {mode === 'plan' ? 'Planejamento' : 'Conteúdo'}
-                </Button>
+    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in pb-12">
+       {/* Header */}
+       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Megaphone className="h-8 w-8 text-brand-600" /> Marketing Digital
+                </h1>
+                <p className="text-slate-500">Crie conteúdo estratégico para suas redes sociais.</p>
             </div>
-         </div>
+            
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                <button 
+                    onClick={() => setActiveTab('create')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'create' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}
+                >
+                    <Sparkles className="w-4 h-4"/> Criar
+                </button>
+                <button 
+                    onClick={() => setActiveTab('history')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'history' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500'}`}
+                >
+                    <History className="w-4 h-4"/> Histórico
+                </button>
+            </div>
+       </div>
+
+       {activeTab === 'create' && (
+           <div className="mt-8">
+               {/* Progress Bar */}
+               <div className="mb-8">
+                   <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">
+                       <span className={step >= 1 ? 'text-brand-600' : ''}>1. Objetivo</span>
+                       <span className={step >= 2 ? 'text-brand-600' : ''}>2. Público</span>
+                       <span className={step >= 3 ? 'text-brand-600' : ''}>3. Tema</span>
+                       <span className={step >= 4 ? 'text-brand-600' : ''}>4. Formato</span>
+                       <span className={step >= 5 ? 'text-brand-600' : ''}>5. Resultado</span>
+                   </div>
+                   <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                       <div className="h-full bg-brand-500 transition-all duration-500 ease-out" style={{ width: `${(step / 5) * 100}%` }}></div>
+                   </div>
+               </div>
+
+               {/* Step Content */}
+               <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm min-h-[400px] flex flex-col justify-between">
+                   <div className="flex-1">
+                        {step === 1 && (
+                            <StepGoal 
+                                selectedGoals={selectedGoals} 
+                                setSelectedGoals={setSelectedGoals} 
+                                customGoal={customGoal} 
+                                setCustomGoal={setCustomGoal} 
+                            />
+                        )}
+                        {step === 2 && (
+                            <StepAudience 
+                                selectedAudiences={selectedAudiences} 
+                                setSelectedAudiences={setSelectedAudiences} 
+                                customAudience={customAudience} 
+                                setCustomAudience={setCustomAudience} 
+                            />
+                        )}
+                        {step === 3 && (
+                            <StepTopic 
+                                topic={topic} 
+                                setTopic={setTopic} 
+                                onGetIdeas={handleGetIdeas} 
+                                loadingIdeas={loadingSuggestions} 
+                                suggestions={suggestions} 
+                            />
+                        )}
+                        {step === 4 && (
+                            <StepFormatStyle 
+                                format={format} 
+                                setFormat={setFormat} 
+                                style={style} 
+                                setStyle={setStyle} 
+                                carouselType={carouselType}
+                                setCarouselType={setCarouselType}
+                            />
+                        )}
+                        {step === 5 && result && (
+                            <ResultView 
+                                result={result} 
+                                onSave={handleSaveResult} 
+                                onRegenerate={handleGenerate} 
+                            />
+                        )}
+                   </div>
+
+                   {/* Navigation Buttons */}
+                   {step < 5 && (
+                       <div className="flex justify-between pt-8 border-t border-slate-100 dark:border-slate-800 mt-8">
+                           <Button 
+                                variant="ghost" 
+                                onClick={() => setStep(prev => Math.max(1, prev - 1))}
+                                disabled={step === 1}
+                           >
+                               <ArrowLeft className="w-4 h-4 mr-2"/> Voltar
+                           </Button>
+                           
+                           {step === 4 ? (
+                               <Button onClick={handleGenerate} isLoading={loading} className="px-8 bg-brand-600 hover:bg-brand-700 text-white">
+                                   <Sparkles className="w-4 h-4 mr-2"/> Gerar Conteúdo
+                               </Button>
+                           ) : (
+                               <Button onClick={() => setStep(prev => prev + 1)} disabled={
+                                   (step === 1 && selectedGoals.length === 0 && !customGoal) ||
+                                   (step === 2 && selectedAudiences.length === 0 && !customAudience) ||
+                                   (step === 3 && !topic)
+                               }>
+                                   Próximo <ArrowRight className="w-4 h-4 ml-2"/>
+                               </Button>
+                           )}
+                       </div>
+                   )}
+               </div>
+           </div>
        )}
 
-       {/* ... Result Step ... */}
+       {activeTab === 'history' && (
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in">
+               {savedHistory.length === 0 ? (
+                   <div className="col-span-3 text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                       <p>Nenhum post salvo ainda.</p>
+                   </div>
+               ) : (
+                   savedHistory.map(post => (
+                       <div key={post.id} className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group">
+                           <div className="flex justify-between items-start mb-3">
+                               <span className="text-xs font-bold uppercase text-brand-600 bg-brand-50 dark:bg-brand-900/20 px-2 py-1 rounded">
+                                   {post.request.format}
+                               </span>
+                               <div className="flex gap-1">
+                                   <button onClick={() => setPreviewPost(post)} className="p-1.5 text-slate-400 hover:text-brand-600 rounded">
+                                       <Eye className="w-4 h-4"/>
+                                   </button>
+                                   <button onClick={() => handleDeleteHistory(post.id)} className="p-1.5 text-slate-400 hover:text-red-600 rounded">
+                                       <Trash2 className="w-4 h-4"/>
+                                   </button>
+                               </div>
+                           </div>
+                           <h4 className="font-bold text-slate-800 dark:text-white mb-2 line-clamp-2">{post.request.theme}</h4>
+                           <p className="text-xs text-slate-500 mb-3">{new Date(post.createdAt).toLocaleDateString()}</p>
+                           <div className="text-sm text-slate-600 dark:text-slate-400 line-clamp-3 bg-slate-50 dark:bg-slate-950 p-3 rounded-lg">
+                               {post.content}
+                           </div>
+                       </div>
+                   ))
+               )}
+           </div>
+       )}
+
+       {previewPost && (
+           <GeneratedPostPreview post={previewPost} onClose={() => setPreviewPost(null)} readOnly />
+       )}
     </div>
   );
 };
