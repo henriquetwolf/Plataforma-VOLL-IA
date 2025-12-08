@@ -1,15 +1,31 @@
-
 // ... existing imports ...
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
   MarketingFormData, GeneratedContent, CategorizedTopics, ContentRequest, 
   StudioPersona, WhatsAppScriptRequest, ActionInput, ActionIdea, 
   StrategicPlan, TriageStatus, PathologyResponse, LessonPlanResponse, 
-  TreatmentPlanResponse, RecipeResponse, WorkoutResponse, ChatMessage
+  TreatmentPlanResponse, RecipeResponse, WorkoutResponse, ChatMessage,
+  LessonExercise
 } from "../types";
 
 // ... existing setup (ai const) ...
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+const getLanguageName = (lang: string) => {
+    const map: Record<string, string> = {
+        pt: 'Português do Brasil',
+        en: 'English (US)',
+        es: 'Español',
+        fr: 'Français',
+        de: 'Deutsch',
+        it: 'Italiano',
+        zh: 'Chinese (Simplified)',
+        ja: 'Japanese',
+        ru: 'Russian',
+        ko: 'Korean'
+    };
+    return map[lang] || 'Português do Brasil';
+};
 
 export const handleGeminiError = (err: any): string => {
   console.error("Gemini API Error:", err);
@@ -41,14 +57,16 @@ const cleanJSON = (text: string) => {
 
 // --- NEW MARKETING AGENT ---
 
-export const generateTopicSuggestions = async (goal: string, audience: string): Promise<string[]> => {
+export const generateTopicSuggestions = async (goal: string, audience: string, lang: string = 'pt'): Promise<string[]> => {
+  const languageName = getLanguageName(lang);
   const prompt = `
-  Como um especialista em marketing para Studios de Pilates, sugira 5 tópicos criativos e específicos para posts no Instagram.
+  Atue como um especialista em marketing para Studios de Pilates.
+  Sugira 5 tópicos criativos e específicos para posts no Instagram.
   Objetivo: ${goal}
   Público: ${audience}
   
+  IMPORTANTE: Responda estritamente em ${languageName}.
   Retorne APENAS um array JSON de strings com os títulos dos tópicos.
-  Exemplo: ["Benefícios do Pilates na gravidez", "Como aliviar dor nas costas"]
   `;
 
   try {
@@ -70,9 +88,10 @@ export const generateTopicSuggestions = async (goal: string, audience: string): 
   }
 };
 
-export const generateMarketingContent = async (formData: MarketingFormData): Promise<GeneratedContent | null> => {
+export const generateMarketingContent = async (formData: MarketingFormData, lang: string = 'pt'): Promise<GeneratedContent | null> => {
   const isPlan = formData.mode === 'plan';
   const isStory = formData.mode === 'story';
+  const languageName = getLanguageName(lang);
   
   // Base schema properties common to all
   const baseProperties: any = {
@@ -143,6 +162,7 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
     responseSchema.properties.captionShort = { type: Type.STRING };
     responseSchema.properties.captionLong = { type: Type.STRING };
     responseSchema.properties.visualContent = { type: Type.ARRAY, items: { type: Type.STRING } };
+    responseSchema.properties.visualPrompt = { type: Type.STRING, description: "Detailed prompt for image generation model (in English)" };
     
     // Check if it might be reels to add reels options
     responseSchema.properties.isReels = { type: Type.BOOLEAN };
@@ -166,7 +186,10 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
 
   let prompt = `
   Atue como um Especialista em Marketing Digital para Studios de Pilates.
-  Gere conteúdo para Instagram com base nestes dados:
+  Gere conteúdo para Instagram com base nestes dados.
+  
+  IDIOMA DE RESPOSTA: ${languageName} (O conteúdo final deve estar neste idioma).
+  Nota: O campo 'visualPrompt' deve ser sempre em Inglês para o gerador de imagens.
   
   Modo: ${formData.mode}
   Objetivo: ${formData.customGoal || formData.goal}
@@ -222,10 +245,13 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
   }
 };
 
-export async function* generatePilatesContentStream(request: ContentRequest, systemInstruction: string) {
+export async function* generatePilatesContentStream(request: ContentRequest, systemInstruction: string, lang: string = 'pt') {
+  const languageName = getLanguageName(lang);
   const prompt = `
   Atue como um especialista em Marketing Digital para Pilates.
   Crie um conteúdo para Instagram com os seguintes detalhes:
+  
+  IDIOMA DE SAÍDA: ${languageName}
   
   Formato: ${request.format}
   Objetivo: ${request.objective}
@@ -259,7 +285,6 @@ export async function* generatePilatesContentStream(request: ContentRequest, sys
   }
 }
 
-// UPDATE generatePilatesImage to support the new flow
 export const generatePilatesImage = async (request: ContentRequest, persona: any, contentContext: string): Promise<string | null> => {
     try {
         const isCarousel = request.format.toLowerCase().includes('carrossel') || request.format.toLowerCase().includes('carousel');
@@ -285,13 +310,11 @@ export const generatePilatesImage = async (request: ContentRequest, persona: any
             contents: prompt,
             config: {
                 imageConfig: {
-                    // For carousel, we use 16:9 to simulate the wide strip of 6 cards
                     aspectRatio: isCarousel ? '16:9' : '1:1'
                 }
             }
         });
 
-        // Find image part
         for (const part of response.candidates?.[0]?.content?.parts || []) {
             if (part.inlineData) {
                 return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
@@ -304,136 +327,119 @@ export const generatePilatesImage = async (request: ContentRequest, persona: any
     }
 };
 
-export const generatePilatesVideo = async (promptText: string, onStatus: (msg: string) => void): Promise<string | null> => {
-    try {
-        if (!(window as any).aistudio?.hasSelectedApiKey()) {
-            throw new Error("API Key not selected for Veo.");
-        }
-        onStatus("Iniciando geração de vídeo (Veo)...");
-        let operation = await ai.models.generateVideos({
-            model: 'veo-3.1-fast-generate-preview',
-            prompt: `Cinematic pilates video: ${promptText.substring(0, 300)}`,
-            config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '9:16' }
-        });
-        while (!operation.done) {
-            onStatus("Processando vídeo...");
-            await new Promise(resolve => setTimeout(resolve, 5000));
-            operation = await ai.operations.getVideosOperation({operation: operation});
-        }
-        const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
-        if (videoUri) {
-            const res = await fetch(`${videoUri}&key=${process.env.API_KEY}`);
-            const blob = await res.blob();
-            return URL.createObjectURL(blob);
-        }
-        return null;
-    } catch (e) { console.error("Video gen error", e); return null; }
+export const generateFinancialAnalysis = async (inputs: any, model: any, results: any, targetRev: number, potentialRev: number, maxCap: number, profRev: number, lang: string = 'pt'): Promise<string> => {
+    const languageName = getLanguageName(lang);
+    try { 
+        const response = await ai.models.generateContent({ 
+            model: 'gemini-2.5-flash', 
+            contents: `Atue como um consultor financeiro sênior especializado em studios.
+            Gere uma análise financeira detalhada em formato HTML (com <h2>, <p>, <ul>, <li>, <strong>) e estilo profissional.
+            
+            IDIOMA DE SAÍDA: ${languageName}
+            
+            Dados do Studio: ${JSON.stringify({inputs, model, results, targetRev, potentialRev})}
+            ` 
+        }); 
+        return response.text || ''; 
+    } catch (e) { return ''; }
 };
 
-export const generateContentPlan = async (form: any, persona: any): Promise<any> => {
-    const prompt = `Crie um plano de conteúdo de 4 semanas para Pilates.
-    Nome: ${form.name}
-    Meta: ${form.mainGoal}
-    Público: ${form.audience}
-    Frequência: ${form.frequency}x por semana.
-    Data Início: ${form.startDate}`;
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.ARRAY,
-                    items: {
-                        type: Type.OBJECT,
-                        properties: {
-                            week: { type: Type.STRING },
-                            theme: { type: Type.STRING },
-                            ideas: {
-                                type: Type.ARRAY,
-                                items: {
-                                    type: Type.OBJECT,
-                                    properties: {
-                                        day: { type: Type.STRING },
-                                        theme: { type: Type.STRING },
-                                        format: { type: Type.STRING },
-                                        objective: { type: Type.STRING }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        return JSON.parse(cleanJSON(response.text || '[]'));
+export const generateWhatsAppScript = async (request: WhatsAppScriptRequest, lang: string = 'pt'): Promise<string> => {
+    const languageName = getLanguageName(lang);
+    try { 
+        const response = await ai.models.generateContent({ 
+            model: 'gemini-2.5-flash', 
+            contents: `Crie um script de WhatsApp persuasivo e humano.
+            Idioma: ${languageName}.
+            Cliente: ${request.clientName}. 
+            Objetivo: ${request.objective}.
+            Tom: ${request.tone}.
+            Contexto: ${request.context || 'Nenhum'}` 
+        }); 
+        return response.text || ''; 
+    } catch (e) { return ''; }
+};
+
+export const generateActionIdeas = async (input: ActionInput, lang: string = 'pt'): Promise<ActionIdea[]> => {
+    const languageName = getLanguageName(lang);
+    try { 
+        const response = await ai.models.generateContent({ 
+            model: 'gemini-2.5-flash', 
+            contents: `Sugira 3 ideias de campanha/evento para um studio de pilates.
+            Idioma: ${languageName}.
+            Tema: ${input.theme}. 
+            Objetivo: ${input.objective}.`, 
+            config: { 
+                responseMimeType: "application/json", 
+                responseSchema: { 
+                    type: Type.ARRAY, 
+                    items: { 
+                        type: Type.OBJECT, 
+                        properties: { 
+                            id: { type: Type.STRING }, 
+                            title: { type: Type.STRING }, 
+                            summary: { type: Type.STRING }, 
+                            effort: { type: Type.STRING } 
+                        } 
+                    } 
+                } 
+            } 
+        }); 
+        return JSON.parse(cleanJSON(response.text || '[]')); 
     } catch (e) { return []; }
 };
 
-// ... existing helper functions (generatePlannerSuggestion, etc) ...
-// (Kept as is, assuming no changes needed there)
-export const generatePlannerSuggestion = async (label: string, context: string, type: 'strategy' | 'random'): Promise<string[]> => {
-    const prompt = `Sugira 3 opções curtas para o campo "${label}" de um plano de marketing para Pilates. Contexto: ${type === 'strategy' ? context : 'Geral'}.`;
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }
-        });
-        return JSON.parse(cleanJSON(response.text || '[]'));
-    } catch (e) { return []; }
+export const generateActionPlanDetail = async (idea: ActionIdea, input: ActionInput, lang: string = 'pt'): Promise<string> => {
+    const languageName = getLanguageName(lang);
+    try { 
+        const response = await ai.models.generateContent({ 
+            model: 'gemini-2.5-flash', 
+            contents: `Crie um plano de ação detalhado em formato HTML.
+            Idioma: ${languageName}.
+            Ideia: ${idea.title}. 
+            Contexto: ${JSON.stringify(input)}` 
+        }); 
+        return response.text || ''; 
+    } catch (e) { return ''; }
 };
 
-export const generateMissionOptions = async (studioName: string): Promise<string[]> => {
-    const prompt = `Gere 5 opções de Missão para o studio "${studioName}".`;
-    try {
-        const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } } });
-        return JSON.parse(cleanJSON(response.text || '[]'));
-    } catch (e) { return []; }
+export const fetchTriageQuestion = async (initialQuery: string, history: ChatMessage[], studentName?: string, lang: string = 'pt'): Promise<{status: TriageStatus, question?: string}> => {
+    const languageName = getLanguageName(lang);
+    try { 
+        const response = await ai.models.generateContent({ 
+            model: 'gemini-2.5-flash', 
+            contents: `Atue como um Mentor Clínico de Pilates Sênior.
+            Idioma: ${languageName}.
+            Aluno: ${studentName}. Queixa: ${initialQuery}. 
+            Histórico da conversa: ${JSON.stringify(history)}. 
+            
+            Seu objetivo é fazer perguntas para entender a dor e limitação do aluno para montar uma aula.
+            Faça UMA pergunta por vez.
+            Se já tiver informações suficientes (dor, limitação, objetivo), retorne status FINISH. Caso contrário, CONTINUE e faça a próxima pergunta.`, 
+            config: { 
+                responseMimeType: "application/json", 
+                responseSchema: { 
+                    type: Type.OBJECT, 
+                    properties: { 
+                        status: { type: Type.STRING }, 
+                        question: { type: Type.STRING } 
+                    } 
+                } 
+            } 
+        }); 
+        return JSON.parse(cleanJSON(response.text || '{}')); 
+    } catch (e) { return { status: TriageStatus.FINISH }; }
 };
 
-export const generateVisionOptions = async (studioName: string, year: string): Promise<string[]> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Gere 5 opções de Visão para o studio "${studioName}" ano ${year}.`, config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } } }); return JSON.parse(cleanJSON(response.text || '[]')); } catch (e) { return []; }
-};
-export const generateSwotSuggestions = async (category: string): Promise<string[]> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Gere 5 sugestões SWOT: ${category} (Pilates).`, config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } } }); return JSON.parse(cleanJSON(response.text || '[]')); } catch (e) { return []; }
-};
-export const generateObjectivesSmart = async (swot: any): Promise<any[]> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Gere 3 objetivos SMART baseados em: ${JSON.stringify(swot)}`, config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, keyResults: { type: Type.ARRAY, items: { type: Type.STRING } } } } } } }); return JSON.parse(cleanJSON(response.text || '[]')); } catch (e) { return []; }
-};
-export const generateActionsSmart = async (objectives: any[]): Promise<any[]> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Plano ação trimestral para: ${JSON.stringify(objectives)}`, config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { quarter: { type: Type.STRING }, actions: { type: Type.ARRAY, items: { type: Type.STRING } } } } } } }); return JSON.parse(cleanJSON(response.text || '[]')); } catch (e) { return []; }
-};
-export const generateFullReport = async (planData: StrategicPlan): Promise<string> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Relatório HTML Planejamento Estratégico: ${JSON.stringify(planData)}` }); return response.text || ''; } catch (e) { return ''; }
-};
-export const generateTailoredMissions = async (studioName: string, specialties: string[], focus: string, tone: string): Promise<string[]> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `5 opções missão studio ${studioName}. Esp: ${specialties}. Foco: ${focus}. Tom: ${tone}.`, config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } } }); return JSON.parse(cleanJSON(response.text || '[]')); } catch (e) { return []; }
-};
-export const generateFinancialAnalysis = async (inputs: any, model: any, results: any, targetRev: number, potentialRev: number, maxCap: number, profRev: number): Promise<string> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Análise financeira HTML studio pilates. Dados: ${JSON.stringify({inputs, model, results, targetRev, potentialRev})}` }); return response.text || ''; } catch (e) { return ''; }
-};
-export const generateWhatsAppScript = async (request: WhatsAppScriptRequest): Promise<string> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Script WhatsApp. Cliente: ${request.clientName}. Obj: ${request.objective}.` }); return response.text || ''; } catch (e) { return ''; }
-};
-export const generateActionIdeas = async (input: ActionInput): Promise<ActionIdea[]> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `3 ideias campanha pilates. Tema: ${input.theme}. Obj: ${input.objective}.`, config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, title: { type: Type.STRING }, summary: { type: Type.STRING }, effort: { type: Type.STRING } } } } } }); return JSON.parse(cleanJSON(response.text || '[]')); } catch (e) { return []; }
-};
-export const generateActionPlanDetail = async (idea: ActionIdea, input: ActionInput): Promise<string> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Plano ação HTML detalhado para ideia: ${idea.title}. Contexto: ${JSON.stringify(input)}` }); return response.text || ''; } catch (e) { return ''; }
-};
-export const generateNewsletter = async (userName: string, audience: string, topic: string, style: string): Promise<{title: string, content: string} | null> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Newsletter HTML. Remetente: ${userName}. Público: ${audience}. Tópico: ${topic}.`, config: { responseMimeType: "application/json", responseSchema: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, content: { type: Type.STRING } } } } }); return JSON.parse(cleanJSON(response.text || '{}')); } catch (e) { return null; }
-};
-export const fetchTriageQuestion = async (initialQuery: string, history: ChatMessage[], studentName?: string): Promise<{status: TriageStatus, question?: string}> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Mentor Clínico Pilates. Aluno: ${studentName}. Queixa: ${initialQuery}. Hist: ${JSON.stringify(history)}. Decida CONTINUE/FINISH. Se continue, faça pergunta.`, config: { responseMimeType: "application/json", responseSchema: { type: Type.OBJECT, properties: { status: { type: Type.STRING }, question: { type: Type.STRING } } } } }); return JSON.parse(cleanJSON(response.text || '{}')); } catch (e) { return { status: TriageStatus.FINISH }; }
-};
-export const fetchPathologyData = async (query: string, equipment: string[], history?: ChatMessage[]): Promise<PathologyResponse | null> => {
+export const fetchPathologyData = async (query: string, equipment: string[], history?: ChatMessage[], lang: string = 'pt'): Promise<PathologyResponse | null> => {
+    const languageName = getLanguageName(lang);
     try { 
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Guia clínico: ${query}. Equip: ${equipment}. Hist: ${JSON.stringify(history)}`,
+            contents: `Gere um guia clínico de Pilates para o caso: ${query}.
+            Idioma: ${languageName}.
+            Equipamentos disponíveis: ${equipment.join(', ')}. 
+            Histórico da Anamnese: ${JSON.stringify(history)}`,
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
@@ -473,33 +479,411 @@ export const fetchPathologyData = async (query: string, equipment: string[], his
         return JSON.parse(cleanJSON(response.text || '{}'));
     } catch (e) { return null; }
 };
-export const fetchLessonPlan = async (query: string, equipment: string[], history?: any[], observations?: string, focus?: string): Promise<LessonPlanResponse | null> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Plano aula Pilates. Caso: ${query}. Equip: ${equipment}. Obs: ${observations}. Foco: ${focus}.`, config: { responseMimeType: "application/json", responseSchema: { type: Type.OBJECT, properties: { pathologyName: { type: Type.STRING }, goal: { type: Type.STRING }, duration: { type: Type.STRING }, exercises: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: {type:Type.STRING}, reps: {type:Type.STRING}, apparatus: {type:Type.STRING}, instructions: {type:Type.STRING}, focus: {type:Type.STRING}, safetyNote: {type:Type.STRING} } } } } } } }); return JSON.parse(cleanJSON(response.text || '{}')); } catch (e) { return null; }
+
+export const fetchLessonPlan = async (query: string, equipment: string[], history?: any[], observations?: string, focus?: string, lang: string = 'pt'): Promise<LessonPlanResponse | null> => {
+    const languageName = getLanguageName(lang);
+    try { 
+        const response = await ai.models.generateContent({ 
+            model: 'gemini-2.5-flash', 
+            contents: `Crie um plano de aula de Pilates completo e seguro.
+            Idioma: ${languageName}.
+            Caso: ${query}. 
+            Equipamentos: ${equipment.join(', ')}. 
+            Obs: ${observations}. 
+            Foco da sessão: ${focus || 'Geral'}.`, 
+            config: { 
+                responseMimeType: "application/json", 
+                responseSchema: { 
+                    type: Type.OBJECT, 
+                    properties: { 
+                        pathologyName: { type: Type.STRING }, 
+                        goal: { type: Type.STRING }, 
+                        duration: { type: Type.STRING }, 
+                        exercises: { 
+                            type: Type.ARRAY, 
+                            items: { 
+                                type: Type.OBJECT, 
+                                properties: { 
+                                    name: {type:Type.STRING}, 
+                                    reps: {type:Type.STRING}, 
+                                    apparatus: {type:Type.STRING}, 
+                                    instructions: {type:Type.STRING}, 
+                                    focus: {type:Type.STRING}, 
+                                    safetyNote: {type:Type.STRING} 
+                                } 
+                            } 
+                        } 
+                    } 
+                } 
+            } 
+        }); 
+        return JSON.parse(cleanJSON(response.text || '{}')); 
+    } catch (e) { return null; }
 };
+
+export const generateEvolutionReport = async (evolutions: any[], context: string, lang: string = 'pt'): Promise<string> => {
+    const languageName = getLanguageName(lang);
+    try { 
+        const response = await ai.models.generateContent({ 
+            model: 'gemini-2.5-flash', 
+            contents: `Gere um relatório de evolução clínica em HTML.
+            Idioma: ${languageName}.
+            Contexto: ${context}. 
+            Dados das avaliações: ${JSON.stringify(evolutions)}` 
+        }); 
+        return response.text || ''; 
+    } catch (e) { return ''; }
+};
+
+export const generateEvaluationAnalysis = async (evaluations: any[], context: string, lang: string = 'pt'): Promise<string> => {
+    const languageName = getLanguageName(lang);
+    try { 
+        const response = await ai.models.generateContent({ 
+            model: 'gemini-2.5-flash', 
+            contents: `Analise estas avaliações de aula e gere um relatório de qualidade em HTML.
+            Idioma: ${languageName}.
+            Contexto: ${context}. 
+            Dados: ${JSON.stringify(evaluations)}` 
+        }); 
+        return response.text || ''; 
+    } catch (e) { return ''; }
+};
+
+export const generateSuggestionTrends = async (suggestions: any[], lang: string = 'pt'): Promise<string> => {
+    const languageName = getLanguageName(lang);
+    try { 
+        const response = await ai.models.generateContent({ 
+            model: 'gemini-2.5-flash', 
+            contents: `Analise as sugestões dos alunos e identifique tendências. Gere relatório HTML.
+            Idioma: ${languageName}.
+            Dados: ${JSON.stringify(suggestions)}` 
+        }); 
+        return response.text || ''; 
+    } catch (e) { return ''; }
+};
+
+export const generateActionPlanFromSuggestions = async (suggestions: any[], observations: string, lang: string = 'pt'): Promise<string> => {
+    const languageName = getLanguageName(lang);
+    try { 
+        const response = await ai.models.generateContent({ 
+            model: 'gemini-2.5-flash', 
+            contents: `Crie um plano de ação para resolver os pontos levantados nas sugestões. Formato HTML.
+            Idioma: ${languageName}.
+            Obs do Dono: ${observations}. 
+            Sugestões Selecionadas: ${JSON.stringify(suggestions)}` 
+        }); 
+        return response.text || ''; 
+    } catch (e) { return ''; }
+};
+
+// --- NEW STRATEGIC FUNCTIONS ---
+
+export const generateMissionOptions = async (studioName: string): Promise<string[]> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Crie 5 opções de Missão para um studio de Pilates chamado "${studioName}".
+      Retorne apenas um array JSON de strings.`,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING }
+        }
+      }
+    });
+    return JSON.parse(cleanJSON(response.text || '[]'));
+  } catch (e) { return []; }
+};
+
+export const generateVisionOptions = async (studioName: string, year: string): Promise<string[]> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Crie 5 opções de Visão para um studio de Pilates chamado "${studioName}" para o ano de ${year}.
+      Retorne apenas um array JSON de strings.`,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING }
+        }
+      }
+    });
+    return JSON.parse(cleanJSON(response.text || '[]'));
+  } catch (e) { return []; }
+};
+
+export const generateSwotSuggestions = async (category: string): Promise<string[]> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Sugira 5 itens comuns para a categoria "${category}" na análise SWOT de um Studio de Pilates.
+      Retorne apenas um array JSON de strings.`,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING }
+        }
+      }
+    });
+    return JSON.parse(cleanJSON(response.text || '[]'));
+  } catch (e) { return []; }
+};
+
+export const generateObjectivesSmart = async (swot: any): Promise<{title: string, keyResults: string[]}[]> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Com base nesta análise SWOT: ${JSON.stringify(swot)}, crie 3 Objetivos Estratégicos usando metodologia OKR.
+      Para cada objetivo, defina 2-3 Resultados Chave (Key Results).
+      Retorne JSON.`,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              keyResults: { type: Type.ARRAY, items: { type: Type.STRING } }
+            }
+          }
+        }
+      }
+    });
+    return JSON.parse(cleanJSON(response.text || '[]'));
+  } catch (e) { return []; }
+};
+
+export const generateActionsSmart = async (objectives: any[]): Promise<{quarter: string, actions: string[]}[]> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Com base nestes objetivos: ${JSON.stringify(objectives)}, crie um plano de ação trimestral (4 trimestres).
+      Retorne JSON.`,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              quarter: { type: Type.STRING },
+              actions: { type: Type.ARRAY, items: { type: Type.STRING } }
+            }
+          }
+        }
+      }
+    });
+    return JSON.parse(cleanJSON(response.text || '[]'));
+  } catch (e) { return []; }
+};
+
+export const generateFullReport = async (planData: StrategicPlan): Promise<string> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Atue como um consultor de negócios sênior.
+      Gere um relatório estratégico completo em HTML para o studio "${planData.studioName}".
+      Dados: ${JSON.stringify(planData)}.
+      O relatório deve ser profissional, inspirador e acionável. Use tags HTML como <h2>, <h3>, <p>, <ul>, <li>.`
+    });
+    return response.text || '';
+  } catch (e) { return '<p>Erro ao gerar relatório.</p>'; }
+};
+
+export const generateTailoredMissions = async (studioName: string, specialties: string[], focus: string, tone: string): Promise<string[]> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Crie 3 opções de Missão para o studio "${studioName}".
+      Especialidades: ${specialties.join(', ')}.
+      Foco: ${focus}.
+      Tom de voz: ${tone}.
+      Retorne JSON array de strings.`,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING }
+        }
+      }
+    });
+    return JSON.parse(cleanJSON(response.text || '[]'));
+  } catch (e) { return []; }
+};
+
 export const fetchTreatmentPlan = async (query: string, equipment: string[], history?: any[], observations?: string): Promise<TreatmentPlanResponse | null> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Plano tratamento 4 sessões. Caso: ${query}. Equip: ${equipment}.`, config: { responseMimeType: "application/json", responseSchema: { type: Type.OBJECT, properties: { pathologyName: { type: Type.STRING }, overview: { type: Type.STRING }, sessions: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { sessionNumber: { type: Type.INTEGER }, goal: { type: Type.STRING }, focus: { type: Type.STRING }, apparatusFocus: { type: Type.STRING } } } } } } } }); return JSON.parse(cleanJSON(response.text || '{}')); } catch (e) { return null; }
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Crie um plano de tratamento de Pilates de 4 sessões (fases) para o caso: ${query}.
+      Equipamentos: ${equipment.join(', ')}.
+      Obs: ${observations || ''}.
+      Retorne JSON.`,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            pathologyName: { type: Type.STRING },
+            overview: { type: Type.STRING },
+            sessions: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  sessionNumber: { type: Type.INTEGER },
+                  goal: { type: Type.STRING },
+                  focus: { type: Type.STRING },
+                  apparatusFocus: { type: Type.STRING }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+    return JSON.parse(cleanJSON(response.text || '{}'));
+  } catch (e) { return null; }
 };
-export const regenerateSingleExercise = async (query: string, currentExercise: any, equipment: string[]): Promise<any> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Alternativa exercicio "${currentExercise.name}". Caso: ${query}. Equip: ${equipment}.`, config: { responseMimeType: "application/json", responseSchema: { type: Type.OBJECT, properties: { name: {type:Type.STRING}, reps: {type:Type.STRING}, apparatus: {type:Type.STRING}, instructions: {type:Type.STRING}, focus: {type:Type.STRING}, safetyNote: {type:Type.STRING} } } } }); return JSON.parse(cleanJSON(response.text || '{}')); } catch (e) { return currentExercise; }
+
+export const regenerateSingleExercise = async (query: string, currentExercise: LessonExercise, equipment: string[]): Promise<LessonExercise> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Sugira um exercício alternativo de Pilates para substituir: "${currentExercise.name}".
+      Contexto/Caso: ${query}.
+      Equipamentos disponíveis: ${equipment.join(', ')}.
+      Deve ser diferente do anterior.
+      Retorne JSON.`,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            name: { type: Type.STRING },
+            reps: { type: Type.STRING },
+            apparatus: { type: Type.STRING },
+            instructions: { type: Type.STRING },
+            focus: { type: Type.STRING },
+            safetyNote: { type: Type.STRING }
+          }
+        }
+      }
+    });
+    return JSON.parse(cleanJSON(response.text || '{}'));
+  } catch (e) { return currentExercise; }
 };
-export const generateEvolutionReport = async (evolutions: any[], context: string): Promise<string> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Relatório evolução HTML. Contexto: ${context}. Dados: ${JSON.stringify(evolutions)}` }); return response.text || ''; } catch (e) { return ''; }
-};
-export const generateEvaluationAnalysis = async (evaluations: any[], context: string): Promise<string> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Análise avaliações HTML. Contexto: ${context}. Dados: ${JSON.stringify(evaluations)}` }); return response.text || ''; } catch (e) { return ''; }
-};
-export const generateActionPlanFromSuggestions = async (suggestions: any[], observations: string): Promise<string> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Plano ação melhoria HTML. Obs: ${observations}. Sugestões: ${JSON.stringify(suggestions)}` }); return response.text || ''; } catch (e) { return ''; }
-};
-export const generateSuggestionTrends = async (suggestions: any[]): Promise<string> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Análise tendências sugestões HTML. Dados: ${JSON.stringify(suggestions)}` }); return response.text || ''; } catch (e) { return ''; }
-};
+
 export const generateHealthyRecipe = async (goal: string, restrictions: string): Promise<RecipeResponse | null> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Receita saudável JSON. Obj: ${goal}. Restr: ${restrictions}.`, config: { responseMimeType: "application/json", responseSchema: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, ingredients: { type: Type.ARRAY, items: { type: Type.STRING } }, instructions: { type: Type.ARRAY, items: { type: Type.STRING } }, benefits: { type: Type.STRING }, calories: { type: Type.STRING } } } } }); return JSON.parse(cleanJSON(response.text || '{}')); } catch (e) { return null; }
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Crie uma receita saudável. Objetivo: ${goal}. Restrições: ${restrictions}.
+      Retorne JSON.`,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            ingredients: { type: Type.ARRAY, items: { type: Type.STRING } },
+            instructions: { type: Type.ARRAY, items: { type: Type.STRING } },
+            benefits: { type: Type.STRING },
+            calories: { type: Type.STRING }
+          }
+        }
+      }
+    });
+    return JSON.parse(cleanJSON(response.text || '{}'));
+  } catch (e) { return null; }
 };
+
 export const generateRecipeFromIngredients = async (ingredients: string[], extraInfo: string): Promise<RecipeResponse | null> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Receita com ${ingredients}. Extra: ${extraInfo}.`, config: { responseMimeType: "application/json", responseSchema: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, ingredients: { type: Type.ARRAY, items: { type: Type.STRING } }, instructions: { type: Type.ARRAY, items: { type: Type.STRING } }, benefits: { type: Type.STRING }, calories: { type: Type.STRING } } } } }); return JSON.parse(cleanJSON(response.text || '{}')); } catch (e) { return null; }
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Crie uma receita saudável usando: ${ingredients.join(', ')}. Extra info: ${extraInfo}.
+      Retorne JSON.`,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            ingredients: { type: Type.ARRAY, items: { type: Type.STRING } },
+            instructions: { type: Type.ARRAY, items: { type: Type.STRING } },
+            benefits: { type: Type.STRING },
+            calories: { type: Type.STRING }
+          }
+        }
+      }
+    });
+    return JSON.parse(cleanJSON(response.text || '{}'));
+  } catch (e) { return null; }
 };
+
 export const generateHomeWorkout = async (studentName: string, observations: string, equipment: string, duration: string): Promise<WorkoutResponse | null> => {
-    try { const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Treino casa JSON. Aluno: ${studentName}. Obs: ${observations}. Equip: ${equipment}. Dur: ${duration}.`, config: { responseMimeType: "application/json", responseSchema: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, duration: { type: Type.STRING }, focus: { type: Type.STRING }, exercises: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, reps: { type: Type.STRING }, instructions: { type: Type.STRING }, safetyNote: { type: Type.STRING } } } } } } } }); return JSON.parse(cleanJSON(response.text || '{}')); } catch (e) { return null; }
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Crie um treino de Pilates em casa para ${studentName}.
+      Obs Clínicas: ${observations}.
+      Equipamento: ${equipment}.
+      Duração: ${duration}.
+      Retorne JSON.`,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            duration: { type: Type.STRING },
+            focus: { type: Type.STRING },
+            exercises: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  reps: { type: Type.STRING },
+                  instructions: { type: Type.STRING },
+                  safetyNote: { type: Type.STRING }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+    return JSON.parse(cleanJSON(response.text || '{}'));
+  } catch (e) { return null; }
+};
+
+export const generateNewsletter = async (senderName: string, audience: string, topic: string, style: string): Promise<{title: string, content: string} | null> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Crie uma newsletter para um studio de Pilates.
+      Remetente: ${senderName}.
+      Público: ${audience}.
+      Tópico: ${topic}.
+      Estilo: ${style}.
+      Retorne JSON com título e conteúdo (em HTML simples).`,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            content: { type: Type.STRING }
+          }
+        }
+      }
+    });
+    return JSON.parse(cleanJSON(response.text || '{}'));
+  } catch (e) { return null; }
 };

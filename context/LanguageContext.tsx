@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 // Top 10 Languages
@@ -25,7 +26,6 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-// Helper type for translation object
 type TranslationDict = Record<string, string>;
 
 const translations: Record<Language, TranslationDict> = {
@@ -80,6 +80,29 @@ const translations: Record<Language, TranslationDict> = {
     'email_label': 'Email',
     'password_label': 'Senha',
     'login_error': 'Email ou senha incorretos.',
+    'generate_btn': 'Gerar Conteúdo',
+    'result_title': 'Resultado Gerado',
+    'what_create': 'O que você quer criar hoje?',
+    'format_label': 'Formato',
+    'objective_label': 'Objetivo',
+    'theme_label': 'Tema',
+    'audience_label': 'Público Alvo',
+    'finance_title': 'Agente Financeiro',
+    'finance_subtitle': 'Simule cenários de contratação e viabilidade.',
+    'rehab_title': 'Guia Clínico & Rehab',
+    'clinical_guide': 'Guia Clínico',
+    'clinical_guide_desc': 'Inteligência Artificial para auxiliar no raciocínio clínico e montagem de aulas.',
+    'select_student_required': 'Selecione um aluno para iniciar',
+    'main_complaint': 'Qual a queixa principal, patologia ou objetivo?',
+    'consult': 'Consultar',
+    'lesson_plan': 'Plano de Aula',
+    'exercise_bank': 'Banco de Exercícios',
+    'reference': 'Referência',
+    'create_exercise': 'Criar Exercício',
+    'marketing_title': 'Agente de Marketing',
+    'content_subtitle': 'Crie conteúdo estratégico de alta conversão em segundos.',
+    'creations_today': 'Criações Hoje',
+    'download_pdf': 'Baixar PDF',
     
     // Dashboard Cards
     'step_1_title': 'Cadastros & Organização',
@@ -163,6 +186,29 @@ const translations: Record<Language, TranslationDict> = {
     'email_label': 'Email',
     'password_label': 'Password',
     'login_error': 'Invalid email or password.',
+    'generate_btn': 'Generate Content',
+    'result_title': 'Generated Result',
+    'what_create': 'What do you want to create today?',
+    'format_label': 'Format',
+    'objective_label': 'Objective',
+    'theme_label': 'Theme',
+    'audience_label': 'Target Audience',
+    'finance_title': 'Financial Agent',
+    'finance_subtitle': 'Simulate hiring scenarios and feasibility.',
+    'rehab_title': 'Clinical & Rehab Guide',
+    'clinical_guide': 'Clinical Guide',
+    'clinical_guide_desc': 'Artificial Intelligence to assist in clinical reasoning and class planning.',
+    'select_student_required': 'Select a student to start',
+    'main_complaint': 'What is the main complaint, pathology, or goal?',
+    'consult': 'Consult',
+    'lesson_plan': 'Lesson Plan',
+    'exercise_bank': 'Exercise Bank',
+    'reference': 'Reference',
+    'create_exercise': 'Create Exercise',
+    'marketing_title': 'Marketing Agent',
+    'content_subtitle': 'Create high-converting strategic content in seconds.',
+    'creations_today': 'Creations Today',
+    'download_pdf': 'Download PDF',
 
     'step_1_title': 'Records & Organization',
     'step_1_desc': 'The foundation of your studio. Keep data up to date.',
@@ -226,6 +272,17 @@ const translations: Record<Language, TranslationDict> = {
     'enter_button': 'Entrar',
     'email_label': 'Correo electrónico',
     'password_label': 'Contraseña',
+    'generate_btn': 'Generar Contenido',
+    'result_title': 'Resultado Generado',
+    'finance_title': 'Agente Financiero',
+    'finance_subtitle': 'Simule escenarios de contratación.',
+    'rehab_title': 'Guía Clínica & Rehab',
+    'marketing_title': 'Agente de Marketing',
+    'content_subtitle': 'Cree contenido estratégico en segundos.',
+    'clinical_guide': 'Guía Clínica',
+    'clinical_guide_desc': 'Inteligencia Artificial para ayudar en el razonamiento clínico.',
+    'main_complaint': '¿Cuál es la queja principal o patología?',
+    'consult': 'Consultar',
   },
   fr: {
     'general_panel': 'Tableau de Bord',
@@ -236,6 +293,11 @@ const translations: Record<Language, TranslationDict> = {
     'enter_button': 'Entrer',
     'email_label': 'E-mail',
     'password_label': 'Mot de passe',
+    'generate_btn': 'Générer du contenu',
+    'result_title': 'Résultat généré',
+    'finance_title': 'Agent Financier',
+    'rehab_title': 'Guide Clinique',
+    'marketing_title': 'Agent Marketing',
   },
   de: {
     'general_panel': 'Dashboard',
@@ -246,6 +308,8 @@ const translations: Record<Language, TranslationDict> = {
     'enter_button': 'Anmelden',
     'email_label': 'E-Mail',
     'password_label': 'Passwort',
+    'generate_btn': 'Inhalt generieren',
+    'result_title': 'Generiertes Ergebnis',
   },
   it: {
     'general_panel': 'Pannello di Controllo',
@@ -256,6 +320,8 @@ const translations: Record<Language, TranslationDict> = {
     'enter_button': 'Accedi',
     'email_label': 'Email',
     'password_label': 'Password',
+    'generate_btn': 'Genera contenuto',
+    'result_title': 'Risultato generato',
   },
   zh: {
     'general_panel': '仪表板',
@@ -266,6 +332,8 @@ const translations: Record<Language, TranslationDict> = {
     'enter_button': '登录',
     'email_label': '电子邮件',
     'password_label': '密码',
+    'generate_btn': '生成内容',
+    'result_title': '生成结果',
   },
   ja: {
     'general_panel': 'ダッシュボード',
@@ -276,6 +344,8 @@ const translations: Record<Language, TranslationDict> = {
     'enter_button': 'ログイン',
     'email_label': 'メール',
     'password_label': 'パスワード',
+    'generate_btn': 'コンテンツを生成',
+    'result_title': '生成結果',
   },
   ru: {
     'general_panel': 'Панель управления',
@@ -286,6 +356,8 @@ const translations: Record<Language, TranslationDict> = {
     'enter_button': 'Войти',
     'email_label': 'Электронная почта',
     'password_label': 'Пароль',
+    'generate_btn': 'Создать контент',
+    'result_title': 'Сгенерированный результат',
   },
   ko: {
     'general_panel': '대시보드',
@@ -296,6 +368,8 @@ const translations: Record<Language, TranslationDict> = {
     'enter_button': '로그인',
     'email_label': '이메일',
     'password_label': '비밀번호',
+    'generate_btn': '콘텐츠 생성',
+    'result_title': '생성된 결과',
   }
 };
 
