@@ -38,32 +38,6 @@ const AUDIENCES = [
   { id: 'all', label: 'Público Geral do Studio' },
 ];
 
-const FORMATS = [
-  { id: 'auto', label: 'IA Decide (Recomendado)', description: 'A melhor escolha estratégica', recommended: true },
-  { id: 'reels', label: 'Reels / Vídeo Curto', description: 'Vídeo dinâmico (Max 60s)' },
-  { id: 'carousel', label: 'Carrossel (6 Cards)', description: 'Conteúdo profundo em 6 cards (Imagem Panorâmica)' },
-  { id: 'post', label: 'Post Estático', description: 'Imagem única com legenda forte' },
-];
-
-const STYLES = [
-  'IA Decide (Recomendado)',
-  'Persona da Marca (Padrão)',
-  'Fotorealista / Clean',
-  'Minimalista',
-  'Ilustração',
-  'Cinematográfico',
-  'Energético / Vibrante'
-];
-
-const downloadImage = (dataUrl: string, filename: string) => {
-    const link = document.createElement('a');
-    link.href = dataUrl;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-};
-
 // --- SUB-COMPONENTS ---
 
 const StepMode = ({ selected, onSelect }: any) => (
@@ -91,7 +65,6 @@ const StepMode = ({ selected, onSelect }: any) => (
 const StepGoal = ({ selected, customGoal, mode, onSelect, onCustomChange }: any) => {
     const list = mode === 'story' ? STORY_GOALS : GOALS;
     
-    // Parse the incoming 'selected' prop to handle comma-separated strings
     const selectedArray = selected ? selected.split(',').map((s: string) => s.trim()) : [];
 
     const handleToggle = (label: string) => {
@@ -137,9 +110,7 @@ const StepGoal = ({ selected, customGoal, mode, onSelect, onCustomChange }: any)
             </div>
             
             <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
-                {/* Adding explicit Next button for Step 2 */}
                 <Button onClick={() => { 
-                    // This button acts as "Confirm Selection"
                     const nextBtn = document.getElementById('step-2-next');
                     if (nextBtn) nextBtn.click();
                 }}>
@@ -194,7 +165,6 @@ const StepAudience = ({ selected, customAudience, onSelect, onCustomChange }: an
             </div>
             
             <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
-                {/* Adding explicit Next button for Step 3 */}
                 <Button onClick={() => { 
                     const nextBtn = document.getElementById('step-3-next');
                     if (nextBtn) nextBtn.click();
@@ -208,28 +178,60 @@ const StepAudience = ({ selected, customAudience, onSelect, onCustomChange }: an
 
 const StepTopic = ({ value, onChange, onGenerateIdeas, isGeneratingIdeas, suggestions, mode, formData, onFormChange }: any) => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Sobre qual tema você quer falar?</h2>
-        
-        <textarea 
-            className="w-full p-4 border border-slate-300 dark:border-slate-700 rounded-xl h-32 resize-none focus:ring-2 focus:ring-brand-500 outline-none bg-white dark:bg-slate-900 text-lg"
-            placeholder="Ex: Benefícios do Pilates para dor nas costas, Promoção de verão..."
-            value={value}
-            onChange={e => onChange(e.target.value)}
-        />
+        {mode === 'single' && (
+            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wide">1. Escolha o Formato</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {[
+                        { id: 'post', label: 'Post Estático', icon: LucideImage },
+                        { id: 'carousel', label: 'Carrossel (6 Cards)', icon: Layers },
+                        { id: 'reels', label: 'Reels (Vídeo)', icon: Video }
+                    ].map((fmt) => (
+                        <button
+                            key={fmt.id}
+                            onClick={() => onFormChange({...formData, format: fmt.id})}
+                            className={`p-3 rounded-lg border-2 flex flex-col items-center justify-center gap-2 transition-all ${
+                                formData.format === fmt.id 
+                                ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-900/20' 
+                                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 hover:border-brand-200'
+                            }`}
+                        >
+                            <fmt.icon className="w-5 h-5"/>
+                            <span className="text-sm font-bold">{fmt.label}</span>
+                        </button>
+                    ))}
+                </div>
+                {formData.format === 'carousel' && <p className="text-xs text-slate-500 mt-2">Gera uma imagem panorâmica dividida visualmente em 6 partes.</p>}
+                {formData.format === 'reels' && <p className="text-xs text-slate-500 mt-2">Gera 4 opções de roteiro. Não gera imagem.</p>}
+            </div>
+        )}
 
-        <div className="flex justify-end">
-            <Button 
-                variant="secondary" 
-                size="sm" 
-                onClick={onGenerateIdeas} 
-                isLoading={isGeneratingIdeas}
-            >
-                <Sparkles className="w-4 h-4 mr-2"/> Gerar Sugestões com IA
-            </Button>
+        <div>
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">
+                {mode === 'single' ? '2. Sobre qual tema você quer falar?' : 'Sobre qual tema você quer falar?'}
+            </h2>
+            
+            <textarea 
+                className="w-full p-4 border border-slate-300 dark:border-slate-700 rounded-xl h-32 resize-none focus:ring-2 focus:ring-brand-500 outline-none bg-white dark:bg-slate-900 text-lg"
+                placeholder="Ex: Benefícios do Pilates para dor nas costas, Promoção de verão..."
+                value={value}
+                onChange={e => onChange(e.target.value)}
+            />
+
+            <div className="flex justify-end mt-2">
+                <Button 
+                    variant="secondary" 
+                    size="sm" 
+                    onClick={onGenerateIdeas} 
+                    isLoading={isGeneratingIdeas}
+                >
+                    <Sparkles className="w-4 h-4 mr-2"/> Gerar Sugestões com IA
+                </Button>
+            </div>
         </div>
 
         {suggestions.length > 0 && (
-            <div className="mt-6">
+            <div>
                 <p className="text-xs font-bold text-brand-600 uppercase mb-3 flex items-center gap-2"><Lightbulb className="w-4 h-4"/> Sugestões para você</p>
                 <div className="flex flex-wrap gap-2">
                     {suggestions.map((s: string, i: number) => (
@@ -356,7 +358,7 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate, 
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
                         <h4 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
                             {isReels ? <Video className="w-5 h-5"/> : <LucideImage className="w-5 h-5"/>} 
-                            {isReels ? 'Roteiro de Vídeo' : (isCarousel ? 'Panorâmica Carrossel (6 Cards)' : 'Imagem Sugerida')}
+                            {isReels ? 'Roteiros de Vídeo (4 Opções)' : (isCarousel ? 'Panorâmica Carrossel (6 Cards)' : 'Imagem Sugerida')}
                         </h4>
                         
                         <div className="flex-1 bg-slate-50 dark:bg-slate-950 p-4 rounded-xl text-sm overflow-y-auto max-h-[400px] flex flex-col items-center justify-center">
@@ -371,7 +373,7 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate, 
                                 </div>
                             ) : (
                                 // Fallback info if image isn't ready
-                                <div className="text-center text-slate-400">
+                                <div className="text-center text-slate-400 w-full">
                                     {isReels && content.reelsOptions ? (
                                         <div className="text-left space-y-4">
                                             {content.reelsOptions.map((opt: any, i: number) => (
@@ -580,7 +582,13 @@ export const ContentAgent: React.FC = () => {
         
         const content = await generateMarketingContent(finalData);
         
-        if (content && content.visualPrompt && !content.isPlan) {
+        // Logic change: Only generate image if NOT Reels and NOT Plan
+        // Also check if content itself decided it's reels (though we force format now)
+        const shouldGenerateImage = !content.isPlan && 
+                                    !content.isReels && 
+                                    formData.format !== 'reels';
+
+        if (content && content.visualPrompt && shouldGenerateImage) {
              const image = await generatePilatesImage({
                  format: formData.format === 'auto' ? content.suggestedFormat : formData.format,
                  theme: formData.topic,

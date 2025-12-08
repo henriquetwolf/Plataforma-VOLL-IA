@@ -202,9 +202,9 @@ export const generateMarketingContent = async (formData: MarketingFormData, lang
     prompt += `
     Crie um post único completo.
     Gere 'captionShort' (legenda curta) e 'captionLong' (legenda longa e persuasiva).
-    Se o formato for Reels/Vídeo, forneça roteiros em 'reelsOptions' e defina 'isReels' como true.
+    Se o formato for Reels/Vídeo (ou formData.format == 'reels'), forneça 4 OPÇÕES DE ROTEIROS diferentes em 'reelsOptions' e defina 'isReels' como true.
     Se for Estático/Carrossel, foque em 'visualContent' descrevendo a imagem.
-    Se Carrossel, descreva a imagem como uma sequência panorâmica conectada.
+    Se Carrossel (ou formData.format == 'carousel'), descreva a imagem como uma sequência panorâmica conectada de 6 cards.
     `;
   }
 
