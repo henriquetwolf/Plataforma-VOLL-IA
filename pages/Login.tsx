@@ -54,7 +54,7 @@ export const Login: React.FC = () => {
 
     } catch (err) {
       console.error(err);
-      setError('Error connecting.');
+      setError('Erro de conexão. Tente novamente.');
     }
   };
 

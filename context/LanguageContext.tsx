@@ -63,6 +63,7 @@ const translations: Record<Language, TranslationDict> = {
     'history': 'Histórico',
     'clear': 'Limpar',
     'welcome_platform': 'Bem-vindo à Plataforma VOLL IA',
+    'login_subtitle': 'Gerencie seu studio de forma inteligente',
     'access_area': 'Acesse seus treinos e receitas',
     'instructor_portal': 'Portal do Instrutor',
     'student_area': 'Área do Aluno',

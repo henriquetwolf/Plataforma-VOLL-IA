@@ -91,7 +91,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
       ];
     } else if (isInstructor) {
       items = [
-        { type: 'link', label: 'Home', icon: Home, path: AppRoute.INSTRUCTOR_DASHBOARD },
+        { type: 'link', label: 'Início', icon: Home, path: AppRoute.INSTRUCTOR_DASHBOARD },
         { type: 'header', label: 'Operacional' },
         { type: 'link', label: 'Avaliação Física', icon: ClipboardList, path: AppRoute.STUDENT_ASSESSMENT },
         { type: 'link', label: 'Guia Clínico', icon: Activity, path: AppRoute.REHAB },
@@ -197,7 +197,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
 
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
-            const isHomeInstructor = isInstructor && item.label === 'Home';
+            const isHomeInstructor = isInstructor && item.label === 'Início';
             
             return (
               <Link
