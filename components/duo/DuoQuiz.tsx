@@ -20,7 +20,19 @@ export const DuoQuiz: React.FC<Props> = ({ lesson, onComplete, onCancel }) => {
 
   const currentQuestion = lesson.questions?.[currentQIndex];
 
-  if (!currentQuestion) return <div>Erro ao carregar questão.</div>;
+  // UI de Erro caso não haja questão (Defensivo)
+  if (!currentQuestion) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 text-center h-full min-h-[400px]">
+        <AlertTriangle className="w-16 h-16 text-red-500 mb-4" />
+        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Erro ao carregar aula</h2>
+        <p className="text-slate-500 mb-6">Não foi possível carregar as questões. Tente novamente.</p>
+        <Button onClick={onCancel} variant="outline">
+          Voltar ao Mapa
+        </Button>
+      </div>
+    );
+  }
 
   const handleOptionClick = (index: number) => {
     if (isAnswered) return;
@@ -54,7 +66,7 @@ export const DuoQuiz: React.FC<Props> = ({ lesson, onComplete, onCancel }) => {
   if (showResult) {
     const passed = score === (lesson.questions?.length || 0);
     return (
-      <div className="flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
+      <div className="flex flex-col items-center justify-center p-8 text-center animate-in fade-in h-full min-h-[400px]">
         <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 ${passed ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
           {passed ? <Trophy size={48} /> : <AlertTriangle size={48} />}
         </div>

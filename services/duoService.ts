@@ -143,19 +143,25 @@ export const generateLessonContent = async (level: number): Promise<DuoLesson> =
     });
 
     const data = JSON.parse(cleanJSON(response.text || '{}'));
+
+    // Validação Robusta para forçar o catch em caso de dados inválidos
+    if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
+        throw new Error("Formato de aula inválido ou vazio retornado pela IA.");
+    }
+
     return {
       level: realLevel,
       title: data.title || `Nível ${realLevel}`,
       topic: data.topic || topic,
-      questions: data.questions || []
+      questions: data.questions
     };
   } catch (e) {
-    console.error("Error generating lesson:", e);
+    console.error("Error generating lesson (Using Fallback):", e);
     // Fallback static lesson if AI fails
     return {
       level: realLevel,
-      title: "Princípios do Pilates (Fallback)",
-      topic: "Fundamentos",
+      title: "Princípios do Pilates (Aula de Segurança)",
+      topic: "Fundamentos Essenciais",
       questions: [
         {
           question: "Qual destes NÃO é um princípio do Pilates?",
@@ -195,16 +201,11 @@ export const generateLessonContent = async (level: number): Promise<DuoLesson> =
 export const completeLesson = async (userId: string, newVolls: number, currentLevel: number): Promise<void> => {
   const today = new Date().toISOString().split('T')[0];
   
-  // Update DB
-  // Increment level, add volls, update date
-  // Simple streak logic: If last_played was yesterday, increment. If today, keep. Else reset to 1.
-  // Ideally handled in SQL or fetching previous record first. For simplicity, we just update last_played_at.
-  
   await supabase
     .from('user_duo_progress')
     .update({
       current_level: currentLevel + 1,
-      total_volls: newVolls, // This should be calculated based on current total + gain
+      total_volls: newVolls,
       last_played_at: today
     })
     .eq('user_id', userId);
