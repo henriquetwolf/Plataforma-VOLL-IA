@@ -1,12 +1,53 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { generatePilatesContentStream, generatePilatesImage } from '../services/geminiService';
-import { savePost, getTodayPostCount, recordGenerationUsage } from '../services/contentService';
-import { ContentRequest } from '../types';
+import { savePost, getTodayPostCount, recordGenerationUsage, fetchSavedPosts, deleteSavedPost } from '../services/contentService';
+import { ContentRequest, SavedPost } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Wand2, Image as ImageIcon, Save, Copy, Loader2, RotateCcw } from 'lucide-react';
+import { Wand2, Image as ImageIcon, Save, Copy, Loader2, RotateCcw, History, Trash2, ChevronRight, Video, FileText, Layers } from 'lucide-react';
+
+const OBJECTIVE_OPTIONS = [
+  "Atrair novos alunos (Iniciantes)",
+  "Divulgar promoção/oferta",
+  "Educar sobre dores/patologias",
+  "Engajamento (Perguntas/Enquetes)",
+  "Bastidores do Studio",
+  "Depoimento/Prova Social",
+  "Outro"
+];
+
+const THEME_OPTIONS = [
+  "Dor na Coluna / Postura",
+  "Pilates para Gestantes",
+  "Pilates para Idosos",
+  "Definição e Tônus Muscular",
+  "Flexibilidade e Alongamento",
+  "Alívio de Estresse",
+  "Respiração e Controle",
+  "Outro"
+];
+
+const AUDIENCE_OPTIONS = [
+  "Sedentários buscando saúde",
+  "Praticantes de atividade física",
+  "Gestantes e Pós-parto",
+  "Idosos / Terceira Idade",
+  "Pessoas com dor crônica",
+  "Público Geral",
+  "Outro"
+];
+
+const TONE_OPTIONS = [
+  "Profissional e Técnico",
+  "Motivacional e Energético",
+  "Acolhedor e Empático",
+  "Descontraído e Divertido",
+  "Educativo e Claro",
+  "Outro"
+];
 
 export const ContentAgent: React.FC = () => {
   const { user } = useAuth();
@@ -14,12 +55,20 @@ export const ContentAgent: React.FC = () => {
   
   const [request, setRequest] = useState<ContentRequest>({
     format: 'Post Estático',
+    objective: OBJECTIVE_OPTIONS[0],
+    theme: THEME_OPTIONS[0],
+    audience: AUDIENCE_OPTIONS[0],
+    tone: TONE_OPTIONS[0],
+    imageStyle: 'Fotorealista',
+    logoConfig: { enabled: true, type: 'normal', position: 'bottom-right', size: 'medium' }
+  });
+
+  // Custom inputs state
+  const [customInputs, setCustomInputs] = useState({
     objective: '',
     theme: '',
     audience: '',
-    tone: 'Profissional',
-    imageStyle: 'Fotorealista',
-    logoConfig: { enabled: true, type: 'normal', position: 'bottom-right', size: 'medium' }
+    tone: ''
   });
 
   const [generatedText, setGeneratedText] = useState('');
@@ -28,20 +77,39 @@ export const ContentAgent: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [dailyCount, setDailyCount] = useState(0);
   
+  // History State
+  const [showHistory, setShowHistory] = useState(false);
+  const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  
   // Hardcoded limit for now, or fetch from profile plan
   const DAILY_LIMIT = 5; 
   const isLimitReached = dailyCount >= DAILY_LIMIT;
 
   useEffect(() => {
     if (user?.id) {
-        // Assume user is owner for simplicity or use studioId logic
         const studioId = user.isInstructor ? user.studioId : user.id;
-        if(studioId) getTodayPostCount(studioId).then(setDailyCount);
+        if(studioId) {
+            getTodayPostCount(studioId).then(setDailyCount);
+            loadHistory(studioId);
+        }
     }
   }, [user]);
 
+  const loadHistory = async (studioId: string) => {
+      setLoadingHistory(true);
+      const posts = await fetchSavedPosts(studioId);
+      setSavedPosts(posts);
+      setLoadingHistory(false);
+  };
+
   const handleGenerate = async () => {
-    if (!request.objective || !request.theme) {
+    const finalObjective = request.objective === 'Outro' ? customInputs.objective : request.objective;
+    const finalTheme = request.theme === 'Outro' ? customInputs.theme : request.theme;
+    const finalAudience = request.audience === 'Outro' ? customInputs.audience : request.audience;
+    const finalTone = request.tone === 'Outro' ? customInputs.tone : request.tone;
+
+    if (!finalObjective || !finalTheme) {
         alert("Preencha o objetivo e o tema.");
         return;
     }
@@ -55,18 +123,33 @@ export const ContentAgent: React.FC = () => {
     setGeneratedImage(null);
 
     try {
+        const isReels = request.format === 'Reels';
+        
+        // Prepare request with final values
+        const apiRequest = {
+            ...request,
+            objective: finalObjective,
+            theme: finalTheme,
+            audience: finalAudience,
+            tone: finalTone,
+            modificationPrompt: isReels 
+                ? "IMPORTANTE: O formato é Reels. Gere 3 opções completas de roteiro (Opção 1, Opção 2, Opção 3) com sugestão de áudio e tempo. NÃO descreva imagem estática." 
+                : request.modificationPrompt
+        };
+
         // 1. Text Generation Stream
-        const stream = generatePilatesContentStream(request, ''); // systemInstruction empty for now
+        const stream = generatePilatesContentStream(apiRequest, ''); 
         let fullText = '';
         for await (const chunk of stream) {
             fullText += chunk;
             setGeneratedText(prev => prev + chunk);
         }
 
-        // 2. Image Generation
-        // Simplified image generation call
-        const image = await generatePilatesImage(request, null, fullText);
-        setGeneratedImage(image);
+        // 2. Image Generation (Skip for Reels)
+        if (!isReels) {
+            const image = await generatePilatesImage(apiRequest, null, fullText);
+            setGeneratedImage(image);
+        }
 
         // 3. Record Usage
         const studioId = user?.isInstructor ? user.studioId : user?.id;
@@ -101,134 +184,265 @@ export const ContentAgent: React.FC = () => {
       const res = await savePost(studioId, post);
       if (res.success) {
           alert("Post salvo!");
+          loadHistory(studioId); // Refresh history
       } else {
           alert("Erro ao salvar: " + res.error);
       }
       setIsSaving(false);
   };
 
+  const handleDelete = async (postId: string) => {
+      if (confirm("Tem certeza que deseja excluir este post salvo?")) {
+          const success = await deleteSavedPost(postId);
+          if (success.success) {
+              setSavedPosts(prev => prev.filter(p => p.id !== postId));
+          }
+      }
+  };
+
+  const getFormatIcon = (format: string) => {
+      if (format.includes('Reels')) return <Video className="w-4 h-4 text-purple-600"/>;
+      if (format.includes('Carrossel')) return <Layers className="w-4 h-4 text-blue-600"/>;
+      return <FileText className="w-4 h-4 text-green-600"/>;
+  };
+
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in pb-12">
-        <div className="flex justify-between items-center">
+    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in pb-12">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div>
                 <h1 className="text-3xl font-bold flex items-center gap-2 text-slate-900 dark:text-white">
                     <Wand2 className="h-8 w-8 text-brand-600" /> {t('content_agent')}
                 </h1>
                 <p className="text-slate-500">{t('content_subtitle')}</p>
             </div>
-            <div className="text-right">
-                <span className={`text-sm font-bold ${isLimitReached ? 'text-red-500' : 'text-slate-500'}`}>
+            <div className="flex gap-2 items-center">
+                <span className={`text-sm font-bold mr-4 ${isLimitReached ? 'text-red-500' : 'text-slate-500'}`}>
                     {t('creations_today')}: {dailyCount}/{DAILY_LIMIT}
                 </span>
+                <Button variant="outline" onClick={() => setShowHistory(!showHistory)}>
+                    <History className="w-4 h-4 mr-2"/> {showHistory ? 'Voltar' : 'Histórico'}
+                </Button>
             </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="space-y-6">
-                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                    <h3 className="font-bold mb-4 text-slate-800 dark:text-white">{t('what_create')}</h3>
-                    
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('format_label')}</label>
-                            <select 
-                                className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
-                                value={request.format}
-                                onChange={e => setRequest({...request, format: e.target.value})}
-                                disabled={isLimitReached}
-                            >
-                                <option>Post Estático</option>
-                                <option>Carrossel</option>
-                                <option>Reels</option>
-                            </select>
-                        </div>
-
-                        <Input 
-                            label={t('objective_label')} 
-                            value={request.objective} 
-                            onChange={e => setRequest({...request, objective: e.target.value})} 
-                            placeholder="Ex: Atrair alunos iniciantes"
-                            disabled={isLimitReached}
-                        />
+        {showHistory ? (
+            <div className="space-y-6 animate-in slide-in-from-right-4">
+                <div className="flex justify-between items-center">
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-white">Histórico de Posts</h2>
+                    <Button variant="ghost" onClick={() => setShowHistory(false)}>Voltar</Button>
+                </div>
+                
+                {loadingHistory ? (
+                    <div className="p-12 text-center text-slate-500"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>
+                ) : savedPosts.length === 0 ? (
+                    <div className="p-12 text-center text-slate-500 border-2 border-dashed border-slate-200 rounded-xl">
+                        Nenhum post salvo ainda.
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {savedPosts.map(post => (
+                            <div key={post.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col">
+                                {post.imageUrl && (
+                                    <div className="h-40 overflow-hidden bg-slate-100">
+                                        <img src={post.imageUrl} alt="Post" className="w-full h-full object-cover" />
+                                    </div>
+                                )}
+                                <div className="p-4 flex-1 flex flex-col">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <span className="text-xs font-bold bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded flex items-center gap-1">
+                                            {getFormatIcon(post.request.format)}
+                                            {post.request.format}
+                                        </span>
+                                        <span className="text-xs text-slate-400">{new Date(post.createdAt).toLocaleDateString()}</span>
+                                    </div>
+                                    <h3 className="font-bold text-slate-800 dark:text-white text-sm mb-1 line-clamp-1">{post.request.theme}</h3>
+                                    <p className="text-xs text-slate-500 line-clamp-3 mb-4">{post.content}</p>
+                                    
+                                    <div className="mt-auto flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                                        <Button size="sm" variant="ghost" className="flex-1" onClick={() => {
+                                            setGeneratedText(post.content);
+                                            setGeneratedImage(post.imageUrl || null);
+                                            setRequest(post.request);
+                                            setShowHistory(false);
+                                        }}>
+                                            <Copy className="w-3 h-3 mr-2"/> Usar
+                                        </Button>
+                                        <button onClick={() => handleDelete(post.id)} className="p-2 text-slate-400 hover:text-red-500">
+                                            <Trash2 className="w-4 h-4"/>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                    <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <h3 className="font-bold mb-4 text-slate-800 dark:text-white">{t('what_create')}</h3>
                         
-                        <Input 
-                            label={t('theme_label')} 
-                            value={request.theme} 
-                            onChange={e => setRequest({...request, theme: e.target.value})} 
-                            placeholder="Ex: Benefícios do Pilates para coluna"
-                            disabled={isLimitReached}
-                        />
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('format_label')}</label>
+                                <select 
+                                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
+                                    value={request.format}
+                                    onChange={e => setRequest({...request, format: e.target.value})}
+                                    disabled={isLimitReached}
+                                >
+                                    <option>Post Estático</option>
+                                    <option>Carrossel</option>
+                                    <option>Reels</option>
+                                </select>
+                            </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <Input 
-                                label={t('audience_label')} 
-                                value={request.audience} 
-                                onChange={e => setRequest({...request, audience: e.target.value})} 
-                                placeholder="Ex: Mulheres 40+"
-                                disabled={isLimitReached}
-                            />
-                            <Input 
-                                label="Tom de Voz" 
-                                value={request.tone} 
-                                onChange={e => setRequest({...request, tone: e.target.value})} 
-                                placeholder="Ex: Motivacional"
-                                disabled={isLimitReached}
-                            />
+                            {/* OBJECTIVE SELECT */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('objective_label')}</label>
+                                <select 
+                                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
+                                    value={request.objective}
+                                    onChange={e => setRequest({...request, objective: e.target.value})}
+                                    disabled={isLimitReached}
+                                >
+                                    {OBJECTIVE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                </select>
+                                {request.objective === 'Outro' && (
+                                    <Input 
+                                        className="mt-2" 
+                                        placeholder="Digite seu objetivo..." 
+                                        value={customInputs.objective} 
+                                        onChange={e => setCustomInputs({...customInputs, objective: e.target.value})} 
+                                    />
+                                )}
+                            </div>
+                            
+                            {/* THEME SELECT */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('theme_label')}</label>
+                                <select 
+                                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
+                                    value={request.theme}
+                                    onChange={e => setRequest({...request, theme: e.target.value})}
+                                    disabled={isLimitReached}
+                                >
+                                    {THEME_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                </select>
+                                {request.theme === 'Outro' && (
+                                    <Input 
+                                        className="mt-2" 
+                                        placeholder="Digite o tema..." 
+                                        value={customInputs.theme} 
+                                        onChange={e => setCustomInputs({...customInputs, theme: e.target.value})} 
+                                    />
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                {/* AUDIENCE SELECT */}
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('audience_label')}</label>
+                                    <select 
+                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
+                                        value={request.audience}
+                                        onChange={e => setRequest({...request, audience: e.target.value})}
+                                        disabled={isLimitReached}
+                                    >
+                                        {AUDIENCE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                    </select>
+                                    {request.audience === 'Outro' && (
+                                        <Input 
+                                            className="mt-2" 
+                                            placeholder="Qual público?" 
+                                            value={customInputs.audience} 
+                                            onChange={e => setCustomInputs({...customInputs, audience: e.target.value})} 
+                                        />
+                                    )}
+                                </div>
+
+                                {/* TONE SELECT */}
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tom de Voz</label>
+                                    <select 
+                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
+                                        value={request.tone}
+                                        onChange={e => setRequest({...request, tone: e.target.value})}
+                                        disabled={isLimitReached}
+                                    >
+                                        {TONE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                    </select>
+                                    {request.tone === 'Outro' && (
+                                        <Input 
+                                            className="mt-2" 
+                                            placeholder="Qual tom?" 
+                                            value={customInputs.tone} 
+                                            onChange={e => setCustomInputs({...customInputs, tone: e.target.value})} 
+                                        />
+                                    )}
+                                </div>
+                            </div>
+
+                            <Button 
+                                onClick={handleGenerate} 
+                                isLoading={isGenerating} 
+                                disabled={isLimitReached} 
+                                className="w-full"
+                            >
+                                <Wand2 className="w-4 h-4 mr-2" /> {t('generate_btn')}
+                            </Button>
                         </div>
+                    </div>
+                </div>
 
-                        <Button 
-                            onClick={handleGenerate} 
-                            isLoading={isGenerating} 
-                            disabled={isLimitReached} 
-                            className="w-full"
-                        >
-                            <Wand2 className="w-4 h-4 mr-2" /> {t('generate_btn')}
-                        </Button>
+                <div className="space-y-6">
+                    <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm min-h-[500px] flex flex-col">
+                        <h3 className="font-bold mb-4 text-slate-800 dark:text-white flex items-center justify-between">
+                            <span>{t('result_title')}</span>
+                            {generatedText && (
+                                <div className="flex gap-2">
+                                    <Button size="sm" variant="ghost" onClick={() => {navigator.clipboard.writeText(generatedText); alert("Copiado!")}}>
+                                        <Copy className="w-4 h-4" />
+                                    </Button>
+                                    <Button size="sm" onClick={handleSave} isLoading={isSaving}>
+                                        <Save className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                            )}
+                        </h3>
+
+                        {isGenerating ? (
+                            <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
+                                <Loader2 className="w-8 h-8 animate-spin mb-2 text-brand-600" />
+                                <p>Criando conteúdo...</p>
+                            </div>
+                        ) : generatedText ? (
+                            <div className="flex-1 space-y-4">
+                                {generatedImage && (
+                                    <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+                                        <img src={generatedImage} alt="Gerado" className="w-full h-auto object-cover" />
+                                    </div>
+                                )}
+                                {request.format === 'Reels' && (
+                                    <div className="bg-purple-50 dark:bg-purple-900/20 text-purple-800 dark:text-purple-200 p-3 rounded-lg text-xs font-bold text-center border border-purple-100 dark:border-purple-800 mb-2">
+                                        🎥 Formato Reels: Roteiros gerados abaixo
+                                    </div>
+                                )}
+                                <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-lg text-sm whitespace-pre-wrap border border-slate-100 dark:border-slate-800">
+                                    {generatedText}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-lg">
+                                <ImageIcon className="w-12 h-12 mb-2 opacity-20" />
+                                <p>O conteúdo gerado aparecerá aqui.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
-
-            <div className="space-y-6">
-                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm min-h-[500px] flex flex-col">
-                    <h3 className="font-bold mb-4 text-slate-800 dark:text-white flex items-center justify-between">
-                        <span>{t('result_title')}</span>
-                        {generatedText && (
-                            <div className="flex gap-2">
-                                <Button size="sm" variant="ghost" onClick={() => {navigator.clipboard.writeText(generatedText); alert("Copiado!")}}>
-                                    <Copy className="w-4 h-4" />
-                                </Button>
-                                <Button size="sm" onClick={handleSave} isLoading={isSaving}>
-                                    <Save className="w-4 h-4" />
-                                </Button>
-                            </div>
-                        )}
-                    </h3>
-
-                    {isGenerating ? (
-                        <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
-                            <Loader2 className="w-8 h-8 animate-spin mb-2 text-brand-600" />
-                            <p>Criando conteúdo...</p>
-                        </div>
-                    ) : generatedText ? (
-                        <div className="flex-1 space-y-4">
-                            {generatedImage && (
-                                <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-                                    <img src={generatedImage} alt="Gerado" className="w-full h-auto object-cover" />
-                                </div>
-                            )}
-                            <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-lg text-sm whitespace-pre-wrap border border-slate-100 dark:border-slate-800">
-                                {generatedText}
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-lg">
-                            <ImageIcon className="w-12 h-12 mb-2 opacity-20" />
-                            <p>O conteúdo gerado aparecerá aqui.</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
+        )}
     </div>
   );
 };
