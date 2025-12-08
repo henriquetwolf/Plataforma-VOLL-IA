@@ -64,6 +64,16 @@ const downloadImage = (dataUrl: string, filename: string) => {
     document.body.removeChild(link);
 };
 
+// Helper to toggle items in a comma-separated string
+const toggleStringList = (current: string, value: string): string => {
+    const list = current ? current.split(', ') : [];
+    if (list.includes(value)) {
+        return list.filter(item => item !== value).join(', ');
+    } else {
+        return [...list, value].join(', ');
+    }
+};
+
 // --- SUB-COMPONENTS ---
 
 const StepMode = ({ selected, onSelect }: any) => (
@@ -109,24 +119,30 @@ const StepFormat = ({ selected, onSelect }: any) => (
     </div>
 );
 
-const StepGoal = ({ selected, customGoal, mode, onSelect, onCustomChange }: any) => {
+const StepGoal = ({ selected, customGoal, mode, onToggle, onCustomChange, onNext }: any) => {
     const list = mode === 'story' ? STORY_GOALS : GOALS;
+    const selectedList = selected ? selected.split(', ') : [];
+
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Qual é o objetivo desse conteúdo?</h2>
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Quais são os objetivos? (Selecione um ou mais)</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {list.map((item: any) => (
-                    <button
-                        key={item.id}
-                        onClick={() => onSelect(item.label)}
-                        className={`p-4 rounded-xl border-2 text-left flex items-center gap-4 transition-all ${selected === item.label ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
-                    >
-                        <div className={`p-2 rounded-lg ${selected === item.label ? 'bg-brand-200 text-brand-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
-                            <item.icon className="w-5 h-5" />
-                        </div>
-                        <span className={`font-medium ${selected === item.label ? 'text-brand-900 dark:text-brand-100' : 'text-slate-700 dark:text-slate-300'}`}>{item.label}</span>
-                    </button>
-                ))}
+                {list.map((item: any) => {
+                    const isSelected = selectedList.includes(item.label);
+                    return (
+                        <button
+                            key={item.id}
+                            onClick={() => onToggle(item.label)}
+                            className={`p-4 rounded-xl border-2 text-left flex items-center gap-4 transition-all ${isSelected ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 ring-1 ring-brand-500' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
+                        >
+                            <div className={`p-2 rounded-lg ${isSelected ? 'bg-brand-200 text-brand-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                                <item.icon className="w-5 h-5" />
+                            </div>
+                            <span className={`font-medium ${isSelected ? 'text-brand-900 dark:text-brand-100' : 'text-slate-700 dark:text-slate-300'}`}>{item.label}</span>
+                            {isSelected && <CheckCircle className="w-5 h-5 text-brand-600 ml-auto" />}
+                        </button>
+                    );
+                })}
             </div>
             
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
@@ -138,37 +154,57 @@ const StepGoal = ({ selected, customGoal, mode, onSelect, onCustomChange }: any)
                     onChange={e => onCustomChange(e.target.value)}
                 />
             </div>
+
+            <div className="flex justify-end pt-2">
+                <Button onClick={onNext} className="bg-brand-600 hover:bg-brand-700 text-white" disabled={!selected && !customGoal}>
+                    Continuar <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+            </div>
         </div>
     );
 };
 
-const StepAudience = ({ selected, customAudience, onSelect, onCustomChange }: any) => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Para quem é esse conteúdo?</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {AUDIENCES.map((item) => (
-                <button
-                    key={item.id}
-                    onClick={() => onSelect(item.label)}
-                    className={`p-4 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center min-h-[120px] ${selected === item.label ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
-                >
-                    <Users className={`w-8 h-8 mb-3 ${selected === item.label ? 'text-brand-600' : 'text-slate-400'}`} />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{item.label}</span>
-                </button>
-            ))}
-        </div>
+const StepAudience = ({ selected, customAudience, onToggle, onCustomChange, onNext }: any) => {
+    const selectedList = selected ? selected.split(', ') : [];
 
-        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-            <label className="text-sm font-bold text-slate-500 uppercase mb-2 block flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Outro Público Específico</label>
-            <input 
-                className="w-full p-4 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-950 focus:ring-2 focus:ring-brand-500 outline-none"
-                placeholder="Ex: Adolescentes, Homens, Praticantes de Corrida..."
-                value={customAudience || ''}
-                onChange={e => onCustomChange(e.target.value)}
-            />
+    return (
+        <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Para quem é esse conteúdo? (Selecione um ou mais)</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {AUDIENCES.map((item) => {
+                    const isSelected = selectedList.includes(item.label);
+                    return (
+                        <button
+                            key={item.id}
+                            onClick={() => onToggle(item.label)}
+                            className={`p-4 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center min-h-[120px] relative ${isSelected ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 ring-1 ring-brand-500' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
+                        >
+                            {isSelected && <div className="absolute top-2 right-2"><CheckCircle className="w-4 h-4 text-brand-600" /></div>}
+                            <Users className={`w-8 h-8 mb-3 ${isSelected ? 'text-brand-600' : 'text-slate-400'}`} />
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{item.label}</span>
+                        </button>
+                    );
+                })}
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                <label className="text-sm font-bold text-slate-500 uppercase mb-2 block flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Outro Público Específico</label>
+                <input 
+                    className="w-full p-4 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-950 focus:ring-2 focus:ring-brand-500 outline-none"
+                    placeholder="Ex: Adolescentes, Homens, Praticantes de Corrida..."
+                    value={customAudience || ''}
+                    onChange={e => onCustomChange(e.target.value)}
+                />
+            </div>
+
+            <div className="flex justify-end pt-2">
+                <Button onClick={onNext} className="bg-brand-600 hover:bg-brand-700 text-white" disabled={!selected && !customAudience}>
+                    Continuar <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 const StepTopic = ({ value, onChange, onGenerateIdeas, isGeneratingIdeas, suggestions }: any) => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
@@ -457,20 +493,24 @@ export const ContentAgent: React.FC = () => {
       handleNext();
   };
 
-  const handleGoalSelect = (goal: string) => {
-      setFormData(prev => ({ ...prev, goal, customGoal: '' }));
-      handleNext();
+  // Toggle goal selection
+  const handleGoalToggle = (goal: string) => {
+      setFormData(prev => ({ ...prev, goal: toggleStringList(prev.goal, goal) }));
   };
 
-  const handleAudienceSelect = (audience: string) => {
-      setFormData(prev => ({ ...prev, audience, customAudience: '' }));
-      handleNext();
+  // Toggle audience selection
+  const handleAudienceToggle = (audience: string) => {
+      setFormData(prev => ({ ...prev, audience: toggleStringList(prev.audience, audience) }));
   };
 
   const handleGenerateIdeas = async () => {
-      if (!formData.goal || !formData.audience) return;
+      if (!formData.goal && !formData.customGoal || !formData.audience && !formData.customAudience) return;
       setIsGeneratingIdeas(true);
-      const ideas = await generateTopicSuggestions(formData.customGoal || formData.goal, formData.customAudience || formData.audience);
+      
+      const combinedGoal = [formData.goal, formData.customGoal].filter(Boolean).join(', ');
+      const combinedAudience = [formData.audience, formData.customAudience].filter(Boolean).join(', ');
+
+      const ideas = await generateTopicSuggestions(combinedGoal, combinedAudience);
       setTopicSuggestions(ideas);
       setIsGeneratingIdeas(false);
   };
@@ -478,11 +518,7 @@ export const ContentAgent: React.FC = () => {
   const handleGenerateContent = async () => {
     setIsGenerating(true);
     try {
-        const finalData = { ...formData };
-        if (finalData.goal === 'Outro (Descrever...)') finalData.goal = finalData.customGoal || '';
-        if (finalData.audience === 'Outro (Descrever...)') finalData.audience = finalData.customAudience || '';
-        
-        const content = await generateMarketingContent(finalData);
+        const content = await generateMarketingContent(formData);
         
         if (content && content.visualPrompt && !content.isPlan) {
              const image = await generatePilatesImage({
@@ -566,11 +602,14 @@ export const ContentAgent: React.FC = () => {
       setIsSaving(true);
       let res;
       
+      const combinedGoal = [formData.goal, formData.customGoal].filter(Boolean).join(', ');
+      const combinedAudience = [formData.audience, formData.customAudience].filter(Boolean).join(', ');
+
       if (result.isPlan) {
           const plan: StrategicContentPlan = {
               id: crypto.randomUUID(),
               createdAt: new Date().toISOString(),
-              goals: { mainObjective: formData.goal, targetAudience: [formData.audience], keyThemes: [formData.topic] },
+              goals: { mainObjective: combinedGoal, targetAudience: [combinedAudience], keyThemes: [formData.topic] },
               weeks: result.weeks?.map((w: any) => ({
                   week: `Semana ${w.weekNumber}`,
                   theme: w.theme,
@@ -585,9 +624,9 @@ export const ContentAgent: React.FC = () => {
               id: postId,
               request: {
                   format: result.suggestedFormat,
-                  objective: formData.goal,
+                  objective: combinedGoal,
                   theme: formData.topic,
-                  audience: formData.audience,
+                  audience: combinedAudience,
                   tone: formData.style,
                   imageStyle: formData.style
               },
@@ -721,44 +760,40 @@ export const ContentAgent: React.FC = () => {
                 <div className="mb-8">
                     <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                         <span className={step >= 1 ? 'text-brand-600' : ''}>Modo</span>
-                        <span className={step >= 2 ? 'text-brand-600' : ''}>{formData.mode === 'single' ? 'Formato' : 'Objetivo'}</span>
-                        <span className={step >= 3 ? 'text-brand-600' : ''}>{formData.mode === 'single' ? 'Objetivo' : 'Público'}</span>
-                        <span className={step >= 4 ? 'text-brand-600' : ''}>{formData.mode === 'single' ? 'Público' : 'Tema'}</span>
-                        <span className={step >= 5 ? 'text-brand-600' : ''}>{formData.mode === 'single' ? 'Tema' : 'Resultado'}</span>
-                        <span className={step >= 6 ? 'text-brand-600' : ''}>Final</span>
+                        <span className={step >= 2 ? 'text-brand-600' : ''}>Objetivo</span>
+                        <span className={step >= 3 ? 'text-brand-600' : ''}>Público</span>
+                        <span className={step >= 4 ? 'text-brand-600' : ''}>Tema</span>
+                        <span className={step >= 5 ? 'text-brand-600' : ''}>Resultado</span>
                     </div>
                     <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-brand-500 transition-all duration-500" style={{ width: `${(step / (formData.mode === 'single' ? 6 : 5)) * 100}%` }}></div>
+                        <div className="h-full bg-brand-500 transition-all duration-500" style={{ width: `${(step / 5) * 100}%` }}></div>
                     </div>
                 </div>
 
                 {step === 1 && <StepMode selected={formData.mode} onSelect={handleModeSelect} />}
                 
-                {formData.mode === 'single' && step === 2 && (
-                    <StepFormat selected={formData.format} onSelect={handleFormatSelect} />
-                )}
-
-                {/* Adjust subsequent steps logic based on mode */}
-                {((formData.mode === 'single' && step === 3) || (formData.mode !== 'single' && step === 2)) && (
+                {step === 2 && (
                     <StepGoal 
                         selected={formData.goal} 
                         customGoal={formData.customGoal} 
                         mode={formData.mode} 
-                        onSelect={handleGoalSelect} 
-                        onCustomChange={(val: string) => setFormData(prev => ({...prev, customGoal: val, goal: 'Outro (Descrever...)'}))} 
+                        onToggle={handleGoalToggle} 
+                        onNext={handleNext}
+                        onCustomChange={(val: string) => setFormData(prev => ({...prev, customGoal: val}))} 
                     />
                 )}
 
-                {((formData.mode === 'single' && step === 4) || (formData.mode !== 'single' && step === 3)) && (
+                {step === 3 && (
                     <StepAudience 
                         selected={formData.audience} 
                         customAudience={formData.customAudience} 
-                        onSelect={handleAudienceSelect} 
-                        onCustomChange={(val: string) => setFormData(prev => ({...prev, customAudience: val, audience: 'Outro (Descrever...)'}))} 
+                        onToggle={handleAudienceToggle}
+                        onNext={handleNext}
+                        onCustomChange={(val: string) => setFormData(prev => ({...prev, customAudience: val}))} 
                     />
                 )}
 
-                {((formData.mode === 'single' && step === 5) || (formData.mode !== 'single' && step === 4)) && (
+                {step === 4 && (
                     <div className="space-y-6">
                         <StepTopic 
                             value={formData.topic} 
@@ -778,7 +813,7 @@ export const ContentAgent: React.FC = () => {
                     </div>
                 )}
 
-                {((formData.mode === 'single' && step === 6) || (formData.mode !== 'single' && step === 5)) && (
+                {step === 5 && (
                     <>
                         {currentPlanItemIndices && (
                             <div className="mb-4">
@@ -816,7 +851,7 @@ export const ContentAgent: React.FC = () => {
                                                         {post.generatedPostId ? (
                                                             <>
                                                                 <Button size="xs" variant="secondary" onClick={() => handleViewPost(post.generatedPostId)} className="bg-green-100 text-green-700 border-green-200 hover:bg-green-200">
-                                                                    <Eye className="w-3 h-3 mr-1"/> Ver
+                                                                    <Eye className="w-3 h-3 mr-1"/> Visualizar
                                                                 </Button>
                                                                 <button onClick={() => handleGenerateFromPlan(post, i, idx)} className="text-slate-400 hover:text-brand-600 p-2 rounded hover:bg-slate-100" title="Gerar Novamente">
                                                                     <RefreshCw className="w-4 h-4"/>

@@ -3,20 +3,19 @@ export type MarketingMode = 'single' | 'plan' | 'story';
 
 export interface MarketingFormData {
   mode: MarketingMode;
-  goal: string; // Can be comma separated for multi-select
+  goal: string; // Comma separated string for multi-select
   customGoal?: string; 
-  audience: string; // Can be comma separated for multi-select
-  customAudience?: string; // New field for custom audience text
+  audience: string; // Comma separated string for multi-select
+  customAudience?: string; 
   topic: string;
   format: string; 
   style: string;
-  startDate?: string; // Added for Plan Date calculation
-  // Specific for carousel logic
+  startDate?: string; 
   carouselType?: 'image-only' | 'text-only' | 'text-image';
 }
 
 export interface ReelOption {
-  type: string; // 'Viral', 'Standard', etc.
+  type: string; 
   title: string;
   hook: string;
   script: string[]; 

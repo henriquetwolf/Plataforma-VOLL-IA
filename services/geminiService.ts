@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
   MarketingFormData, GeneratedContent, CategorizedTopics, ContentRequest, 
@@ -161,6 +162,10 @@ export const generateMarketingContent = async (formData: MarketingFormData, lang
     };
   }
 
+  // Combine standard selection with custom input
+  const combinedGoals = [formData.goal, formData.customGoal].filter(Boolean).join(', ');
+  const combinedAudience = [formData.audience, formData.customAudience].filter(Boolean).join(', ');
+
   let prompt = `
   Atue como um Especialista em Marketing Digital para Studios de Pilates.
   Gere conteúdo para Instagram com base nestes dados.
@@ -169,8 +174,8 @@ export const generateMarketingContent = async (formData: MarketingFormData, lang
   Nota: O campo 'visualPrompt' deve ser sempre em Inglês (para o gerador de imagem).
   
   Modo: ${formData.mode}
-  Objetivos Selecionados: ${formData.customGoal || formData.goal}
-  Públicos Selecionados: ${formData.customAudience || formData.audience}
+  Objetivos Selecionados: ${combinedGoals}
+  Públicos Selecionados: ${combinedAudience}
   Tema: ${formData.topic}
   Formato Preferido: ${formData.format}
   Estilo: ${formData.style}
