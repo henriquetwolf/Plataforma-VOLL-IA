@@ -139,7 +139,7 @@ export const Dashboard: React.FC = () => {
                     {t('hello')}, {user?.name.split(' ')[0]}!
                 </h1>
                 <p className="text-slate-300 text-lg max-w-xl">
-                    {t('dashboard_welcome')} <span className="font-semibold text-white">{profile?.studioName || 'seu Studio'}</span>. 
+                    {t('dashboard_welcome')} <span className="font-semibold text-white">{profile?.studioName || 'Studio'}</span>. 
                 </p>
             </div>
         </div>
@@ -264,7 +264,7 @@ export const Dashboard: React.FC = () => {
           />
           <ActionCard 
             to={AppRoute.WHATSAPP_AGENT}
-            title="Assistente WhatsApp"
+            title="WhatsApp"
             desc="Crie scripts de vendas e atendimento prontos para usar."
             icon={MessageCircle}
             color="bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400"
@@ -272,7 +272,7 @@ export const Dashboard: React.FC = () => {
           />
           <ActionCard 
             to={AppRoute.REHAB}
-            title="Guia Clínico"
+            title={t('pilates_rehab')}
             desc={t('card_rehab_desc')}
             icon={Activity}
             color="bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-400"

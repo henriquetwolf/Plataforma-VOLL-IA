@@ -23,7 +23,7 @@ export const Login: React.FC = () => {
     setError('');
     
     if (!email || !password) {
-      setError('Por favor, preencha email e senha');
+      setError(t('login_error'));
       return;
     }
 
@@ -31,7 +31,6 @@ export const Login: React.FC = () => {
       const result = await login(email, password);
       
       if (result.success && result.user) {
-         // REDIRECIONAMENTO AUTOMÁTICO INTELIGENTE
          if (result.user.email === 'henriquetwolf@gmail.com') {
              navigate(AppRoute.ADMIN);
              return;
@@ -55,7 +54,7 @@ export const Login: React.FC = () => {
 
     } catch (err) {
       console.error(err);
-      setError('Erro inesperado ao conectar.');
+      setError('Error connecting.');
     }
   };
 
@@ -69,10 +68,10 @@ export const Login: React.FC = () => {
 
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-slate-900">
-            {loginMode === 'admin' ? t('admin_panel') : loginMode === 'instructor' ? 'Portal do Instrutor' : loginMode === 'student' ? 'Área do Aluno' : 'Bem-vindo à Plataforma VOLL IA'}
+            {loginMode === 'admin' ? t('admin_panel') : loginMode === 'instructor' ? t('instructor_portal') : loginMode === 'student' ? t('student_area') : t('welcome_platform')}
           </h1>
           <p className="text-slate-500 mt-2 text-sm">
-            {loginMode === 'student' ? 'Acesse seus treinos e receitas personalizadas' : t('login_subtitle')}
+            {loginMode === 'student' ? t('access_area') : t('login_subtitle')}
           </p>
         </div>
 

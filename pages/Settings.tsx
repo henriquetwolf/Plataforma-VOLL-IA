@@ -1,10 +1,3 @@
-
-
-
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage, Language, Terminology } from '../context/LanguageContext';
@@ -29,7 +22,7 @@ const AVAILABLE_LANGUAGES: { code: Language; label: string }[] = [
 
 export const Settings: React.FC = () => {
   const { user } = useAuth();
-  const { setLanguage: setGlobalLanguage, setTerminology: setGlobalTerminology, t } = useLanguage();
+  const { setLanguage: setGlobalLanguage, setTerminology: setGlobalTerminology, t, language } = useLanguage();
   const [profile, setProfile] = useState<StudioProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -49,11 +42,11 @@ export const Settings: React.FC = () => {
             if (data.settings.sender_email) setSenderEmail(data.settings.sender_email);
             if (data.settings.language) {
                 setSelectedLanguage(data.settings.language);
-                setGlobalLanguage(data.settings.language); // Sync context on load
+                setGlobalLanguage(data.settings.language);
             }
             if (data.settings.terminology) {
                 setSelectedTerminology(data.settings.terminology);
-                setGlobalTerminology(data.settings.terminology); // Sync context
+                setGlobalTerminology(data.settings.terminology);
             }
         }
       }
@@ -81,9 +74,9 @@ export const Settings: React.FC = () => {
     });
 
     if (result.success) {
-        setGlobalLanguage(selectedLanguage); // Update global context immediately
-        setGlobalTerminology(selectedTerminology); // Update global context
-        setMessage('Configurações salvas com sucesso!');
+        setGlobalLanguage(selectedLanguage);
+        setGlobalTerminology(selectedTerminology);
+        setMessage(t('save') + '!');
         setTimeout(() => setMessage(''), 3000);
     } else {
         alert('Erro ao salvar: ' + result.error);
@@ -92,7 +85,7 @@ export const Settings: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-slate-500">Carregando configurações...</div>;
+    return <div className="p-8 text-center text-slate-500">{t('loading')}</div>;
   }
 
   if (!profile) {
@@ -126,25 +119,17 @@ export const Settings: React.FC = () => {
                 <div className="flex flex-col md:flex-row gap-6 items-start">
                     <div className="flex-1 w-full">
                         <Input 
-                            label="Email Remetente (Gmail)"
+                            label={t('email_label')}
                             placeholder="exemplo.studio@gmail.com"
                             value={senderEmail}
                             onChange={(e) => setSenderEmail(e.target.value)}
                         />
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-1">
-                            <ExternalLink className="w-3 h-3" />
-                            Ao salvar, a plataforma usará este email para abrir o compositor do Gmail Web automaticamente.
-                        </p>
-                    </div>
-                    <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg border border-blue-100 dark:border-blue-800/30 text-sm text-blue-800 dark:text-blue-300 max-w-sm">
-                        <strong>Como funciona?</strong><br/>
-                        Não armazenamos sua senha. Ao clicar em "Enviar Email" nos alunos, o sistema abrirá uma nova aba do seu navegador já logada no seu Gmail, com o destinatário e o assunto preenchidos.
                     </div>
                 </div>
             </div>
         </div>
 
-        {/* Seção 2: Idioma (Nova) */}
+        {/* Seção 2: Idioma */}
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
                 <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
@@ -156,9 +141,6 @@ export const Settings: React.FC = () => {
             </div>
             <div className="p-6">
                 <div className="max-w-md">
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                        Idioma / Language
-                    </label>
                     <select 
                         className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
                         value={selectedLanguage}
@@ -174,7 +156,7 @@ export const Settings: React.FC = () => {
             </div>
         </div>
 
-        {/* Seção 3: Nomenclatura (Nova) */}
+        {/* Seção 3: Nomenclatura */}
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
                 <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
@@ -195,7 +177,9 @@ export const Settings: React.FC = () => {
                             onChange={() => setSelectedTerminology('student')}
                             className="w-4 h-4 text-brand-600 focus:ring-brand-500"
                         />
-                        <span className="text-slate-700 dark:text-slate-300 font-medium">Aluno / Alunos (Padrão)</span>
+                        <span className="text-slate-700 dark:text-slate-300 font-medium">
+                            {language === 'pt' ? 'Aluno (Padrão)' : 'Student (Default)'}
+                        </span>
                     </label>
                     
                     <label className="flex items-center gap-3 p-3 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
@@ -207,7 +191,9 @@ export const Settings: React.FC = () => {
                             onChange={() => setSelectedTerminology('client')}
                             className="w-4 h-4 text-brand-600 focus:ring-brand-500"
                         />
-                        <span className="text-slate-700 dark:text-slate-300 font-medium">Cliente / Clientes</span>
+                        <span className="text-slate-700 dark:text-slate-300 font-medium">
+                            {language === 'pt' ? 'Cliente' : 'Client'}
+                        </span>
                     </label>
                 </div>
             </div>
