@@ -381,6 +381,7 @@ export const MarketingAgent: React.FC = () => {
   const [isGeneratingIdeas, setIsGeneratingIdeas] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<GeneratedContent | null>(null);
+  const [activePlan, setActivePlan] = useState<GeneratedContent | null>(null); // To persist plan state during interactions
   const [isSaving, setIsSaving] = useState(false);
 
   // History State
@@ -467,6 +468,9 @@ export const MarketingAgent: React.FC = () => {
         }
 
         setResult(content);
+        if (content.isPlan) {
+            setActivePlan(content);
+        }
         setStep(5);
         
         const studioId = user?.isInstructor ? user.studioId : user?.id;
@@ -482,13 +486,6 @@ export const MarketingAgent: React.FC = () => {
   };
 
   const handleGenerateFromPlan = (post: any, weekIndex: number, postIndex: number) => {
-    setFormData(prev => ({ ...prev, mode: 'single' })); // Ensure mode is single for item generation
-    setStep(5); // Jump to result (but wait for generation) or back to edit? Let's use edit
-    // Actually, let's setup the form and go to start of wizard or directly generate?
-    // Better: Setup form state and go to Step 1 (or 4 if we trust the inputs)
-    // To allow refinement, we populate custom inputs
-    
-    // Reset previous results
     setResult(null);
     setCurrentPlanItemIndices({ weekIndex, postIndex });
 
@@ -503,14 +500,12 @@ export const MarketingAgent: React.FC = () => {
         mode: 'single',
         format: fmt,
         topic: post.idea || post.theme || '',
-        goal: 'Engajamento', // Default from plan context usually
+        goal: 'Engajamento',
         audience: 'Público Geral',
         customGoal: post.objective || '',
         customAudience: ''
     }));
 
-    // If we want to auto-generate, we can call handleGenerateContent here, but usually user wants to confirm inputs.
-    // Let's go to the Topic step (Step 4) since format/topic are key.
     setStep(4);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -518,11 +513,10 @@ export const MarketingAgent: React.FC = () => {
   const handleViewPost = (postId: string) => {
       const post = savedPosts.find(p => p.id === postId);
       if (post) {
-          // Mock a result object from the saved post
           const mockResult: GeneratedContent = {
               suggestedFormat: post.request.format,
               reasoning: 'Post recuperado do histórico.',
-              hashtags: [], // Extract from content if possible or leave empty
+              hashtags: [],
               tips: 'Post já salvo.',
               captionLong: post.content,
               generatedImage: post.imageUrl || undefined,
@@ -534,11 +528,11 @@ export const MarketingAgent: React.FC = () => {
           setStep(5);
           window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
-          alert("Post não encontrado no histórico.");
+          alert("Post não encontrado no histórico. Pode ter sido excluído.");
       }
   };
 
-  const handleSave = async () => {
+  const handleSaveWithLink = async () => {
       if (!user?.id || !result) return;
       const studioId = user.isInstructor ? user.studioId : user.id;
       if (!studioId) return;
@@ -560,113 +554,6 @@ export const MarketingAgent: React.FC = () => {
           res = await saveContentPlan(studioId, plan);
       } else {
           // Post Generation
-          const postId = crypto.randomUUID();
-          const post: SavedPost = {
-              id: postId,
-              request: {
-                  format: result.suggestedFormat,
-                  objective: formData.goal,
-                  theme: formData.topic,
-                  audience: formData.audience,
-                  tone: formData.style,
-                  imageStyle: formData.style
-              },
-              content: result.captionLong || result.captionShort || '',
-              imageUrl: result.generatedImage || null,
-              createdAt: new Date().toISOString()
-          };
-          res = await savePost(studioId, post);
-
-          // Update Plan State if this post belongs to a plan item
-          if (res.success && currentPlanItemIndices && result.isPlan === false) {
-              // We need to access the plan that is currently displayed in result? 
-              // NO, the plan is displayed when mode is 'plan'.
-              // We need to keep a reference to the Generated Plan if we are in "Generate Item" mode.
-              // But 'result' is currently the Single Post content.
-              // We need a separate state for the underlying plan if we want to update it visually.
-              // BUT, `generatedPlan` is stored in `result` when we are in plan mode.
-              // When we switch to single post mode, `result` is overwritten.
-              // We need to store the generated plan separately.
-          }
-      }
-
-      if (res.success) {
-          alert("Salvo com sucesso!");
-          loadHistory(studioId);
-          
-          // Logic to update the Plan View if we just saved a post linked to it
-          // NOTE: Since we overwrite `result` when generating the single post, we lose the plan view temporarily.
-          // The user would need to go back to History > Plans to see the updated plan.
-          // To make it seamless, we would need a separate `currentPlan` state variable that persists across mode switches.
-      } else {
-          alert("Erro ao salvar.");
-      }
-      setIsSaving(false);
-  };
-
-  // We need to lift the Plan state up to allow switching back and forth
-  // However, refactoring strictly to allow "Back to Plan with State" is complex without a persistent store.
-  // For this request, simply being able to generate is the key.
-  // The "View" button will work for items already saved in the database when the plan is re-loaded from history.
-
-  // Let's check `handleGenerateFromPlan`. It sets `step=4`.
-  // When the user saves, they are at `step=5` (Result).
-  // If they want to go back to the plan, they probably load it from history again.
-  // The "View" button logic relies on `post.generatedPostId` which needs to be in the plan data.
-  // If the plan is re-loaded from DB, and we didn't update the plan in DB with the new postId, the button won't appear.
-  // Updating the plan JSON in DB is hard.
-  // ALTERNATIVE: When rendering the plan list, check if there is a saved post that matches the criteria (Date + Theme) or store a link locally?
-  // The prompt implies a flow. Let's assume we can update the plan in DB. But `savePost` doesn't update the plan.
-  // We can try to update the plan in `handleSave` if we have the plan ID.
-  // But the plan might not be saved yet if it was just generated.
-  
-  // Implementation Compromise:
-  // We will assume the user has SAVED the plan first.
-  // Then they open the plan from history.
-  // Then they generate an item.
-  // Then they save the item.
-  // We should try to update the plan in the DB with the new `generatedPostId`.
-  
-  // Actually, let's keep it simple as requested: "identify this and leave the button".
-  // If we can't persist the link easily to DB without complex logic, we can't show it after reload.
-  // But we can show it in the current session if we keep the plan in state.
-  // Since `result` is used for both, we lose the plan when generating a post.
-  // We need a separate state: `activePlan`.
-
-  const [activePlan, setActivePlan] = useState<GeneratedContent | null>(null); // To store the plan while generating items
-
-  // Intercept Result Setting
-  const handleSetResult = (content: GeneratedContent | null) => {
-      setResult(content);
-      if (content?.isPlan) {
-          setActivePlan(content);
-      }
-  };
-
-  // Improved handleSave to update activePlan
-  const handleSaveWithLink = async () => {
-      if (!user?.id || !result) return;
-      const studioId = user.isInstructor ? user.studioId : user.id;
-      if (!studioId) return;
-
-      setIsSaving(true);
-      let res;
-      
-      if (result.isPlan) {
-          const plan: StrategicContentPlan = {
-              id: crypto.randomUUID(),
-              createdAt: new Date().toISOString(),
-              goals: { mainObjective: formData.goal, targetAudience: [formData.audience], keyThemes: [formData.topic] },
-              weeks: result.weeks?.map((w: any) => ({
-                  week: `Semana ${w.weekNumber}`,
-                  theme: w.theme,
-                  ideas: w.posts
-              })) || []
-          };
-          res = await saveContentPlan(studioId, plan);
-          // If saved, we can optionally attach the DB ID to activePlan to allow future updates, but complexity increases.
-      } else {
-          // Post
           const postId = crypto.randomUUID();
           const post: SavedPost = {
               id: postId,
@@ -724,6 +611,12 @@ export const MarketingAgent: React.FC = () => {
       }
   };
 
+  const getFormatIcon = (format: string) => {
+      if (format.includes('Reels')) return <Video className="w-4 h-4 text-purple-600"/>;
+      if (format.includes('Carrossel')) return <Layers className="w-4 h-4 text-blue-600"/>;
+      return <FileText className="w-4 h-4 text-green-600"/>;
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in pb-12">
         <div className="flex justify-between items-center">
@@ -766,7 +659,6 @@ export const MarketingAgent: React.FC = () => {
                                 <p className="font-bold dark:text-white">{p.goals.keyThemes[0]}</p>
                                 <div className="flex justify-between mt-2">
                                     <Button size="xs" variant="ghost" onClick={() => {
-                                        // Convert stored plan to GeneratedContent format for viewing
                                         const viewPlan: GeneratedContent = {
                                             isPlan: true,
                                             suggestedFormat: 'Plano Estratégico',
@@ -776,10 +668,17 @@ export const MarketingAgent: React.FC = () => {
                                             weeks: p.weeks?.map((w: any) => ({
                                                 weekNumber: w.week.replace('Semana ', ''),
                                                 theme: w.theme,
-                                                posts: w.ideas
+                                                posts: w.ideas?.map((idea: any) => ({
+                                                    day: idea.day,
+                                                    format: idea.format,
+                                                    theme: idea.theme,
+                                                    idea: idea.theme,
+                                                    generatedPostId: idea.generatedPostId // Ensure ID is mapped
+                                                }))
                                             }))
                                         };
-                                        handleSetResult(viewPlan);
+                                        setResult(viewPlan);
+                                        setActivePlan(viewPlan); // Set as active to allow state updates
                                         setStep(5);
                                         setShowHistory(false);
                                     }}>Abrir</Button>
@@ -881,15 +780,21 @@ export const MarketingAgent: React.FC = () => {
                                                         </div>
                                                         <p className="text-sm text-slate-600 dark:text-slate-400">{post.idea || post.theme}</p>
                                                     </div>
-                                                    <div className="flex gap-2">
-                                                        {post.generatedPostId && (
-                                                            <Button size="xs" variant="secondary" onClick={() => handleViewPost(post.generatedPostId)}>
-                                                                <Eye className="w-3 h-3 mr-1"/> Ver
+                                                    <div className="flex gap-2 items-center">
+                                                        {post.generatedPostId ? (
+                                                            <>
+                                                                <Button size="xs" variant="secondary" onClick={() => handleViewPost(post.generatedPostId)} className="bg-green-100 text-green-700 border-green-200 hover:bg-green-200">
+                                                                    <Eye className="w-3 h-3 mr-1"/> Visualizar
+                                                                </Button>
+                                                                <button onClick={() => handleGenerateFromPlan(post, i, idx)} className="text-slate-400 hover:text-brand-600 p-2 rounded hover:bg-slate-100" title="Gerar Novamente">
+                                                                    <RefreshCw className="w-4 h-4"/>
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <Button size="xs" variant="outline" onClick={() => handleGenerateFromPlan(post, i, idx)}>
+                                                                <Wand2 className="w-3 h-3 mr-1"/> Gerar
                                                             </Button>
                                                         )}
-                                                        <Button size="xs" variant="outline" onClick={() => handleGenerateFromPlan(post, i, idx)}>
-                                                            <Wand2 className="w-3 h-3 mr-1"/> {post.generatedPostId ? 'Refazer' : 'Gerar'}
-                                                        </Button>
                                                     </div>
                                                 </div>
                                             ))}
