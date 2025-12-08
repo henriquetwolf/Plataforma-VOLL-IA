@@ -7,7 +7,8 @@ import { savePost, getTodayPostCount, recordGenerationUsage, fetchSavedPosts, de
 import { ContentRequest, SavedPost } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Wand2, Image as ImageIcon, Save, Copy, Loader2, RotateCcw, History, Trash2, ChevronRight, Video, FileText, Layers } from 'lucide-react';
+import { Wand2, Image as ImageIcon, Save, Copy, Loader2, RotateCcw, History, Trash2, ChevronRight, Video, FileText, Layers, Download } from 'lucide-react';
+import { fetchProfile } from '../services/storage';
 
 const OBJECTIVE_OPTIONS = [
   "Atrair novos alunos (Iniciantes)",
@@ -16,7 +17,7 @@ const OBJECTIVE_OPTIONS = [
   "Engajamento (Perguntas/Enquetes)",
   "Bastidores do Studio",
   "Depoimento/Prova Social",
-  "Outro"
+  "Outro (Descrever...)"
 ];
 
 const THEME_OPTIONS = [
@@ -27,7 +28,7 @@ const THEME_OPTIONS = [
   "Flexibilidade e Alongamento",
   "Alívio de Estresse",
   "Respiração e Controle",
-  "Outro"
+  "Outro (Descrever...)"
 ];
 
 const AUDIENCE_OPTIONS = [
@@ -37,7 +38,7 @@ const AUDIENCE_OPTIONS = [
   "Idosos / Terceira Idade",
   "Pessoas com dor crônica",
   "Público Geral",
-  "Outro"
+  "Outro (Descrever...)"
 ];
 
 const TONE_OPTIONS = [
@@ -46,8 +47,17 @@ const TONE_OPTIONS = [
   "Acolhedor e Empático",
   "Descontraído e Divertido",
   "Educativo e Claro",
-  "Outro"
+  "Outro (Descrever...)"
 ];
+
+const downloadImage = (dataUrl: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
 
 export const ContentAgent: React.FC = () => {
   const { user } = useAuth();
@@ -76,15 +86,14 @@ export const ContentAgent: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [dailyCount, setDailyCount] = useState(0);
+  const [dailyLimit, setDailyLimit] = useState(5); // Default fallback
   
   // History State
   const [showHistory, setShowHistory] = useState(false);
   const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   
-  // Hardcoded limit for now, or fetch from profile plan
-  const DAILY_LIMIT = 5; 
-  const isLimitReached = dailyCount >= DAILY_LIMIT;
+  const isLimitReached = dailyCount >= dailyLimit;
 
   useEffect(() => {
     if (user?.id) {
@@ -92,6 +101,13 @@ export const ContentAgent: React.FC = () => {
         if(studioId) {
             getTodayPostCount(studioId).then(setDailyCount);
             loadHistory(studioId);
+            
+            // Fetch profile for limit
+            fetchProfile(studioId).then(profile => {
+                if (profile?.planMaxDailyPosts) {
+                    setDailyLimit(profile.planMaxDailyPosts);
+                }
+            });
         }
     }
   }, [user]);
@@ -104,17 +120,17 @@ export const ContentAgent: React.FC = () => {
   };
 
   const handleGenerate = async () => {
-    const finalObjective = request.objective === 'Outro' ? customInputs.objective : request.objective;
-    const finalTheme = request.theme === 'Outro' ? customInputs.theme : request.theme;
-    const finalAudience = request.audience === 'Outro' ? customInputs.audience : request.audience;
-    const finalTone = request.tone === 'Outro' ? customInputs.tone : request.tone;
+    const finalObjective = request.objective === 'Outro (Descrever...)' ? customInputs.objective : request.objective;
+    const finalTheme = request.theme === 'Outro (Descrever...)' ? customInputs.theme : request.theme;
+    const finalAudience = request.audience === 'Outro (Descrever...)' ? customInputs.audience : request.audience;
+    const finalTone = request.tone === 'Outro (Descrever...)' ? customInputs.tone : request.tone;
 
     if (!finalObjective || !finalTheme) {
         alert("Preencha o objetivo e o tema.");
         return;
     }
     if (isLimitReached) {
-        alert("Limite diário atingido.");
+        alert("Limite diário atingido. Faça um upgrade no seu plano para criar mais.");
         return;
     }
 
@@ -206,6 +222,9 @@ export const ContentAgent: React.FC = () => {
       return <FileText className="w-4 h-4 text-green-600"/>;
   };
 
+  const isReels = request.format === 'Reels';
+  const isCarousel = request.format === 'Carrossel';
+
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in pb-12">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
@@ -217,7 +236,7 @@ export const ContentAgent: React.FC = () => {
             </div>
             <div className="flex gap-2 items-center">
                 <span className={`text-sm font-bold mr-4 ${isLimitReached ? 'text-red-500' : 'text-slate-500'}`}>
-                    {t('creations_today')}: {dailyCount}/{DAILY_LIMIT}
+                    {t('creations_today')}: {dailyCount}/{dailyLimit}
                 </span>
                 <Button variant="outline" onClick={() => setShowHistory(!showHistory)}>
                     <History className="w-4 h-4 mr-2"/> {showHistory ? 'Voltar' : 'Histórico'}
@@ -243,8 +262,15 @@ export const ContentAgent: React.FC = () => {
                         {savedPosts.map(post => (
                             <div key={post.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col">
                                 {post.imageUrl && (
-                                    <div className="h-40 overflow-hidden bg-slate-100">
+                                    <div className="h-40 overflow-hidden bg-slate-100 relative group">
                                         <img src={post.imageUrl} alt="Post" className="w-full h-full object-cover" />
+                                        <button 
+                                            onClick={() => downloadImage(post.imageUrl!, `post-${post.id}.png`)}
+                                            className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-lg backdrop-blur-sm transition-opacity opacity-0 group-hover:opacity-100"
+                                            title="Baixar Imagem"
+                                        >
+                                            <Download className="w-4 h-4"/>
+                                        </button>
                                     </div>
                                 )}
                                 <div className="p-4 flex-1 flex flex-col">
@@ -309,7 +335,7 @@ export const ContentAgent: React.FC = () => {
                                 >
                                     {OBJECTIVE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                 </select>
-                                {request.objective === 'Outro' && (
+                                {request.objective === 'Outro (Descrever...)' && (
                                     <Input 
                                         className="mt-2" 
                                         placeholder="Digite seu objetivo..." 
@@ -330,7 +356,7 @@ export const ContentAgent: React.FC = () => {
                                 >
                                     {THEME_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                 </select>
-                                {request.theme === 'Outro' && (
+                                {request.theme === 'Outro (Descrever...)' && (
                                     <Input 
                                         className="mt-2" 
                                         placeholder="Digite o tema..." 
@@ -352,7 +378,7 @@ export const ContentAgent: React.FC = () => {
                                     >
                                         {AUDIENCE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                     </select>
-                                    {request.audience === 'Outro' && (
+                                    {request.audience === 'Outro (Descrever...)' && (
                                         <Input 
                                             className="mt-2" 
                                             placeholder="Qual público?" 
@@ -373,7 +399,7 @@ export const ContentAgent: React.FC = () => {
                                     >
                                         {TONE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                     </select>
-                                    {request.tone === 'Outro' && (
+                                    {request.tone === 'Outro (Descrever...)' && (
                                         <Input 
                                             className="mt-2" 
                                             placeholder="Qual tom?" 
@@ -420,8 +446,15 @@ export const ContentAgent: React.FC = () => {
                         ) : generatedText ? (
                             <div className="flex-1 space-y-4">
                                 {generatedImage && (
-                                    <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+                                    <div className="relative group rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
                                         <img src={generatedImage} alt="Gerado" className="w-full h-auto object-cover" />
+                                        <button 
+                                            onClick={() => downloadImage(generatedImage!, `post-${new Date().getTime()}.png`)}
+                                            className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-lg backdrop-blur-sm transition-opacity opacity-0 group-hover:opacity-100"
+                                            title="Baixar Imagem"
+                                        >
+                                            <Download className="w-4 h-4"/>
+                                        </button>
                                     </div>
                                 )}
                                 {request.format === 'Reels' && (
