@@ -202,7 +202,14 @@ export const generateMarketingContent = async (formData: MarketingFormData, lang
     prompt += `
     Crie um post único completo.
     Gere 'captionShort' (legenda curta) e 'captionLong' (legenda longa e persuasiva).
-    Se o formato for Reels/Vídeo (ou formData.format == 'reels'), forneça 4 OPÇÕES DE ROTEIROS diferentes em 'reelsOptions' e defina 'isReels' como true.
+    
+    Se o formato for Reels/Vídeo (ou formData.format == 'reels'):
+    1. Forneça 4 OPÇÕES DE ROTEIROS COMPLETOS e DETALHADOS em 'reelsOptions'.
+    2. Defina 'isReels' como true.
+    3. DETALHAMENTO DO SCRIPT: O campo 'script' deve ser um array de strings onde cada linha descreve a cena minuciosamente.
+       Formato obrigatório para cada linha do script: "Tempo (ex: 0-3s) | Ação Visual: [Descrição] | Texto na tela: [Texto] | Áudio/Fala: [Descrição]".
+       Exemplo: "0-3s | Ação: Close nos pés no Reformer | Texto: 'Pare de errar isso' | Áudio: Efeito sonoro de impacto."
+    
     Se for Estático/Carrossel, foque em 'visualContent' descrevendo a imagem.
     Se Carrossel (ou formData.format == 'carousel'), descreva a imagem como uma sequência panorâmica conectada de 6 cards.
     `;
