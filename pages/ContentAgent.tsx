@@ -38,6 +38,23 @@ const AUDIENCES = [
   { id: 'all', label: 'Público Geral do Studio' },
 ];
 
+const FORMATS = [
+  { id: 'auto', label: 'IA Decide (Recomendado)', description: 'A melhor escolha estratégica', recommended: true },
+  { id: 'reels', label: 'Reels / Vídeo Curto', description: 'Vídeo dinâmico (Max 60s)' },
+  { id: 'carousel', label: 'Carrossel (6 Cards)', description: 'Conteúdo profundo em 6 cards (Imagem Panorâmica)' },
+  { id: 'post', label: 'Post Estático', description: 'Imagem única com legenda forte' },
+];
+
+const STYLES = [
+  'IA Decide (Recomendado)',
+  'Persona da Marca (Padrão)',
+  'Fotorealista / Clean',
+  'Minimalista',
+  'Ilustração',
+  'Cinematográfico',
+  'Energético / Vibrante'
+];
+
 const downloadImage = (dataUrl: string, filename: string) => {
     const link = document.createElement('a');
     link.href = dataUrl;
@@ -298,6 +315,11 @@ const StepTopic = ({ value, onChange, onGenerateIdeas, isGeneratingIdeas, sugges
 
 const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate, onGenerateFromPlan, onViewSavedPost }: any) => {
     const [showLongCaption, setShowLongCaption] = useState(false);
+    const [selectedReelOption, setSelectedReelOption] = useState(0);
+
+    useEffect(() => {
+        setSelectedReelOption(0);
+    }, [content]);
 
     if (!content) return null;
     
@@ -386,18 +408,46 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate, 
                                     </div>
                                 </div>
                             ) : (
-                                // Fallback info if image isn't ready
-                                <div className="text-center text-slate-400 w-full">
+                                <div className="text-center text-slate-400 w-full h-full flex flex-col">
                                     {isReels && content.reelsOptions ? (
-                                        <div className="text-left space-y-4">
-                                            {content.reelsOptions.map((opt: any, i: number) => (
-                                                <div key={i} className="pb-4 border-b last:border-0 border-slate-200 dark:border-slate-800">
-                                                    <p className="font-bold text-brand-700 mb-1">Opção {i+1}: {opt.title}</p>
-                                                    <ul className="list-disc pl-4 space-y-1 text-slate-600 dark:text-slate-400">
-                                                        {opt.script.map((line: string, idx: number) => <li key={idx}>{line}</li>)}
-                                                    </ul>
-                                                </div>
-                                            ))}
+                                        <div className="text-left w-full flex flex-col h-full">
+                                            <div className="flex flex-wrap gap-2 mb-4 justify-center">
+                                                {content.reelsOptions.map((_: any, i: number) => (
+                                                    <button
+                                                        key={i}
+                                                        onClick={() => setSelectedReelOption(i)}
+                                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                                                            selectedReelOption === i
+                                                                ? 'bg-brand-600 text-white border-brand-600 shadow-md'
+                                                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-brand-400'
+                                                        }`}
+                                                    >
+                                                        Roteiro {i + 1}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            
+                                            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex-1 overflow-y-auto max-h-[300px] animate-in fade-in shadow-inner">
+                                                {content.reelsOptions[selectedReelOption] && (
+                                                    <>
+                                                        <h5 className="font-bold text-brand-700 dark:text-brand-400 mb-3 text-sm border-b border-slate-100 dark:border-slate-700 pb-2">
+                                                            {content.reelsOptions[selectedReelOption].title}
+                                                        </h5>
+                                                        <div className="space-y-3">
+                                                            {content.reelsOptions[selectedReelOption].script.map((line: string, idx: number) => (
+                                                                <div key={idx} className="text-xs text-slate-700 dark:text-slate-300">
+                                                                    {line}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        {content.reelsOptions[selectedReelOption].audioSuggestion && (
+                                                            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-500 italic flex items-center gap-1">
+                                                                <span className="font-bold">🎵 Áudio:</span> {content.reelsOptions[selectedReelOption].audioSuggestion}
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
                                     ) : (
                                         <div className="text-left">
