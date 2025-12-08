@@ -7,7 +7,7 @@ import { AppRoute, StudioProfile } from '../types';
 import { 
   Users, Sparkles, Compass, ArrowRight, Building2, Calculator, 
   Banknote, Activity, MessageSquare, Newspaper, Wand2, Star, 
-  BookUser, TrendingUp, Layers, LineChart, ClipboardList, User, MessageCircle, FileText, Bell, CheckCircle, Rocket
+  BookUser, TrendingUp, Layers, LineChart, ClipboardList, User, MessageCircle, FileText, Bell, CheckCircle, Rocket, Trophy, GraduationCap
 } from 'lucide-react';
 import { fetchProfile } from '../services/storage';
 import { fetchDashboardNotifications, DashboardNotification, dismissNotificationLocal } from '../services/notificationService';
@@ -321,6 +321,7 @@ export const Dashboard: React.FC = () => {
             desc="Anamnese e testes físicos completos."
             icon={ClipboardList}
             color="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400"
+            isAi
           />
           <ActionCard 
             to={AppRoute.EVOLUTION}
@@ -351,6 +352,27 @@ export const Dashboard: React.FC = () => {
             desc={t('card_suggestions_desc')}
             icon={MessageSquare}
             color="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400"
+            isAi
+          />
+        </div>
+      </section>
+
+      {/* ETAPA 4: EDUCAÇÃO */}
+      <section>
+        <StepHeader 
+          step="4" 
+          title="Educação" 
+          description="Desenvolvimento técnico e teórico."
+          colorClass="border-yellow-500"
+          icon={GraduationCap}
+        />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pl-2 md:pl-4 border-l-2 border-slate-100 dark:border-slate-800 ml-6 md:ml-8 lg:ml-8">
+          <ActionCard 
+            to={AppRoute.PILATES_QUEST}
+            title="Pilates Quest"
+            desc="Educação diária gamificada sobre o método."
+            icon={Trophy}
+            color="bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400"
             isAi
           />
         </div>

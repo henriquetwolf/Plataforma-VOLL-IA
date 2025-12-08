@@ -5,7 +5,7 @@ import { fetchUserProgress, generateLessonContent, advanceProgress, fetchStudioR
 import { DuoUserProgress, DuoLesson } from '../types';
 import { DuoQuiz } from '../components/duo/DuoQuiz';
 import { Button } from '../components/ui/Button';
-import { Trophy, Star, Map, Lock, Play, RotateCcw, Loader2 } from 'lucide-react';
+import { Trophy, Sparkles, Map, Lock, Play, RotateCcw, Loader2 } from 'lucide-react';
 
 export const PilatesQuest: React.FC = () => {
   const { user } = useAuth();
@@ -45,7 +45,7 @@ export const PilatesQuest: React.FC = () => {
     // Check daily limit
     const today = new Date().toISOString().split('T')[0];
     if (progress.lastPlayedAt === today) {
-      alert("Você já completou sua aula de hoje! Volte amanhã para manter a ofensiva.");
+      alert("Você já completou sua aula de hoje! Volte amanhã para manter a sequência.");
       return;
     }
 
@@ -114,8 +114,8 @@ export const PilatesQuest: React.FC = () => {
           {/* Stats Bar */}
           <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex justify-between items-center">
              <div className="flex items-center gap-2">
-               <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center">
-                 <Star className="w-5 h-5 text-yellow-600 fill-yellow-600" />
+               <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center">
+                 <Sparkles className="w-6 h-6 text-brand-600" />
                </div>
                <div>
                  <p className="text-xs text-slate-500 font-bold uppercase">Total VOLLs</p>
@@ -123,7 +123,7 @@ export const PilatesQuest: React.FC = () => {
                </div>
              </div>
              <div className="text-right">
-                <p className="text-xs text-slate-500 font-bold uppercase">Ofensiva</p>
+                <p className="text-xs text-slate-500 font-bold uppercase">Sequência</p>
                 <p className="font-bold text-xl text-orange-500">🔥 {progress?.streak || 0} dias</p>
              </div>
           </div>
@@ -199,7 +199,7 @@ export const PilatesQuest: React.FC = () => {
                     <p className="text-xs text-slate-400 capitalize">{r.userRole === 'owner' ? 'Dono' : 'Instrutor'}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-sm">{r.totalVolls} XP</p>
+                    <p className="font-bold text-sm">{r.totalVolls} VOLLs</p>
                   </div>
                 </div>
               ))}
