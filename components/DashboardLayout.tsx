@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper, Settings, Home, Wand2, Star, TrendingUp, ClipboardList, MessageCircle, FileText, Rocket, Megaphone } from 'lucide-react';
+import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper, Settings, Home, Wand2, Star, TrendingUp, ClipboardList, MessageCircle, FileText, Rocket } from 'lucide-react';
 import { AppRoute, SystemBanner } from '../types';
 import { fetchProfile } from '../services/storage';
 import { fetchBannerByType } from '../services/bannerService';
@@ -110,7 +110,6 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         { type: 'header', label: `2. ${t('strategy')}` },
         { type: 'link', label: t('planning_ai'), icon: Compass, path: AppRoute.STRATEGY },
         { type: 'link', label: 'Agente de Ação', icon: Rocket, path: AppRoute.ACTION_AGENT },
-        { type: 'link', label: 'Marketing Digital', icon: Megaphone, path: AppRoute.MARKETING_AGENT },
         { type: 'link', label: 'Guia Clínico', icon: Activity, path: AppRoute.REHAB },
         { type: 'link', label: t('content_agent'), icon: Wand2, path: AppRoute.CONTENT_AGENT },
         { type: 'link', label: 'WhatsApp', icon: MessageCircle, path: AppRoute.WHATSAPP_AGENT },

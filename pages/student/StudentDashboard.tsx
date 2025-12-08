@@ -1,9 +1,10 @@
 
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppRoute } from '../../types';
-import { Utensils, Activity, ArrowRight, LogOut, Star, User, MessageSquare, ClipboardList, Newspaper } from 'lucide-react';
+import { Utensils, Activity, ArrowRight, LogOut, Star, User, MessageSquare, ClipboardList, Newspaper, Dices, Sparkles } from 'lucide-react';
 import { fetchProfile } from '../../services/storage';
 import { getStudentProfile } from '../../services/studentService';
 
@@ -101,6 +102,21 @@ export const StudentDashboard: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         
+        {/* Sorte do Dia (NEW) */}
+        <Link to={AppRoute.STUDENT_DAILY_LUCK} className="group bg-gradient-to-br from-yellow-50 to-amber-100 p-8 rounded-2xl shadow-sm border border-yellow-200 hover:shadow-md transition-all flex flex-col justify-between relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+             <Sparkles size={80} />
+          </div>
+          <div>
+            <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mb-4 text-yellow-600 shadow-sm group-hover:scale-110 transition-transform">
+                <Dices className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-bold text-yellow-800 mb-2">Sorte do Dia!</h2>
+            <p className="text-yellow-700/80 text-sm mb-6">Gire a roleta e descubra qual aula ou desafio te espera hoje.</p>
+          </div>
+          <span className="inline-flex items-center text-sm font-bold text-yellow-700 group-hover:gap-2 transition-all">Girar Roleta <ArrowRight className="ml-1 w-4 h-4"/></span>
+        </Link>
+
         {/* Receitas */}
         <Link to={AppRoute.STUDENT_RECIPES} className="group bg-gradient-to-br from-green-50 to-emerald-100 p-8 rounded-2xl shadow-sm border border-green-200 hover:shadow-md transition-all flex flex-col justify-between">
           <div>
