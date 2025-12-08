@@ -699,7 +699,13 @@ export const ContentAgent: React.FC = () => {
               weeks: result.weeks?.map((w: any) => ({
                   week: `Semana ${w.weekNumber}`,
                   theme: w.theme,
-                  ideas: w.posts
+                  ideas: w.posts?.map((p: any) => ({
+                      day: p.day,
+                      theme: p.idea, // Map 'idea' (from generation) to 'theme' (for storage) to match Interface
+                      format: p.format,
+                      objective: p.objective,
+                      generatedPostId: p.generatedPostId
+                  }))
               })) || []
           };
           res = await saveContentPlan(studioId, plan);
@@ -824,13 +830,13 @@ export const ContentAgent: React.FC = () => {
                                             hashtags: [],
                                             tips: '',
                                             weeks: p.weeks?.map((w: any) => ({
-                                                weekNumber: w.week.replace('Semana ', ''),
+                                                weekNumber: w.week.replace(/Semana\s*/i, ''),
                                                 theme: w.theme,
                                                 posts: w.ideas?.map((idea: any) => ({
                                                     day: idea.day,
                                                     format: idea.format,
                                                     theme: idea.theme,
-                                                    idea: idea.theme,
+                                                    idea: idea.theme, // Map 'theme' from DB back to 'idea' for UI
                                                     objective: idea.objective,
                                                     generatedPostId: idea.generatedPostId
                                                 }))
