@@ -1,5 +1,6 @@
 
 
+
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -38,6 +39,7 @@ import { ContentAgent } from './pages/ContentAgent';
 import { WhatsAppAgent } from './pages/WhatsAppAgent';
 import { ActionAgent } from './pages/ActionAgent'; 
 import { MarketingAgent } from './pages/MarketingAgent';
+import { PilatesQuest } from './pages/PilatesQuest'; // NEW
 import { StudentEvolutionPage } from './pages/StudentEvolution';
 import { StudentAssessmentPage } from './pages/StudentAssessment';
 import { AppRoute } from './types';
@@ -151,6 +153,7 @@ const AppRoutes = () => {
       <Route path={AppRoute.REHAB} element={<SharedRoute><RehabAgent /></SharedRoute>} />
       <Route path={AppRoute.EVOLUTION} element={<SharedRoute><StudentEvolutionPage /></SharedRoute>} />
       <Route path={AppRoute.STUDENT_ASSESSMENT} element={<SharedRoute><StudentAssessmentPage /></SharedRoute>} />
+      <Route path={AppRoute.PILATES_QUEST} element={<SharedRoute><PilatesQuest /></SharedRoute>} />
 
       {/* Rotas Exclusivas do Instrutor */}
       <Route path={AppRoute.INSTRUCTOR_DASHBOARD} element={<InstructorRoute><InstructorDashboard /></InstructorRoute>} />

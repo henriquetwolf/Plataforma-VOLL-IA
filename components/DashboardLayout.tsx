@@ -1,10 +1,12 @@
 
+
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper, Settings, Home, Wand2, Star, TrendingUp, ClipboardList, MessageCircle, FileText, Rocket } from 'lucide-react';
+import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper, Settings, Home, Wand2, Star, TrendingUp, ClipboardList, MessageCircle, FileText, Rocket, Trophy } from 'lucide-react';
 import { AppRoute, SystemBanner } from '../types';
 import { fetchProfile } from '../services/storage';
 import { fetchBannerByType } from '../services/bannerService';
@@ -96,6 +98,8 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         { type: 'link', label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
         { type: 'link', label: 'Pesquisas', icon: FileText, path: AppRoute.INSTRUCTOR_SURVEYS }, 
         { type: 'link', label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.INSTRUCTOR_NEWSLETTERS },
+        { type: 'header', label: 'Educação' },
+        { type: 'link', label: 'Pilates Quest', icon: Trophy, path: AppRoute.PILATES_QUEST },
       ];
     } else if (isOwner) {
       items = [
@@ -123,6 +127,9 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         { type: 'link', label: t('class_ratings'), icon: Star, path: AppRoute.STUDIO_EVALUATIONS },
         { type: 'link', label: 'Pesquisas', icon: FileText, path: AppRoute.SURVEY_MANAGER }, 
         { type: 'link', label: t('suggestions'), icon: MessageSquare, path: AppRoute.STUDIO_SUGGESTIONS },
+        
+        { type: 'header', label: 'Educação' },
+        { type: 'link', label: 'Pilates Quest', icon: Trophy, path: AppRoute.PILATES_QUEST },
       ];
     }
 

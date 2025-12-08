@@ -443,6 +443,7 @@ export enum AppRoute {
   WHATSAPP_AGENT = '/whatsapp-agent',
   ACTION_AGENT = '/action-agent',
   MARKETING_AGENT = '/marketing-agent',
+  PILATES_QUEST = '/pilates-quest',
   ROOT = '/'
 }
 
@@ -847,4 +848,29 @@ export interface CategorizedTopics {
   cliche: string[];
   innovative: string[];
   visceral: string[];
+}
+
+export interface DuoQuestion {
+  question: string;
+  options: string[];
+  correctAnswerIndex: number;
+  explanation: string;
+}
+
+export interface DuoLesson {
+  level: number;
+  title: string;
+  topic: string;
+  questions?: DuoQuestion[];
+}
+
+export interface DuoUserProgress {
+  userId: string;
+  userName: string;
+  studioId: string;
+  userRole: 'owner' | 'instructor';
+  currentLevel: number;
+  totalVolls: number;
+  lastPlayedAt: string | null; // ISO Date String
+  streak: number;
 }
