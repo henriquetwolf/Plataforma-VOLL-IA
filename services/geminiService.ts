@@ -188,7 +188,7 @@ export const generateMarketingContent = async (formData: MarketingFormData, lang
     Defina um macro-tema para cada semana.
     Frequência: Sugira a melhor frequência.
     
-    IMPORTANTE: No campo 'day', forneça Dia da Semana E Data específica (Ex: Segunda, 12/05) calculada a partir da data de início.
+    IMPORTANTE: No campo 'day', forneça Dia da Semana E Data específica (Ex: Segunda, 12/05) calculada a partir da data de início: ${formData.startDate || 'hoje'}.
     Distribua formatos (Reels, Carrossel, Estático) de forma estratégica.
     Defina 'isPlan' como true.
     `;

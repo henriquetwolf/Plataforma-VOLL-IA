@@ -3,15 +3,14 @@ export type MarketingMode = 'single' | 'plan' | 'story';
 
 export interface MarketingFormData {
   mode: MarketingMode;
-  goal: string; // Comma separated string for multi-select
-  customGoal?: string; 
-  audience: string; // Comma separated string for multi-select
-  customAudience?: string; 
+  goal: string; 
+  customGoal?: string;
+  audience: string;
+  customAudience?: string;
   topic: string;
   format: string; 
   style: string;
-  startDate?: string; 
-  carouselType?: 'image-only' | 'text-only' | 'text-image';
+  startDate?: string; // New field for Plan mode
 }
 
 export interface ReelOption {

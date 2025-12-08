@@ -6,7 +6,7 @@ import { generateMarketingContent, generateTopicSuggestions, generatePilatesImag
 import { MarketingFormData, GeneratedContent, SavedPost, StrategicContentPlan } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Megaphone, Sparkles, Video, Image as LucideImage, Copy, Loader2, Lightbulb, ArrowRight, ArrowLeft, RefreshCw, Save, Trash2, History, Download, CalendarDays, FileText, Zap, UserPlus, Heart, BookOpen, ShoppingBag, Users, Camera, MessageCircle, Layout, RotateCcw, Layers, CheckCircle, Wand2, Eye } from 'lucide-react';
+import { Megaphone, Sparkles, Video, Image as LucideImage, Copy, Loader2, Lightbulb, ArrowRight, ArrowLeft, RefreshCw, Save, Trash2, History, Download, CalendarDays, FileText, Zap, UserPlus, Heart, BookOpen, ShoppingBag, Users, Camera, MessageCircle, Layout, RotateCcw, Layers, CheckCircle, Wand2, Eye, Calendar } from 'lucide-react';
 import { savePost, fetchSavedPosts, deleteSavedPost, recordGenerationUsage, getTodayPostCount, saveContentPlan, fetchContentPlans, deleteContentPlan } from '../services/contentService';
 import { fetchProfile } from '../services/storage';
 
@@ -64,16 +64,6 @@ const downloadImage = (dataUrl: string, filename: string) => {
     document.body.removeChild(link);
 };
 
-// Helper to toggle items in a comma-separated string
-const toggleStringList = (current: string, value: string): string => {
-    const list = current ? current.split(', ') : [];
-    if (list.includes(value)) {
-        return list.filter(item => item !== value).join(', ');
-    } else {
-        return [...list, value].join(', ');
-    }
-};
-
 // --- SUB-COMPONENTS ---
 
 const StepMode = ({ selected, onSelect }: any) => (
@@ -98,51 +88,24 @@ const StepMode = ({ selected, onSelect }: any) => (
     </div>
 );
 
-const StepFormat = ({ selected, onSelect }: any) => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Qual formato você prefere?</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {FORMATS.map((item) => (
-                <button
-                    key={item.id}
-                    onClick={() => onSelect(item.id)}
-                    className={`p-4 rounded-xl border-2 text-left transition-all flex flex-col ${selected === item.id ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
-                >
-                    <div className="flex justify-between items-center mb-1">
-                        <span className={`font-bold ${selected === item.id ? 'text-brand-900 dark:text-brand-100' : 'text-slate-800 dark:text-white'}`}>{item.label}</span>
-                        {item.recommended && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold uppercase">Recomendado</span>}
-                    </div>
-                    <p className={`text-sm ${selected === item.id ? 'text-brand-700 dark:text-brand-300' : 'text-slate-500'}`}>{item.description}</p>
-                </button>
-            ))}
-        </div>
-    </div>
-);
-
-const StepGoal = ({ selected, customGoal, mode, onToggle, onCustomChange, onNext }: any) => {
+const StepGoal = ({ selected, customGoal, mode, onSelect, onCustomChange }: any) => {
     const list = mode === 'story' ? STORY_GOALS : GOALS;
-    const selectedList = selected ? selected.split(', ') : [];
-
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Quais são os objetivos? (Selecione um ou mais)</h2>
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Qual é o objetivo desse conteúdo?</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {list.map((item: any) => {
-                    const isSelected = selectedList.includes(item.label);
-                    return (
-                        <button
-                            key={item.id}
-                            onClick={() => onToggle(item.label)}
-                            className={`p-4 rounded-xl border-2 text-left flex items-center gap-4 transition-all ${isSelected ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 ring-1 ring-brand-500' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
-                        >
-                            <div className={`p-2 rounded-lg ${isSelected ? 'bg-brand-200 text-brand-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
-                                <item.icon className="w-5 h-5" />
-                            </div>
-                            <span className={`font-medium ${isSelected ? 'text-brand-900 dark:text-brand-100' : 'text-slate-700 dark:text-slate-300'}`}>{item.label}</span>
-                            {isSelected && <CheckCircle className="w-5 h-5 text-brand-600 ml-auto" />}
-                        </button>
-                    );
-                })}
+                {list.map((item: any) => (
+                    <button
+                        key={item.id}
+                        onClick={() => onSelect(item.label)}
+                        className={`p-4 rounded-xl border-2 text-left flex items-center gap-4 transition-all ${selected === item.label ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
+                    >
+                        <div className={`p-2 rounded-lg ${selected === item.label ? 'bg-brand-200 text-brand-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                            <item.icon className="w-5 h-5" />
+                        </div>
+                        <span className={`font-medium ${selected === item.label ? 'text-brand-900 dark:text-brand-100' : 'text-slate-700 dark:text-slate-300'}`}>{item.label}</span>
+                    </button>
+                ))}
             </div>
             
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
@@ -154,57 +117,37 @@ const StepGoal = ({ selected, customGoal, mode, onToggle, onCustomChange, onNext
                     onChange={e => onCustomChange(e.target.value)}
                 />
             </div>
-
-            <div className="flex justify-end pt-2">
-                <Button onClick={onNext} className="bg-brand-600 hover:bg-brand-700 text-white" disabled={!selected && !customGoal}>
-                    Continuar <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-            </div>
         </div>
     );
 };
 
-const StepAudience = ({ selected, customAudience, onToggle, onCustomChange, onNext }: any) => {
-    const selectedList = selected ? selected.split(', ') : [];
-
-    return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Para quem é esse conteúdo? (Selecione um ou mais)</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {AUDIENCES.map((item) => {
-                    const isSelected = selectedList.includes(item.label);
-                    return (
-                        <button
-                            key={item.id}
-                            onClick={() => onToggle(item.label)}
-                            className={`p-4 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center min-h-[120px] relative ${isSelected ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 ring-1 ring-brand-500' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
-                        >
-                            {isSelected && <div className="absolute top-2 right-2"><CheckCircle className="w-4 h-4 text-brand-600" /></div>}
-                            <Users className={`w-8 h-8 mb-3 ${isSelected ? 'text-brand-600' : 'text-slate-400'}`} />
-                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{item.label}</span>
-                        </button>
-                    );
-                })}
-            </div>
-
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                <label className="text-sm font-bold text-slate-500 uppercase mb-2 block flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Outro Público Específico</label>
-                <input 
-                    className="w-full p-4 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-950 focus:ring-2 focus:ring-brand-500 outline-none"
-                    placeholder="Ex: Adolescentes, Homens, Praticantes de Corrida..."
-                    value={customAudience || ''}
-                    onChange={e => onCustomChange(e.target.value)}
-                />
-            </div>
-
-            <div className="flex justify-end pt-2">
-                <Button onClick={onNext} className="bg-brand-600 hover:bg-brand-700 text-white" disabled={!selected && !customAudience}>
-                    Continuar <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-            </div>
+const StepAudience = ({ selected, customAudience, onSelect, onCustomChange }: any) => (
+    <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
+        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Para quem é esse conteúdo?</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {AUDIENCES.map((item) => (
+                <button
+                    key={item.id}
+                    onClick={() => onSelect(item.label)}
+                    className={`p-4 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center min-h-[120px] ${selected === item.label ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
+                >
+                    <Users className={`w-8 h-8 mb-3 ${selected === item.label ? 'text-brand-600' : 'text-slate-400'}`} />
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{item.label}</span>
+                </button>
+            ))}
         </div>
-    );
-};
+
+        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+            <label className="text-sm font-bold text-slate-500 uppercase mb-2 block flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Outro Público Específico</label>
+            <input 
+                className="w-full p-4 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-950 focus:ring-2 focus:ring-brand-500 outline-none"
+                placeholder="Ex: Adolescentes, Homens, Praticantes de Corrida..."
+                value={customAudience || ''}
+                onChange={e => onCustomChange(e.target.value)}
+            />
+        </div>
+    </div>
+);
 
 const StepTopic = ({ value, onChange, onGenerateIdeas, isGeneratingIdeas, suggestions }: any) => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
@@ -431,7 +374,8 @@ export const ContentAgent: React.FC = () => {
     audience: AUDIENCES[0].label,
     topic: '',
     format: 'auto',
-    style: 'Persona da Marca (Padrão)'
+    style: 'Persona da Marca (Padrão)',
+    startDate: new Date().toISOString().split('T')[0]
   });
   
   const [topicSuggestions, setTopicSuggestions] = useState<string[]>([]);
@@ -488,29 +432,20 @@ export const ContentAgent: React.FC = () => {
       handleNext();
   };
 
-  const handleFormatSelect = (format: string) => {
-      setFormData(prev => ({ ...prev, format }));
+  const handleGoalSelect = (goal: string) => {
+      setFormData(prev => ({ ...prev, goal, customGoal: '' }));
       handleNext();
   };
 
-  // Toggle goal selection
-  const handleGoalToggle = (goal: string) => {
-      setFormData(prev => ({ ...prev, goal: toggleStringList(prev.goal, goal) }));
-  };
-
-  // Toggle audience selection
-  const handleAudienceToggle = (audience: string) => {
-      setFormData(prev => ({ ...prev, audience: toggleStringList(prev.audience, audience) }));
+  const handleAudienceSelect = (audience: string) => {
+      setFormData(prev => ({ ...prev, audience, customAudience: '' }));
+      handleNext();
   };
 
   const handleGenerateIdeas = async () => {
-      if (!formData.goal && !formData.customGoal || !formData.audience && !formData.customAudience) return;
+      if (!formData.goal || !formData.audience) return;
       setIsGeneratingIdeas(true);
-      
-      const combinedGoal = [formData.goal, formData.customGoal].filter(Boolean).join(', ');
-      const combinedAudience = [formData.audience, formData.customAudience].filter(Boolean).join(', ');
-
-      const ideas = await generateTopicSuggestions(combinedGoal, combinedAudience);
+      const ideas = await generateTopicSuggestions(formData.customGoal || formData.goal, formData.customAudience || formData.audience);
       setTopicSuggestions(ideas);
       setIsGeneratingIdeas(false);
   };
@@ -518,7 +453,11 @@ export const ContentAgent: React.FC = () => {
   const handleGenerateContent = async () => {
     setIsGenerating(true);
     try {
-        const content = await generateMarketingContent(formData);
+        const finalData = { ...formData };
+        if (finalData.goal === 'Outro (Descrever...)') finalData.goal = finalData.customGoal || '';
+        if (finalData.audience === 'Outro (Descrever...)') finalData.audience = finalData.customAudience || '';
+        
+        const content = await generateMarketingContent(finalData);
         
         if (content && content.visualPrompt && !content.isPlan) {
              const image = await generatePilatesImage({
@@ -602,14 +541,11 @@ export const ContentAgent: React.FC = () => {
       setIsSaving(true);
       let res;
       
-      const combinedGoal = [formData.goal, formData.customGoal].filter(Boolean).join(', ');
-      const combinedAudience = [formData.audience, formData.customAudience].filter(Boolean).join(', ');
-
       if (result.isPlan) {
           const plan: StrategicContentPlan = {
               id: crypto.randomUUID(),
               createdAt: new Date().toISOString(),
-              goals: { mainObjective: combinedGoal, targetAudience: [combinedAudience], keyThemes: [formData.topic] },
+              goals: { mainObjective: formData.goal, targetAudience: [formData.audience], keyThemes: [formData.topic] },
               weeks: result.weeks?.map((w: any) => ({
                   week: `Semana ${w.weekNumber}`,
                   theme: w.theme,
@@ -624,9 +560,9 @@ export const ContentAgent: React.FC = () => {
               id: postId,
               request: {
                   format: result.suggestedFormat,
-                  objective: combinedGoal,
+                  objective: formData.goal,
                   theme: formData.topic,
-                  audience: combinedAudience,
+                  audience: formData.audience,
                   tone: formData.style,
                   imageStyle: formData.style
               },
@@ -777,9 +713,8 @@ export const ContentAgent: React.FC = () => {
                         selected={formData.goal} 
                         customGoal={formData.customGoal} 
                         mode={formData.mode} 
-                        onToggle={handleGoalToggle} 
-                        onNext={handleNext}
-                        onCustomChange={(val: string) => setFormData(prev => ({...prev, customGoal: val}))} 
+                        onSelect={handleGoalSelect} 
+                        onCustomChange={(val: string) => setFormData(prev => ({...prev, customGoal: val, goal: 'Outro (Descrever...)'}))} 
                     />
                 )}
 
@@ -787,9 +722,8 @@ export const ContentAgent: React.FC = () => {
                     <StepAudience 
                         selected={formData.audience} 
                         customAudience={formData.customAudience} 
-                        onToggle={handleAudienceToggle}
-                        onNext={handleNext}
-                        onCustomChange={(val: string) => setFormData(prev => ({...prev, customAudience: val}))} 
+                        onSelect={handleAudienceSelect} 
+                        onCustomChange={(val: string) => setFormData(prev => ({...prev, customAudience: val, audience: 'Outro (Descrever...)'}))} 
                     />
                 )}
 
@@ -802,6 +736,24 @@ export const ContentAgent: React.FC = () => {
                             isGeneratingIdeas={isGeneratingIdeas} 
                             suggestions={topicSuggestions} 
                         />
+                        {/* Start Date Input for Plan Mode */}
+                        {formData.mode === 'plan' && (
+                            <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800/50">
+                                <label className="block text-sm font-bold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
+                                    <Calendar className="w-4 h-4" /> Data de Início do Calendário
+                                </label>
+                                <Input
+                                    type="date"
+                                    value={formData.startDate || new Date().toISOString().split('T')[0]}
+                                    onChange={(e) => setFormData({...formData, startDate: e.target.value})}
+                                    className="bg-white dark:bg-slate-900 border-blue-200 dark:border-blue-800"
+                                />
+                                <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                                    A IA usará esta data para calcular os dias exatos das postagens nas próximas 4 semanas.
+                                </p>
+                            </div>
+                        )}
+
                         <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800 gap-2">
                             {currentPlanItemIndices && (
                                 <Button variant="ghost" onClick={handleBackToPlan}>Cancelar e Voltar ao Plano</Button>
