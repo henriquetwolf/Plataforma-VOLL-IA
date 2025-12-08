@@ -1,8 +1,3 @@
-
-
-
-
-
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -101,8 +96,9 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         { type: 'link', label: 'Meus Alunos', icon: Users, path: AppRoute.STUDENTS },
         { type: 'link', label: 'Pesquisas', icon: FileText, path: AppRoute.INSTRUCTOR_SURVEYS }, 
         { type: 'link', label: 'Mural de Avisos', icon: Newspaper, path: AppRoute.INSTRUCTOR_NEWSLETTERS },
-        { type: 'header', label: 'Educação' },
+        { type: 'header', label: 'Educação & Benefícios' },
         { type: 'link', label: 'Pilates Quest', icon: Trophy, path: AppRoute.PILATES_QUEST },
+        { type: 'link', label: 'Parceiros e Descontos', icon: Tag, path: AppRoute.STUDENT_PARTNERS },
       ];
     } else if (isOwner) {
       items = [
@@ -131,8 +127,9 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         { type: 'link', label: 'Pesquisas', icon: FileText, path: AppRoute.SURVEY_MANAGER }, 
         { type: 'link', label: t('suggestions'), icon: MessageSquare, path: AppRoute.STUDIO_SUGGESTIONS },
         
-        { type: 'header', label: 'Educação' },
+        { type: 'header', label: 'Comunidade & Educação' },
         { type: 'link', label: 'Pilates Quest', icon: Trophy, path: AppRoute.PILATES_QUEST },
+        { type: 'link', label: 'Parceiros e Descontos', icon: Tag, path: AppRoute.STUDENT_PARTNERS },
       ];
     }
 

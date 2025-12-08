@@ -1,10 +1,8 @@
-
-
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppRoute } from '../../types';
-import { Utensils, Activity, ArrowRight, LogOut, Star, User, MessageSquare, ClipboardList, Newspaper, Dices, Sparkles } from 'lucide-react';
+import { Utensils, Activity, ArrowRight, LogOut, Star, User, MessageSquare, ClipboardList, Newspaper, Dices, Sparkles, Tag } from 'lucide-react';
 import { fetchProfile } from '../../services/storage';
 import { getStudentProfile } from '../../services/studentService';
 
@@ -115,6 +113,21 @@ export const StudentDashboard: React.FC = () => {
             <p className="text-yellow-700/80 text-sm mb-6">Gire a roleta e descubra qual aula ou desafio te espera hoje.</p>
           </div>
           <span className="inline-flex items-center text-sm font-bold text-yellow-700 group-hover:gap-2 transition-all">Girar Roleta <ArrowRight className="ml-1 w-4 h-4"/></span>
+        </Link>
+
+        {/* Parceiros e Descontos (NEW) */}
+        <Link to={AppRoute.STUDENT_PARTNERS} className="group bg-gradient-to-br from-pink-50 to-rose-100 p-8 rounded-2xl shadow-sm border border-pink-200 hover:shadow-md transition-all flex flex-col justify-between relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+             <Tag size={80} />
+          </div>
+          <div>
+            <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mb-4 text-pink-600 shadow-sm group-hover:scale-110 transition-transform">
+                <Tag className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-bold text-pink-800 mb-2">Clube de Benefícios</h2>
+            <p className="text-pink-700/80 text-sm mb-6">Descontos exclusivos em parceiros do estúdio.</p>
+          </div>
+          <span className="inline-flex items-center text-sm font-bold text-pink-700 group-hover:gap-2 transition-all">Ver Parceiros <ArrowRight className="ml-1 w-4 h-4"/></span>
         </Link>
 
         {/* Receitas */}

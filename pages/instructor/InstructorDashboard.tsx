@@ -1,9 +1,8 @@
-
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppRoute } from '../../types';
-import { Users, Activity, ArrowRight, User, Building2, Newspaper, CheckCircle2, ClipboardList, TrendingUp, LogOut, Trophy } from 'lucide-react';
+import { Users, Activity, ArrowRight, User, Building2, Newspaper, CheckCircle2, ClipboardList, TrendingUp, LogOut, Trophy, Tag } from 'lucide-react';
 import { fetchProfile } from '../../services/storage';
 import { getInstructorProfile } from '../../services/instructorService';
 import { StudioProfile } from '../../types';
@@ -215,6 +214,28 @@ export const InstructorDashboard: React.FC = () => {
           
           <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center text-yellow-600 font-bold text-sm group-hover:gap-2 transition-all">
             Jogar Agora <ArrowRight className="w-4 h-4 ml-1" />
+          </div>
+        </Link>
+
+        {/* Pilar 7: Parceiros e Descontos (New) */}
+        <Link to={AppRoute.STUDENT_PARTNERS} className="group relative overflow-hidden bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-pink-300 transition-all duration-300 flex flex-col">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110">
+            <Tag size={120} />
+          </div>
+          
+          <div className="w-14 h-14 bg-pink-50 dark:bg-pink-900/20 text-pink-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <Tag className="w-7 h-7" />
+          </div>
+          
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 group-hover:text-pink-600 transition-colors">
+            Parceiros & Descontos
+          </h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 flex-grow leading-relaxed">
+            Acesse o clube de benefícios e veja os descontos ativos.
+          </p>
+          
+          <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center text-pink-600 font-bold text-sm group-hover:gap-2 transition-all">
+            Ver Clube <ArrowRight className="w-4 h-4 ml-1" />
           </div>
         </Link>
 
