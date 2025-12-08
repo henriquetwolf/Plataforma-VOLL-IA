@@ -21,7 +21,22 @@ export const handleGeminiError = (err: any): string => {
 // Helper to clean JSON
 const cleanJSON = (text: string) => {
   if (!text) return '{}';
-  return text.replace(/```json|```/g, '').trim();
+  // Remove markdown code blocks if present
+  let cleaned = text.replace(/```json|```/g, '').trim();
+  // Find the first '{' or '[' to ensure we strip preamble text
+  const firstBrace = cleaned.indexOf('{');
+  const firstBracket = cleaned.indexOf('[');
+  
+  if (firstBrace === -1 && firstBracket === -1) return cleaned;
+
+  let start = 0;
+  if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+      start = firstBrace;
+  } else if (firstBracket !== -1) {
+      start = firstBracket;
+  }
+  
+  return cleaned.substring(start);
 };
 
 // --- NEW MARKETING AGENT ---
@@ -91,10 +106,12 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
                 day: { type: Type.STRING },
                 format: { type: Type.STRING },
                 idea: { type: Type.STRING }
-              }
+              },
+              required: ['day', 'format', 'idea']
             }
           }
-        }
+        },
+        required: ['weekNumber', 'theme', 'posts']
       }
     };
   } else if (isStory) {
@@ -115,7 +132,8 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
               spokenText: { type: Type.STRING },
               directAction: { type: Type.STRING },
               emotion: { type: Type.STRING }
-            }
+            },
+            required: ['order', 'type', 'action']
           }
         }
       }
@@ -160,12 +178,15 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
 
   if (isPlan) {
     prompt += `
-    Crie um planejamento de 4 semanas.
+    Crie um planejamento editorial de 4 semanas.
     Data de Início do Planejamento: ${formData.startDate || 'Hoje'}
-    Para cada semana, defina um tema macro.
-    Sugira 3 posts por semana (Dias alternados).
+    Para cada semana, defina um tema macro coerente.
+    
+    Frequência Solicitada: ${formData.format}
+    (Distribua os posts nos dias da semana conforme essa frequência).
+
     IMPORTANTE: No campo 'day', forneça o Dia da Semana E a Data exata (dia/mês), calculado a partir da Data de Início. Exemplo: 'Segunda (23/10)'.
-    IMPORTANTE: Distribua os formatos sugeridos. PRIORIZE 'Post Estático' (maioria das sugestões). Use 'Carrossel' e 'Reels' apenas ocasionalmente para variar.
+    IMPORTANTE: Distribua os formatos sugeridos (Reels, Carrossel, Estático) de forma estratégica.
     Preencha 'isPlan' como true.
     `;
   } else if (isStory) {
@@ -197,7 +218,7 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
     return JSON.parse(cleanJSON(response.text || '{}'));
   } catch (e) {
     console.error("Marketing Gen Error:", e);
-    return null;
+    throw e;
   }
 };
 
@@ -350,6 +371,8 @@ export const generateContentPlan = async (form: any, persona: any): Promise<any>
     } catch (e) { return []; }
 };
 
+// ... existing helper functions (generatePlannerSuggestion, etc) ...
+// (Kept as is, assuming no changes needed there)
 export const generatePlannerSuggestion = async (label: string, context: string, type: 'strategy' | 'random'): Promise<string[]> => {
     const prompt = `Sugira 3 opções curtas para o campo "${label}" de um plano de marketing para Pilates. Contexto: ${type === 'strategy' ? context : 'Geral'}.`;
     try {

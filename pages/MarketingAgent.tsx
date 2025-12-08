@@ -3,11 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { generateMarketingContent, generateTopicSuggestions, generatePilatesImage } from '../services/geminiService';
-import { MarketingFormData, GeneratedContent, CategorizedTopics, SavedPost, SavedContent } from '../types';
+import { MarketingFormData, GeneratedContent, SavedPost, StrategicContentPlan } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Megaphone, Sparkles, Video, Image as LucideImage, Copy, Loader2, Lightbulb, ArrowRight, ArrowLeft, RefreshCw, Save, Trash2, History, Download, CalendarDays, FileText, Zap, UserPlus, Heart, BookOpen, ShoppingBag, Users, Camera, MessageCircle, Layout, RotateCcw } from 'lucide-react';
-import { savePost, fetchSavedPosts, deleteSavedPost, recordGenerationUsage, getTodayPostCount } from '../services/contentService';
+import { Megaphone, Sparkles, Video, Image as LucideImage, Copy, Loader2, Lightbulb, ArrowRight, ArrowLeft, RefreshCw, Save, Trash2, History, Download, CalendarDays, FileText, Zap, UserPlus, Heart, BookOpen, ShoppingBag, Users, Camera, MessageCircle, Layout, RotateCcw, Layers, CheckCircle } from 'lucide-react';
+import { savePost, fetchSavedPosts, deleteSavedPost, recordGenerationUsage, getTodayPostCount, saveContentPlan, fetchContentPlans, deleteContentPlan } from '../services/contentService';
 import { fetchProfile } from '../services/storage';
 
 // --- CONSTANTS ---
@@ -55,9 +55,18 @@ const STYLES = [
   'Energético / Vibrante'
 ];
 
-// --- SUB-COMPONENTS (DEFINED OUTSIDE TO PREVENT RE-RENDER FOCUS LOSS) ---
+const downloadImage = (dataUrl: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
 
-const StepMode = ({ selected, onSelect, onViewSaved }: any) => (
+// --- SUB-COMPONENTS ---
+
+const StepMode = ({ selected, onSelect }: any) => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-right-8">
         {[
             { id: 'single', label: 'Post Único', desc: 'Reels ou Post Estático focado em um objetivo imediato.', icon: FileText, color: 'bg-teal-50 text-teal-600' },
@@ -240,7 +249,7 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate }
                     </div>
                     <div className="flex gap-2">
                         <Button size="sm" variant="outline" onClick={onReset}><RotateCcw className="w-4 h-4 mr-2"/> Início</Button>
-                        <Button size="sm" onClick={onSave}><Save className="w-4 h-4 mr-2"/> Salvar Post</Button>
+                        <Button size="sm" onClick={onSave}><Save className="w-4 h-4 mr-2"/> Salvar</Button>
                     </div>
                 </div>
                 
@@ -361,16 +370,16 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate }
                     {content.weeks.map((week: any, i: number) => (
                         <div key={i} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
                             <h4 className="font-bold text-brand-700 text-lg mb-4 flex items-center gap-2">
-                                <CalendarDays className="w-5 h-5"/> Semana {week.weekNumber}: {week.theme}
+                                <CalendarDays className="w-5 h-5"/> {week.week || `Semana ${i+1}`}: {week.theme}
                             </h4>
                             <div className="grid md:grid-cols-3 gap-4">
-                                {week.posts.map((post: any, idx: number) => (
+                                {week.posts?.map((post: any, idx: number) => (
                                     <div key={idx} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
                                         <div className="flex justify-between mb-2">
                                             <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">{post.day}</span>
                                             <span className="text-[10px] bg-white dark:bg-slate-900 border px-2 py-0.5 rounded text-slate-500 uppercase font-bold">{post.format}</span>
                                         </div>
-                                        <p className="text-sm text-slate-600 dark:text-slate-400">{post.idea}</p>
+                                        <p className="text-sm text-slate-600 dark:text-slate-400">{post.idea || post.theme}</p>
                                     </div>
                                 ))}
                             </div>
@@ -392,407 +401,277 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate }
 
 export const MarketingAgent: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   
-  // Steps: 0=Mode, 1=Goal, 2=Audience, 3=Topic, 4=Format/Style (Single Only), 5=Result, 6=SavedPosts
-  const [step, setStep] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [result, setResult] = useState<GeneratedContent | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [topicSuggestions, setTopicSuggestions] = useState<string[]>([]);
-  const [isGeneratingIdeas, setIsGeneratingIdeas] = useState(false);
-  
-  const [canRegenerate, setCanRegenerate] = useState(true);
-  const [savedPosts, setSavedPosts] = useState<SavedContent[]>([]);
-
+  // States
+  const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<MarketingFormData>({
-    mode: 'single', 
-    goal: '',
-    customGoal: '',
-    audience: '',
-    customAudience: '',
+    mode: 'single',
+    goal: GOALS[0].label,
+    audience: AUDIENCES[0].label,
     topic: '',
     format: 'auto',
-    style: 'Brand Persona'
+    style: 'Persona da Marca (Padrão)'
   });
+  
+  const [topicSuggestions, setTopicSuggestions] = useState<string[]>([]);
+  const [isGeneratingIdeas, setIsGeneratingIdeas] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [result, setResult] = useState<GeneratedContent | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Load saved posts on mount using generic content service (mapped)
+  // History State
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyTab, setHistoryTab] = useState<'posts' | 'plans'>('posts');
+  const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);
+  const [savedPlans, setSavedPlans] = useState<StrategicContentPlan[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
   useEffect(() => {
-    if (user?.id) {
-        fetchSavedPosts(user.id).then(posts => {
-            const mapped: SavedContent[] = posts
-                .filter(p => (p as any).data && (p as any).data.suggestedFormat) // Filter only marketing agent posts
-                .map(p => ({
-                    id: p.id,
-                    date: new Date(p.createdAt).toLocaleDateString(),
-                    topic: p.request.theme || 'Sem tema',
-                    ...(p as any).data
-                }));
-            setSavedPosts(mapped);
-        });
+    if (showHistory && user?.id) {
+        const targetId = user.isInstructor ? user.studioId : user.id;
+        loadHistory(targetId);
     }
-  }, [user]);
+  }, [showHistory, user]);
 
-  const handleNext = () => setStep((prev) => prev + 1);
-  const handleBack = () => {
-    if (step === 6) {
-      setStep(0);
-    } else {
-      setStep((prev) => Math.max(0, prev - 1));
-    }
+  const loadHistory = async (studioId: string) => {
+      setLoadingHistory(true);
+      const [posts, plans] = await Promise.all([
+          fetchSavedPosts(studioId),
+          fetchContentPlans(studioId)
+      ]);
+      setSavedPosts(posts);
+      setSavedPlans(plans);
+      setLoadingHistory(false);
   };
 
-  const isReadyToGenerate = () => {
-    if ((formData.mode === 'plan' || formData.mode === 'story') && step === 3) return true;
-    if (formData.mode === 'single' && step === 4) return true;
-    return false;
+  const handleNext = () => setStep(prev => prev + 1);
+  const handleBack = () => setStep(prev => prev - 1);
+
+  const handleModeSelect = (mode: any) => {
+      setFormData(prev => ({ ...prev, mode }));
+      handleNext();
   };
 
-  const generateImageForContent = async (content: GeneratedContent) => {
-      // Logic to auto-generate image based on description
-      if (!content.visualContent || content.visualContent.length === 0) return content;
-      
-      const prompt = `
-        Create a professional image for a Pilates Studio Instagram post.
-        Style: ${formData.style}.
-        Subject: ${formData.topic}.
-        Details: ${content.visualContent.join('. ')}.
-        ${formData.format.includes('Carrossel') ? 'Create a panoramic wide image split into 6 seamless panels.' : ''}
-      `;
-      
-      try {
-          // Pass null for studioInfo for now, or fetch if needed
-          const imgBase64 = await generatePilatesImage({
-              format: formData.format,
-              objective: formData.goal,
-              theme: formData.topic,
-              audience: formData.audience,
-              tone: formData.style,
-              imageStyle: formData.style,
-              logoConfig: { enabled: false, type: 'normal', position: 'bottom-right', size: 'small' }
-          }, null, prompt);
-          
-          if (imgBase64) {
-              return { ...content, generatedImage: imgBase64 };
-          }
-      } catch (e) {
-          console.error("Auto image gen failed", e);
-      }
-      return content;
+  const handleGoalSelect = (goal: string) => {
+      setFormData(prev => ({ ...prev, goal, customGoal: '' }));
+      handleNext();
   };
 
-  const handleGenerateAction = async () => {
-    setIsLoading(true);
-    setError(null);
-    setCanRegenerate(true);
-    try {
-      let content = await generateMarketingContent(formData);
-      
-      // Auto-generate image for single posts if applicable
-      if (content && !content.isPlan && !content.isReels) {
-          content = await generateImageForContent(content);
-      }
-
-      setResult(content);
-      setStep(5); 
-    } catch (err) {
-      setError("Ocorreu um erro ao gerar o conteúdo. Por favor, tente novamente.");
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRegenerateAction = async () => {
-    if (!canRegenerate) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      let content = await generateMarketingContent(formData);
-      if (content && !content.isPlan && !content.isReels) {
-          content = await generateImageForContent(content);
-      }
-      setResult(content);
-      setCanRegenerate(false); 
-    } catch (err) {
-      setError("Erro ao gerar nova sugestão.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSavePost = async () => {
-    if (!result || !user?.id) return;
-    
-    // Save using generic structure but with specific data payload
-    const newPost: any = {
-        id: crypto.randomUUID(),
-        request: {
-            format: formData.format,
-            objective: formData.goal,
-            theme: formData.topic,
-            audience: formData.audience,
-            tone: formData.style,
-            imageStyle: formData.style
-        },
-        content: JSON.stringify(result),
-        imageUrl: result.generatedImage || null,
-        createdAt: new Date().toISOString(),
-        data: result // Store full structured data
-    };
-
-    const res = await savePost(user.id, newPost);
-    
-    if (res.success) {
-        alert("Salvo com sucesso!");
-        const newSavedContent: SavedContent = {
-            ...result,
-            id: newPost.id,
-            date: new Date().toLocaleDateString(),
-            topic: formData.topic || 'Sem tema'
-        };
-        setSavedPosts([newSavedContent, ...savedPosts]);
-    } else {
-        alert("Erro ao salvar: " + res.error);
-    }
-  };
-
-  const handleDeleteSaved = async (id: string) => {
-    if(confirm("Tem certeza?")) {
-        await deleteSavedPost(id);
-        setSavedPosts(prev => prev.filter(p => p.id !== id));
-    }
+  const handleAudienceSelect = (audience: string) => {
+      setFormData(prev => ({ ...prev, audience, customAudience: '' }));
+      handleNext();
   };
 
   const handleGenerateIdeas = async () => {
-      const g = formData.customGoal || formData.goal;
-      const a = formData.customAudience || formData.audience;
-      
-      if (!g && !a) {
-          alert("Preencha o Objetivo ou Público para gerar ideias.");
-          return;
-      }
-      
+      if (!formData.goal || !formData.audience) return;
       setIsGeneratingIdeas(true);
-      try {
-          const suggestions = await generateTopicSuggestions(g, a);
-          setTopicSuggestions(suggestions);
-      } catch (e) {
-          alert("Erro ao gerar ideias.");
-      } finally {
-          setIsGeneratingIdeas(false);
+      const ideas = await generateTopicSuggestions(formData.customGoal || formData.goal, formData.customAudience || formData.audience);
+      setTopicSuggestions(ideas);
+      setIsGeneratingIdeas(false);
+  };
+
+  const handleGenerateContent = async () => {
+    setIsGenerating(true);
+    try {
+        // Prepare data
+        const finalData = { ...formData };
+        if (finalData.goal === 'Outro (Descrever...)') finalData.goal = finalData.customGoal || '';
+        if (finalData.audience === 'Outro (Descrever...)') finalData.audience = finalData.customAudience || '';
+        
+        const content = await generateMarketingContent(finalData);
+        
+        // Image Generation Logic if Visual Prompt exists
+        if (content && content.visualPrompt && !content.isPlan) {
+             const image = await generatePilatesImage({
+                 format: formData.format === 'auto' ? content.suggestedFormat : formData.format,
+                 theme: formData.topic,
+                 imageStyle: formData.style
+             } as any, null, content.visualPrompt);
+             content.generatedImage = image || undefined;
+        }
+
+        setResult(content);
+        setStep(5); // Result Step (Skip format/style if not needed or assume step 5)
+        
+        // Record usage
+        const studioId = user?.isInstructor ? user.studioId : user?.id;
+        if(studioId) await recordGenerationUsage(studioId);
+
+    } catch (e) {
+        alert("Erro ao gerar conteúdo.");
+    }
+    setIsGenerating(false);
+  };
+
+  const handleSave = async () => {
+      if (!user?.id || !result) return;
+      const studioId = user.isInstructor ? user.studioId : user.id;
+      if (!studioId) return;
+
+      setIsSaving(true);
+      let res;
+      
+      if (result.isPlan) {
+          // Adapt GeneratedContent to StrategicContentPlan
+          const plan: StrategicContentPlan = {
+              id: crypto.randomUUID(),
+              createdAt: new Date().toISOString(),
+              goals: { mainObjective: formData.goal, targetAudience: [formData.audience], keyThemes: [formData.topic] },
+              weeks: result.weeks?.map((w: any) => ({
+                  week: `Semana ${w.weekNumber}`,
+                  theme: w.theme,
+                  ideas: w.posts
+              })) || []
+          };
+          res = await saveContentPlan(studioId, plan);
+      } else {
+          // SavedPost
+          const post: SavedPost = {
+              id: crypto.randomUUID(),
+              request: {
+                  format: result.suggestedFormat,
+                  objective: formData.goal,
+                  theme: formData.topic,
+                  audience: formData.audience,
+                  tone: formData.style,
+                  imageStyle: formData.style
+              },
+              content: result.captionLong || result.captionShort || '',
+              imageUrl: result.generatedImage || null,
+              createdAt: new Date().toISOString()
+          };
+          res = await savePost(studioId, post);
       }
+
+      if (res.success) {
+          alert("Salvo com sucesso!");
+      } else {
+          alert("Erro ao salvar.");
+      }
+      setIsSaving(false);
   };
 
-  const updateFormData = (key: keyof MarketingFormData, value: any) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleReset = () => {
-    setStep(0);
-    setResult(null);
-    setTopicSuggestions([]);
-    setFormData({
-      mode: 'single',
-      goal: '',
-      customGoal: '',
-      audience: '',
-      customAudience: '',
-      topic: '',
-      format: 'auto',
-      style: 'Brand Persona'
-    });
-  };
-
-  const totalSteps = (formData.mode === 'plan' || formData.mode === 'story') ? 3 : 4; 
-  const progress = Math.min((step / totalSteps) * 100, 100);
-
-  const isNextDisabled = () => {
-    if (step === 0 && !formData.mode) return true;
-    if (step === 1 && !formData.goal && !formData.customGoal) return true;
-    if (step === 2 && !formData.audience && !formData.customAudience) return true;
-    if (step === 3 && !formData.topic) return true;
-    return false;
+  const handleDelete = async (id: string, type: 'post' | 'plan') => {
+      if (confirm("Excluir?")) {
+          if (type === 'post') {
+              await deleteSavedPost(id);
+              setSavedPosts(prev => prev.filter(p => p.id !== id));
+          } else {
+              await deleteContentPlan(id);
+              setSavedPlans(prev => prev.filter(p => p.id !== id));
+          }
+      }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center py-10 px-4 md:px-8 max-w-5xl mx-auto animate-in fade-in">
-      {/* Header */}
-      <header className="w-full flex flex-col items-center mb-10 text-center">
-        <div 
-          onClick={handleReset}
-          className="flex items-center gap-3 bg-brand-600 text-white p-3 rounded-2xl shadow-lg mb-4 cursor-pointer hover:bg-brand-700 transition-colors"
-        >
-          <Megaphone className="w-8 h-8" />
-        </div>
-        <h1 className="text-3xl md:text-4xl font-bold text-slate-800 dark:text-white tracking-tight">
-          Pilates Marketing AI
-        </h1>
-        <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-lg">
-          Crie posts, stories e planejamentos para seu estúdio em segundos.
-        </p>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="w-full bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden relative min-h-[500px] flex flex-col">
-        
-        {/* Progress Bar */}
-        {step < 5 && (
-          <div className="w-full bg-slate-100 dark:bg-slate-800 h-2">
-            <div 
-              className="bg-brand-500 h-2 transition-all duration-500 ease-out" 
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        )}
-
-        <div className="flex-1 p-6 md:p-10 flex flex-col">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-xl mb-6 flex items-center gap-2">
-               <span>⚠️</span> {error}
+    <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in pb-12">
+        <div className="flex justify-between items-center">
+            <div>
+                <h1 className="text-3xl font-bold flex items-center gap-2 text-slate-900 dark:text-white">
+                    <Megaphone className="h-8 w-8 text-brand-600" /> Marketing Digital
+                </h1>
+                <p className="text-slate-500">Crie conteúdo estratégico de alta conversão em segundos.</p>
             </div>
-          )}
-
-          {isLoading ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6 animate-in fade-in duration-500">
-              <div className="relative">
-                <div className="w-16 h-16 border-4 border-slate-100 dark:border-slate-800 border-t-brand-500 rounded-full animate-spin"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Sparkles className="w-6 h-6 text-brand-500 animate-pulse" />
+            {!showHistory && step > 1 && (
+                <div className="flex gap-2">
+                    <Button variant="ghost" onClick={handleBack}><ArrowLeft className="w-4 h-4 mr-2"/> Voltar</Button>
                 </div>
-              </div>
-              <div>
-                <h3 className="text-xl font-semibold text-slate-800 dark:text-white">
-                  {formData.mode === 'plan' ? 'Montando seu cronograma...' : 
-                   formData.mode === 'story' ? 'Criando sequência de Stories...' : 'Criando seu post...'}
-                </h3>
-                <p className="text-slate-500 dark:text-slate-400 mt-2">A inteligência artificial está analisando seu objetivo.</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              {step === 0 && <StepMode selected={formData.mode} onSelect={(val: string) => updateFormData('mode', val)} onViewSaved={() => setStep(6)} />}
-              
-              {step === 1 && <StepGoal selected={formData.goal} customGoal={formData.customGoal} mode={formData.mode} onSelect={(val: string) => updateFormData('goal', val)} onCustomChange={(val: string) => updateFormData('customGoal', val)} />}
-              
-              {step === 2 && <StepAudience selected={formData.audience} customAudience={formData.customAudience} onSelect={(val: string) => updateFormData('audience', val)} onCustomChange={(val: string) => updateFormData('customAudience', val)} />}
-              
-              {step === 3 && (
-                  <StepTopic 
-                    value={formData.topic} 
-                    onChange={(val: string) => updateFormData('topic', val)} 
-                    suggestions={topicSuggestions}
-                    onGenerateIdeas={handleGenerateIdeas}
-                    isGeneratingIdeas={isGeneratingIdeas}
-                  />
-              )}
-              
-              {step === 4 && formData.mode === 'single' && (
-                  <StepFormatStyle 
-                    format={formData.format} 
-                    style={formData.style} 
-                    onFormatChange={(val: string) => updateFormData('format', val)} 
-                    onStyleChange={(val: string) => updateFormData('style', val)}
-                  />
-              )}
-              
-              {step === 5 && (
-                  <ResultDisplay 
-                    content={result} 
-                    onReset={handleReset} 
-                    onHome={handleReset}
-                    onRegenerate={handleRegenerateAction}
-                    onSave={handleSavePost}
-                    canRegenerate={canRegenerate}
-                  />
-              )}
-              
-              {step === 6 && (
-                  <div className="animate-in fade-in duration-500">
-                     <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-6">Meus Posts Salvos</h2>
-                     {savedPosts.length === 0 ? (
-                       <div className="text-center py-10 text-slate-400">
-                         <div className="bg-slate-100 dark:bg-slate-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <FileText className="w-8 h-8 text-slate-300" />
-                         </div>
-                         <p>Você ainda não salvou nenhum post.</p>
-                       </div>
-                     ) : (
-                       <div className="grid gap-4">
-                         {savedPosts.map((post) => (
-                           <div key={post.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm hover:shadow-md transition-all">
-                             <div className="flex justify-between items-start mb-2">
-                               <span className={`text-xs font-bold px-2 py-1 rounded uppercase ${post.isPlan ? 'text-blue-600 bg-blue-50' : post.isStory ? 'text-purple-600 bg-purple-50' : 'text-teal-600 bg-teal-50'}`}>
-                                  {post.isPlan ? 'PLANEJAMENTO' : (post.isStory ? 'STORIES' : (post.isReels ? 'REELS' : 'POST'))}
-                               </span>
-                               <div className="flex items-center gap-2">
-                                  <span className="text-xs text-slate-400">{post.date}</span>
-                                  <button onClick={() => handleDeleteSaved(post.id)} className="text-slate-400 hover:text-red-500 p-1">
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                               </div>
-                             </div>
-                             <h3 className="font-bold text-slate-800 dark:text-white mb-1">{post.topic}</h3>
-                             <p className="text-sm text-slate-500 line-clamp-2">{post.reasoning}</p>
-                             <button 
-                               onClick={() => {
-                                 setResult(post);
-                                 setStep(5);
-                                 setCanRegenerate(false); 
-                               }}
-                               className="mt-3 text-sm text-brand-600 font-medium hover:underline"
-                             >
-                               Ver detalhes
-                             </button>
-                           </div>
-                         ))}
-                       </div>
-                     )}
-                  </div>
-              )}
-            </>
-          )}
+            )}
+            <Button variant="outline" onClick={() => setShowHistory(!showHistory)}>
+                <History className="w-4 h-4 mr-2"/> {showHistory ? 'Voltar' : 'Histórico'}
+            </Button>
         </div>
 
-        {/* Footer Navigation */}
-        {!isLoading && step < 5 && (
-          <div className="p-6 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-            {step > 0 ? (
-              <button 
-                onClick={handleBack}
-                className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white font-medium px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-              >
-                Voltar
-              </button>
-            ) : (
-              <div></div> 
-            )}
-            
-            {step !== 6 && (
-              <button
-                onClick={isReadyToGenerate() ? handleGenerateAction : handleNext}
-                disabled={isNextDisabled()}
-                className={`
-                  flex items-center gap-2 px-6 py-3 rounded-xl font-semibold shadow-md transition-all
-                  ${isNextDisabled()
-                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none dark:bg-slate-800 dark:text-slate-600'
-                    : 'bg-brand-600 text-white hover:bg-brand-700 hover:shadow-lg active:scale-95'
-                  }
-                `}
-              >
-                {isReadyToGenerate() ? (
-                  <>
-                    Gerar <Sparkles className="w-5 h-5" />
-                  </>
-                ) : (
-                  <>
-                    Próximo <ArrowRight className="w-5 h-5" />
-                  </>
+        {showHistory ? (
+            <div className="space-y-6">
+                <div className="flex gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+                    <button onClick={() => setHistoryTab('posts')} className={`text-lg font-bold pb-2 border-b-2 transition-colors ${historyTab === 'posts' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500'}`}>Posts Salvos</button>
+                    <button onClick={() => setHistoryTab('plans')} className={`text-lg font-bold pb-2 border-b-2 transition-colors ${historyTab === 'plans' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500'}`}>Planos Salvos</button>
+                </div>
+                {/* Reuse History Rendering from ContentAgent logic (simplified) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {loadingHistory ? <p>Carregando...</p> : 
+                        historyTab === 'posts' ? savedPosts.map(p => (
+                            <div key={p.id} className="bg-white p-4 rounded border shadow-sm">
+                                <img src={p.imageUrl || ''} className="w-full h-32 object-cover mb-2 rounded" />
+                                <p className="text-sm font-bold">{p.request.theme}</p>
+                                <button onClick={() => handleDelete(p.id, 'post')}><Trash2 className="w-4 h-4 text-red-500"/></button>
+                            </div>
+                        )) : savedPlans.map(p => (
+                            <div key={p.id} className="bg-white p-4 rounded border shadow-sm">
+                                <p className="font-bold">{p.goals.keyThemes[0]}</p>
+                                <button onClick={() => handleDelete(p.id, 'plan')}><Trash2 className="w-4 h-4 text-red-500"/></button>
+                            </div>
+                        ))
+                    }
+                </div>
+            </div>
+        ) : (
+            <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl min-h-[500px]">
+                {/* Progress Bar */}
+                <div className="mb-8">
+                    <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                        <span className={step >= 1 ? 'text-brand-600' : ''}>Modo</span>
+                        <span className={step >= 2 ? 'text-brand-600' : ''}>Objetivo</span>
+                        <span className={step >= 3 ? 'text-brand-600' : ''}>Público</span>
+                        <span className={step >= 4 ? 'text-brand-600' : ''}>Tema</span>
+                        <span className={step >= 5 ? 'text-brand-600' : ''}>Resultado</span>
+                    </div>
+                    <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-brand-500 transition-all duration-500" style={{ width: `${(step / 5) * 100}%` }}></div>
+                    </div>
+                </div>
+
+                {step === 1 && <StepMode selected={formData.mode} onSelect={handleModeSelect} />}
+                
+                {step === 2 && (
+                    <StepGoal 
+                        selected={formData.goal} 
+                        customGoal={formData.customGoal} 
+                        mode={formData.mode} 
+                        onSelect={handleGoalSelect} 
+                        onCustomChange={(val: string) => setFormData(prev => ({...prev, customGoal: val, goal: 'Outro (Descrever...)'}))} 
+                    />
                 )}
-              </button>
-            )}
-          </div>
+
+                {step === 3 && (
+                    <StepAudience 
+                        selected={formData.audience} 
+                        customAudience={formData.customAudience} 
+                        onSelect={handleAudienceSelect} 
+                        onCustomChange={(val: string) => setFormData(prev => ({...prev, customAudience: val, audience: 'Outro (Descrever...)'}))} 
+                    />
+                )}
+
+                {step === 4 && (
+                    <div className="space-y-6">
+                        <StepTopic 
+                            value={formData.topic} 
+                            onChange={(val: string) => setFormData(prev => ({...prev, topic: val}))} 
+                            onGenerateIdeas={handleGenerateIdeas} 
+                            isGeneratingIdeas={isGeneratingIdeas} 
+                            suggestions={topicSuggestions} 
+                        />
+                        <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
+                            <Button onClick={handleGenerateContent} isLoading={isGenerating} className="px-8 h-12 text-lg shadow-lg shadow-brand-200">
+                                <Wand2 className="w-5 h-5 mr-2" /> Gerar {formData.mode === 'plan' ? 'Planejamento' : 'Conteúdo'}
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {step === 5 && (
+                    <ResultDisplay 
+                        content={result} 
+                        onReset={() => { setStep(1); setResult(null); }}
+                        onSave={handleSave}
+                        onRegenerate={handleGenerateContent}
+                        canRegenerate={true}
+                    />
+                )}
+            </div>
         )}
-      </main>
     </div>
   );
 };
