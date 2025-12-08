@@ -6,7 +6,7 @@ import { generateMarketingContent, generateTopicSuggestions, generatePilatesImag
 import { MarketingFormData, GeneratedContent, SavedPost, StrategicContentPlan } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Megaphone, Sparkles, Video, Image as LucideImage, Copy, Loader2, Lightbulb, ArrowRight, ArrowLeft, RefreshCw, Save, Trash2, History, Download, CalendarDays, FileText, Zap, UserPlus, Heart, BookOpen, ShoppingBag, Users, Camera, MessageCircle, Layout, RotateCcw, Layers, CheckCircle, Wand2, Eye, Calendar } from 'lucide-react';
+import { Megaphone, Sparkles, Video, Image as LucideImage, Copy, Loader2, Lightbulb, ArrowRight, ArrowLeft, RefreshCw, Save, Trash2, History, Download, CalendarDays, FileText, Zap, UserPlus, Heart, BookOpen, ShoppingBag, Users, Camera, MessageCircle, Layout, RotateCcw, Layers, CheckCircle, Wand2, Eye, Calendar, Lock } from 'lucide-react';
 import { savePost, fetchSavedPosts, deleteSavedPost, recordGenerationUsage, getTodayPostCount, saveContentPlan, fetchContentPlans, deleteContentPlan } from '../services/contentService';
 import { fetchProfile } from '../services/storage';
 
@@ -89,23 +89,45 @@ const StepMode = ({ selected, onSelect }: any) => (
 );
 
 const StepGoal = ({ selected, customGoal, mode, onSelect, onCustomChange }: any) => {
+    // Determine initial selection based on props
+    // Check if current goal is in the standard list
     const list = mode === 'story' ? STORY_GOALS : GOALS;
+    
+    // Parse the incoming 'selected' prop to handle comma-separated strings
+    const selectedArray = selected ? selected.split(',').map((s: string) => s.trim()) : [];
+
+    const handleToggle = (label: string) => {
+        let newSelection;
+        if (selectedArray.includes(label)) {
+            newSelection = selectedArray.filter((s: string) => s !== label);
+        } else {
+            newSelection = [...selectedArray, label];
+        }
+        // Pass back joined string or first item if parent expects single string structure in some places
+        // The parent state 'goal' will hold the comma-separated string
+        onSelect(newSelection.join(', '));
+    };
+
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Qual é o objetivo desse conteúdo?</h2>
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Qual é o objetivo desse conteúdo? (Selecione um ou mais)</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {list.map((item: any) => (
-                    <button
-                        key={item.id}
-                        onClick={() => onSelect(item.label)}
-                        className={`p-4 rounded-xl border-2 text-left flex items-center gap-4 transition-all ${selected === item.label ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
-                    >
-                        <div className={`p-2 rounded-lg ${selected === item.label ? 'bg-brand-200 text-brand-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
-                            <item.icon className="w-5 h-5" />
-                        </div>
-                        <span className={`font-medium ${selected === item.label ? 'text-brand-900 dark:text-brand-100' : 'text-slate-700 dark:text-slate-300'}`}>{item.label}</span>
-                    </button>
-                ))}
+                {list.map((item: any) => {
+                    const isSelected = selectedArray.includes(item.label);
+                    return (
+                        <button
+                            key={item.id}
+                            onClick={() => handleToggle(item.label)}
+                            className={`p-4 rounded-xl border-2 text-left flex items-center gap-4 transition-all ${isSelected ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
+                        >
+                            <div className={`p-2 rounded-lg ${isSelected ? 'bg-brand-200 text-brand-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                                <item.icon className="w-5 h-5" />
+                            </div>
+                            <span className={`font-medium ${isSelected ? 'text-brand-900 dark:text-brand-100' : 'text-slate-700 dark:text-slate-300'}`}>{item.label}</span>
+                            {isSelected && <CheckCircle className="w-5 h-5 text-brand-500 ml-auto" />}
+                        </button>
+                    );
+                })}
             </div>
             
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
@@ -121,33 +143,51 @@ const StepGoal = ({ selected, customGoal, mode, onSelect, onCustomChange }: any)
     );
 };
 
-const StepAudience = ({ selected, customAudience, onSelect, onCustomChange }: any) => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Para quem é esse conteúdo?</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {AUDIENCES.map((item) => (
-                <button
-                    key={item.id}
-                    onClick={() => onSelect(item.label)}
-                    className={`p-4 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center min-h-[120px] ${selected === item.label ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
-                >
-                    <Users className={`w-8 h-8 mb-3 ${selected === item.label ? 'text-brand-600' : 'text-slate-400'}`} />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{item.label}</span>
-                </button>
-            ))}
-        </div>
+const StepAudience = ({ selected, customAudience, onSelect, onCustomChange }: any) => {
+    const selectedArray = selected ? selected.split(',').map((s: string) => s.trim()) : [];
 
-        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-            <label className="text-sm font-bold text-slate-500 uppercase mb-2 block flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Outro Público Específico</label>
-            <input 
-                className="w-full p-4 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-950 focus:ring-2 focus:ring-brand-500 outline-none"
-                placeholder="Ex: Adolescentes, Homens, Praticantes de Corrida..."
-                value={customAudience || ''}
-                onChange={e => onCustomChange(e.target.value)}
-            />
+    const handleToggle = (label: string) => {
+        let newSelection;
+        if (selectedArray.includes(label)) {
+            newSelection = selectedArray.filter((s: string) => s !== label);
+        } else {
+            newSelection = [...selectedArray, label];
+        }
+        onSelect(newSelection.join(', '));
+    };
+
+    return (
+        <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Para quem é esse conteúdo? (Selecione um ou mais)</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {AUDIENCES.map((item) => {
+                    const isSelected = selectedArray.includes(item.label);
+                    return (
+                        <button
+                            key={item.id}
+                            onClick={() => handleToggle(item.label)}
+                            className={`p-4 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center min-h-[120px] relative ${isSelected ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
+                        >
+                            {isSelected && <div className="absolute top-2 right-2"><CheckCircle className="w-4 h-4 text-brand-500" /></div>}
+                            <Users className={`w-8 h-8 mb-3 ${isSelected ? 'text-brand-600' : 'text-slate-400'}`} />
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{item.label}</span>
+                        </button>
+                    );
+                })}
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                <label className="text-sm font-bold text-slate-500 uppercase mb-2 block flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Outro Público Específico</label>
+                <input 
+                    className="w-full p-4 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-950 focus:ring-2 focus:ring-brand-500 outline-none"
+                    placeholder="Ex: Adolescentes, Homens, Praticantes de Corrida..."
+                    value={customAudience || ''}
+                    onChange={e => onCustomChange(e.target.value)}
+                />
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 const StepTopic = ({ value, onChange, onGenerateIdeas, isGeneratingIdeas, suggestions }: any) => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
@@ -434,12 +474,12 @@ export const ContentAgent: React.FC = () => {
 
   const handleGoalSelect = (goal: string) => {
       setFormData(prev => ({ ...prev, goal, customGoal: '' }));
-      handleNext();
+      // Do not auto-advance to allow multiple selections
   };
 
   const handleAudienceSelect = (audience: string) => {
       setFormData(prev => ({ ...prev, audience, customAudience: '' }));
-      handleNext();
+      // Do not auto-advance to allow multiple selections
   };
 
   const handleGenerateIdeas = async () => {
@@ -451,6 +491,11 @@ export const ContentAgent: React.FC = () => {
   };
 
   const handleGenerateContent = async () => {
+    if (isLimitReached) {
+        alert("Limite diário de criações atingido. Atualize seu plano.");
+        return;
+    }
+
     setIsGenerating(true);
     try {
         const finalData = { ...formData };
@@ -487,6 +532,11 @@ export const ContentAgent: React.FC = () => {
   };
 
   const handleGenerateFromPlan = (post: any, weekIndex: number, postIndex: number) => {
+    if (isLimitReached) {
+        alert("Limite diário de criações atingido.");
+        return;
+    }
+
     setResult(null);
     setCurrentPlanItemIndices({ weekIndex, postIndex });
 
@@ -612,12 +662,6 @@ export const ContentAgent: React.FC = () => {
       }
   };
 
-  const getFormatIcon = (format: string) => {
-      if (format.includes('Reels')) return <Video className="w-4 h-4 text-purple-600"/>;
-      if (format.includes('Carrossel')) return <Layers className="w-4 h-4 text-blue-600"/>;
-      return <FileText className="w-4 h-4 text-green-600"/>;
-  };
-
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in pb-12">
         <div className="flex justify-between items-center">
@@ -627,14 +671,25 @@ export const ContentAgent: React.FC = () => {
                 </h1>
                 <p className="text-slate-500">Crie conteúdo estratégico de alta conversão em segundos.</p>
             </div>
-            {!showHistory && step > 1 && (
-                <div className="flex gap-2">
-                    <Button variant="ghost" onClick={handleBack}><ArrowLeft className="w-4 h-4 mr-2"/> Voltar</Button>
+            
+            <div className="flex items-center gap-4">
+                {/* DAILY COUNTER BADGE */}
+                <div className={`px-4 py-2 rounded-lg border flex items-center gap-2 text-sm font-bold shadow-sm transition-colors ${
+                    isLimitReached 
+                    ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400' 
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400'
+                }`}>
+                    {isLimitReached ? <Lock className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
+                    <span>{dailyCount} / {dailyLimit} posts hoje</span>
                 </div>
-            )}
-            <Button variant="outline" onClick={() => setShowHistory(!showHistory)}>
-                <History className="w-4 h-4 mr-2"/> {showHistory ? 'Voltar' : 'Histórico'}
-            </Button>
+
+                {!showHistory && step > 1 && (
+                    <Button variant="ghost" onClick={handleBack}><ArrowLeft className="w-4 h-4 mr-2"/> Voltar</Button>
+                )}
+                <Button variant="outline" onClick={() => setShowHistory(!showHistory)}>
+                    <History className="w-4 h-4 mr-2"/> {showHistory ? 'Voltar' : 'Histórico'}
+                </Button>
+            </div>
         </div>
 
         {showHistory ? (
@@ -709,22 +764,32 @@ export const ContentAgent: React.FC = () => {
                 {step === 1 && <StepMode selected={formData.mode} onSelect={handleModeSelect} />}
                 
                 {step === 2 && (
-                    <StepGoal 
-                        selected={formData.goal} 
-                        customGoal={formData.customGoal} 
-                        mode={formData.mode} 
-                        onSelect={handleGoalSelect} 
-                        onCustomChange={(val: string) => setFormData(prev => ({...prev, customGoal: val, goal: 'Outro (Descrever...)'}))} 
-                    />
+                    <>
+                        <StepGoal 
+                            selected={formData.goal} 
+                            customGoal={formData.customGoal} 
+                            mode={formData.mode} 
+                            onSelect={handleGoalSelect} 
+                            onCustomChange={(val: string) => setFormData(prev => ({...prev, customGoal: val, goal: 'Outro (Descrever...)'}))} 
+                        />
+                        <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
+                            <Button onClick={handleNext}>Continuar <ArrowRight className="w-4 h-4 ml-2"/></Button>
+                        </div>
+                    </>
                 )}
 
                 {step === 3 && (
-                    <StepAudience 
-                        selected={formData.audience} 
-                        customAudience={formData.customAudience} 
-                        onSelect={handleAudienceSelect} 
-                        onCustomChange={(val: string) => setFormData(prev => ({...prev, customAudience: val, audience: 'Outro (Descrever...)'}))} 
-                    />
+                    <>
+                        <StepAudience 
+                            selected={formData.audience} 
+                            customAudience={formData.customAudience} 
+                            onSelect={handleAudienceSelect} 
+                            onCustomChange={(val: string) => setFormData(prev => ({...prev, customAudience: val, audience: 'Outro (Descrever...)'}))} 
+                        />
+                        <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
+                            <Button onClick={handleNext}>Continuar <ArrowRight className="w-4 h-4 ml-2"/></Button>
+                        </div>
+                    </>
                 )}
 
                 {step === 4 && (
@@ -758,8 +823,14 @@ export const ContentAgent: React.FC = () => {
                             {currentPlanItemIndices && (
                                 <Button variant="ghost" onClick={handleBackToPlan}>Cancelar e Voltar ao Plano</Button>
                             )}
-                            <Button onClick={handleGenerateContent} isLoading={isGenerating} className="px-8 h-12 text-lg shadow-lg shadow-brand-200">
-                                <Wand2 className="w-5 h-5 mr-2" /> Gerar {formData.mode === 'plan' ? 'Planejamento' : 'Conteúdo'}
+                            <Button 
+                                onClick={handleGenerateContent} 
+                                isLoading={isGenerating} 
+                                disabled={isLimitReached}
+                                className={`px-8 h-12 text-lg shadow-lg shadow-brand-200 ${isLimitReached ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                <Wand2 className="w-5 h-5 mr-2" /> 
+                                {isLimitReached ? 'Limite Diário Atingido' : `Gerar ${formData.mode === 'plan' ? 'Planejamento' : 'Conteúdo'}`}
                             </Button>
                         </div>
                     </div>
