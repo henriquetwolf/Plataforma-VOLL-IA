@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useLanguage } from '../context/LanguageContext';
 import { fetchProfile } from '../services/storage';
 import { generateFullReport } from '../services/geminiService';
 import { saveStrategicPlan, fetchStrategicPlans, deleteStrategicPlan } from '../services/strategyService';
@@ -35,24 +34,20 @@ const initialPlanData: StrategicPlan = {
 
 export const StrategicPlanning: React.FC = () => {
   const { user } = useAuth();
-  const { t } = useLanguage();
   const [currentStep, setCurrentStep] = useState<StrategyStep>(StrategyStep.Welcome);
   const [planData, setPlanData] = useState<StrategicPlan>(initialPlanData);
   const [generatedReport, setGeneratedReport] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  // Gestão de Planos Salvos
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const [showSavedList, setShowSavedList] = useState(false);
   const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
 
-  // Carregar dados iniciais
   useEffect(() => {
     const initializeData = async () => {
       if (!user?.id) return;
 
-      // 1. Carregar planos salvos do Supabase
       try {
         const dbPlans = await fetchStrategicPlans(user.id);
         setSavedPlans(dbPlans);
@@ -60,7 +55,6 @@ export const StrategicPlanning: React.FC = () => {
         console.error("Erro ao carregar planos:", e); 
       }
 
-      // 2. Preencher Nome do Studio
       try {
         const profile = await fetchProfile(user.id);
         if (profile?.studioName) {
@@ -113,7 +107,6 @@ export const StrategicPlanning: React.FC = () => {
     
     if (result.success) {
         alert("Planejamento salvo no banco de dados!");
-        // Refresh List
         const updatedPlans = await fetchStrategicPlans(user.id);
         setSavedPlans(updatedPlans);
         setCurrentPlanId(newPlan.id);
