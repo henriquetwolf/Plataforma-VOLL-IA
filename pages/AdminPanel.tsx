@@ -8,11 +8,11 @@ import { fetchStudents, revokeStudentAccess } from '../services/studentService';
 import { uploadBannerImage, upsertBanner, fetchBannerByType, deleteBanner } from '../services/bannerService';
 import { fetchAllSuggestions } from '../services/suggestionService';
 import { generateSuggestionTrends } from '../services/geminiService';
-import { fetchAdminDashboardStats, fetchAdminTimelineStats, fetchApiUsageStats, AdminStats, TimelineDataPoint, UserApiCost } from '../services/adminService';
+import { fetchAdminDashboardStats, fetchAdminTimelineStats, fetchApiUsageStats, registerNewStudio, AdminStats, TimelineDataPoint, UserApiCost } from '../services/adminService';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2, MessageSquare, Sparkles, FileText, Download, BarChart3, PieChart as PieChartIcon, TrendingUp, Banknote, Video, Type, Image as ImageIcon, Activity, Calculator, Filter } from 'lucide-react';
-import { SubscriptionPlan, SystemBanner, Suggestion } from '../types';
+import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2, MessageSquare, Sparkles, FileText, Download, BarChart3, PieChart as PieChartIcon, TrendingUp, Banknote, Video, Type, Image as ImageIcon, Activity, Calculator, Filter, UserPlus, Link as LinkIcon, ExternalLink } from 'lucide-react';
+import { SubscriptionPlan, SystemBanner, Suggestion, AppRoute } from '../types';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
@@ -78,6 +78,13 @@ export const AdminPanel: React.FC = () => {
   const [suggestionEndDate, setSuggestionEndDate] = useState('');
   const [isAnalyzingSuggestions, setIsAnalyzingSuggestions] = useState(false);
   const [analysisReport, setAnalysisReport] = useState<string | null>(null);
+
+  // Register Modal State
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -337,6 +344,22 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
+  const handleRegisterStudio = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if(!regName || !regEmail || !regPassword) return;
+    setIsRegistering(true);
+    const res = await registerNewStudio(regName, regEmail, regPassword);
+    if(res.success) {
+        alert("Studio cadastrado com sucesso!");
+        setShowRegisterModal(false);
+        setRegName(''); setRegEmail(''); setRegPassword('');
+        loadData(); // Refresh list
+    } else {
+        alert("Erro: " + res.error);
+    }
+    setIsRegistering(false);
+  }
+
   const downloadReportPDF = async () => {
     const element = document.getElementById('admin-analysis-report');
     if (!element) return;
@@ -416,6 +439,9 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
         return d.toISOString().split('T')[0];
     });
     const [timelineEndDate, setTimelineEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+    
+    // NEW: Registration Link Logic
+    const registrationLink = `${window.location.origin}/#${AppRoute.REGISTER}`;
 
     useEffect(() => {
         const fetchTimeline = async () => {
@@ -448,6 +474,31 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
 
     return (
         <div className="space-y-8 animate-in fade-in">
+            {/* NEW SECTION: Registration Link */}
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="p-3 bg-brand-100 dark:bg-brand-900/20 text-brand-600 rounded-full">
+                        <UserPlus className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-white">Link de Cadastro de Studio</h3>
+                        <p className="text-sm text-slate-500">Compartilhe este link para novos proprietários se cadastrarem.</p>
+                        <div className="mt-1 flex items-center gap-2 text-xs text-slate-400 font-mono bg-slate-50 dark:bg-slate-950 px-2 py-1 rounded border border-slate-100 dark:border-slate-800 select-all">
+                            <LinkIcon className="w-3 h-3" />
+                            {registrationLink}
+                        </div>
+                    </div>
+                </div>
+                <div className="flex gap-3">
+                    <Button variant="outline" onClick={() => { navigator.clipboard.writeText(registrationLink); alert('Link copiado!'); }}>
+                        <Copy className="w-4 h-4 mr-2" /> Copiar Link
+                    </Button>
+                    <Button onClick={() => window.open(registrationLink, '_blank')}>
+                        <ExternalLink className="w-4 h-4 mr-2" /> Abrir Página
+                    </Button>
+                </div>
+            </div>
+
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -788,6 +839,10 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
         </div>
         
         <div className="flex gap-2 flex-wrap">
+           <Button size="sm" onClick={() => setShowRegisterModal(true)}>
+             <UserPlus className="h-4 w-4 mr-2"/> Novo Studio
+           </Button>
+
            <Button size="sm" variant="outline" onClick={copySql}>
              <Database className="h-3 w-3 mr-2" /> SQL Check
            </Button>
@@ -1027,20 +1082,86 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-xl p-6 border border-slate-200 dark:border-slate-800">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Redefinir Senha Provisória</h3>
             <p className="text-sm text-slate-500 mb-4">
-              Defina uma nova senha para o dono <strong>{resetModalUser.name}</strong>.
+              Defina uma nova senha para <strong>{resetModalUser.name}</strong>.
             </p>
             <Input 
-              label="Nova Senha" 
               type="text" 
+              placeholder="Nova senha (min 6 caracteres)" 
               value={newPassword} 
-              onChange={e => setNewPassword(e.target.value)} 
-              placeholder="Mínimo 6 caracteres"
+              onChange={e => setNewPassword(e.target.value)}
+              className="mb-4"
             />
-            <div className="flex justify-end gap-2 mt-4">
+            <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setResetModalUser(null)}>Cancelar</Button>
-              <Button onClick={handleResetPassword} isLoading={resetting}>Salvar Senha</Button>
+              <Button onClick={handleResetPassword} isLoading={resetting}>Redefinir</Button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Owner Details Modal */}
+      {viewingOwner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-4xl h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+                <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
+                    <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
+                        <Building2 className="w-5 h-5 text-brand-600"/> Detalhes do Studio: {viewingOwner.contextInfo || viewingOwner.name}
+                    </h3>
+                    <button onClick={() => setViewingOwner(null)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full text-slate-500">
+                        <X className="w-6 h-6"/>
+                    </button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-slate-100 dark:bg-slate-950">
+                    
+                    {/* Plan Management */}
+                    <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <h4 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2"><Crown className="w-5 h-5 text-yellow-500"/> Plano de Assinatura</h4>
+                        <div className="flex flex-col md:flex-row gap-4 items-end">
+                            <div className="flex-1 w-full">
+                                <label className="block text-sm font-medium mb-1 text-slate-600 dark:text-slate-400">Plano Atual</label>
+                                <select 
+                                    className="w-full p-2 border rounded-lg bg-slate-50 dark:bg-slate-800 dark:border-slate-700 text-sm"
+                                    value={ownerPlanId || ''}
+                                    onChange={(e) => setOwnerPlanId(e.target.value)}
+                                >
+                                    <option value="">Sem Plano (Trial/Free)</option>
+                                    {plans.map(p => <option key={p.id} value={p.id}>{p.name} (Max {p.maxStudents} alunos)</option>)}
+                                </select>
+                            </div>
+                            <Button onClick={handleSavePlanAssignment} isLoading={savingPlan}>Salvar Alteração</Button>
+                        </div>
+                    </div>
+
+                    {/* Linked Users Lists */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                            <h4 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2"><BookUser className="w-5 h-5 text-blue-500"/> Instrutores Vinculados ({linkedInstructors.length})</h4>
+                            <div className="max-h-60 overflow-y-auto space-y-2">
+                                {linkedInstructors.length === 0 ? <p className="text-sm text-slate-400 italic">Nenhum instrutor.</p> : linkedInstructors.map(i => (
+                                    <div key={i.id} className="text-sm p-2 border rounded bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 flex justify-between">
+                                        <span>{i.name}</span>
+                                        <span className={`text-xs px-2 rounded ${i.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{i.isActive ? 'Ativo' : 'Inativo'}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                            <h4 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2"><GraduationCap className="w-5 h-5 text-green-500"/> Alunos Vinculados ({linkedStudents.length})</h4>
+                            <div className="max-h-60 overflow-y-auto space-y-2">
+                                {linkedStudents.length === 0 ? <p className="text-sm text-slate-400 italic">Nenhum aluno.</p> : linkedStudents.map(s => (
+                                    <div key={s.id} className="text-sm p-2 border rounded bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 flex justify-between">
+                                        <span>{s.name}</span>
+                                        <span className={`text-xs px-2 rounded ${s.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>{s.isActive ? 'Acesso App' : 'Sem Acesso'}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
         </div>
       )}
 
@@ -1049,57 +1170,44 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-xl p-6 border border-slate-200 dark:border-slate-800">
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Crown className="w-6 h-6 text-yellow-500"/> Gestão de Planos
-                    </h3>
-                    <button onClick={() => setShowPlansModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-6 h-6"/></button>
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">Gerenciar Planos de Assinatura</h3>
+                    <button onClick={() => setShowPlansModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
                 </div>
-
+                
                 <div className="space-y-4">
                     {plans.map(plan => (
-                        <div key={plan.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-100 dark:border-slate-800">
+                        <div key={plan.id} className="p-4 border rounded-xl bg-slate-50 dark:bg-slate-950 dark:border-slate-700 flex justify-between items-center">
                             <div>
                                 <h4 className="font-bold text-slate-800 dark:text-white">{plan.name}</h4>
-                                <div className="text-sm text-slate-500 mt-1">
-                                    <span className="block">Max Alunos: <strong>{plan.maxStudents}</strong></span>
-                                    <span className="block">Max Posts/Dia: <strong>{plan.maxDailyPosts}</strong></span>
+                                <div className="text-sm text-slate-500 flex gap-4 mt-1">
+                                    <span>Max Alunos: {plan.maxStudents}</span>
+                                    <span>Max Posts Diários: {plan.maxDailyPosts}</span>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-4">
-                                {editingPlanId === plan.id ? (
-                                    <div className="flex flex-col gap-2 bg-white dark:bg-slate-900 p-3 rounded border shadow-sm">
-                                        <div>
-                                            <label className="text-xs font-bold text-slate-500">Max Alunos</label>
-                                            <input 
-                                                type="number" 
-                                                value={editPlanLimit} 
-                                                onChange={e => setEditPlanLimit(parseInt(e.target.value))}
-                                                className="w-24 p-1 text-sm rounded border border-brand-300 focus:ring-1 focus:ring-brand-500 outline-none"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-bold text-slate-500">Posts/Dia</label>
-                                            <input 
-                                                type="number" 
-                                                value={editPlanDailyPosts} 
-                                                onChange={e => setEditPlanDailyPosts(parseInt(e.target.value))}
-                                                className="w-24 p-1 text-sm rounded border border-brand-300 focus:ring-1 focus:ring-brand-500 outline-none"
-                                            />
-                                        </div>
-                                        <div className="flex gap-2 mt-2">
-                                            <Button size="sm" onClick={() => handleUpdatePlan(plan.id)}>Salvar</Button>
-                                            <Button size="sm" variant="ghost" onClick={() => setEditingPlanId(null)}>Cancelar</Button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <button onClick={() => { setEditingPlanId(plan.id); setEditPlanLimit(plan.maxStudents); setEditPlanDailyPosts(plan.maxDailyPosts); }} className="text-brand-600 hover:text-brand-800 font-medium flex items-center gap-1 text-sm border border-brand-100 px-3 py-1.5 rounded hover:bg-brand-50">
-                                        <Edit2 className="w-4 h-4"/> Editar
-                                    </button>
-                                )}
-                            </div>
+                            <Button size="sm" variant="outline" onClick={() => {
+                                setEditingPlanId(plan.id);
+                                setEditPlanLimit(plan.maxStudents);
+                                setEditPlanDailyPosts(plan.maxDailyPosts);
+                            }}>
+                                <Edit2 className="w-4 h-4"/>
+                            </Button>
                         </div>
                     ))}
                 </div>
+
+                {editingPlanId && (
+                    <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
+                        <h4 className="font-bold mb-4 text-slate-800 dark:text-white">Editar Limites do Plano</h4>
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                            <Input label="Max Alunos" type="number" value={editPlanLimit} onChange={e => setEditPlanLimit(parseInt(e.target.value))} />
+                            <Input label="Max Posts Diários" type="number" value={editPlanDailyPosts} onChange={e => setEditPlanDailyPosts(parseInt(e.target.value))} />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <Button variant="ghost" onClick={() => setEditingPlanId(null)}>Cancelar</Button>
+                            <Button onClick={() => handleUpdatePlan(editingPlanId)}>Salvar Alterações</Button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
       )}
@@ -1107,72 +1215,80 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
       {/* Banner Management Modal */}
       {showBannerModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-xl p-6 border border-slate-200 dark:border-slate-800 overflow-y-auto max-h-[90vh]">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-2xl shadow-xl p-6 border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Image className="w-6 h-6 text-brand-600"/> Banners Promocionais
-                    </h3>
-                    <button onClick={() => setShowBannerModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-6 h-6"/></button>
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">Gerenciar Banners Promocionais</h3>
+                    <button onClick={() => setShowBannerModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
                 </div>
 
                 <div className="space-y-8">
-                    {/* Area Studio Banner */}
-                    <div className="space-y-3">
-                        <h4 className="font-bold text-slate-800 dark:text-white border-b pb-2">Área do Studio (Donos)</h4>
-                        <div className="flex flex-col md:flex-row gap-4">
-                            <div className="relative w-40 h-24">
-                                <div className="w-full h-full bg-slate-100 rounded-lg border border-dashed border-slate-300 flex items-center justify-center relative overflow-hidden">
-                                    {studioBanner?.imageUrl ? (
-                                        <img src={studioBanner.imageUrl} className="w-full h-full object-cover" alt="Banner Studio" />
-                                    ) : <span className="text-xs text-slate-400">Sem imagem</span>}
+                    {/* Studio Banner */}
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                            <h4 className="font-bold text-brand-600 text-lg">Banner para Donos de Studio</h4>
+                            {studioBanner && <button onClick={() => handleDeleteBanner('studio')} className="text-red-500 hover:text-red-700"><Trash2 className="w-5 h-5"/></button>}
+                        </div>
+                        
+                        <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-4 bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center min-h-[150px] relative group">
+                            {isUploadingBanner ? <Loader2 className="animate-spin text-brand-500 w-8 h-8"/> : 
+                             studioBanner ? (
+                                <img src={studioBanner.imageUrl} alt="Banner Studio" className="w-full h-auto rounded-lg shadow-sm max-h-60 object-cover" />
+                             ) : (
+                                <div className="text-center text-slate-400">
+                                    <Image className="w-10 h-10 mx-auto mb-2 opacity-50"/>
+                                    <p>Nenhum banner ativo.</p>
                                 </div>
-                                {studioBanner?.imageUrl && (
-                                    <button 
-                                        onClick={() => handleDeleteBanner('studio')}
-                                        className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 shadow-md hover:bg-red-200 transition-colors"
-                                        title="Remover Banner"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                )}
-                            </div>
-                            <div className="flex-1 space-y-3">
-                                <input type="file" accept="image/*" onChange={(e) => e.target.files && handleBannerUpload(e.target.files[0], 'studio')} disabled={isUploadingBanner} className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"/>
-                                <div className="flex gap-2">
-                                    <Input placeholder="Link de destino (https://...)" value={studioBannerLink} onChange={(e) => setStudioBannerLink(e.target.value)} className="mb-0 flex-1" />
-                                    <Button size="sm" onClick={() => handleBannerLinkUpdate('studio')} disabled={isUploadingBanner}>Salvar Link</Button>
-                                </div>
-                            </div>
+                             )}
+                             <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => e.target.files?.[0] && handleBannerUpload(e.target.files[0], 'studio')} disabled={isUploadingBanner}/>
+                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white pointer-events-none rounded-xl">
+                                <Upload className="w-6 h-6 mr-2"/> Clique para alterar
+                             </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                            <input 
+                                className="flex-1 p-2 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 text-sm"
+                                placeholder="Link de destino (https://...)"
+                                value={studioBannerLink}
+                                onChange={(e) => setStudioBannerLink(e.target.value)}
+                            />
+                            <Button size="sm" onClick={() => handleBannerLinkUpdate('studio')} disabled={!studioBanner}>Salvar Link</Button>
                         </div>
                     </div>
 
-                    {/* Area Instructor Banner */}
-                    <div className="space-y-3">
-                        <h4 className="font-bold text-slate-800 dark:text-white border-b pb-2">Área do Instrutor</h4>
-                        <div className="flex flex-col md:flex-row gap-4">
-                            <div className="relative w-40 h-24">
-                                <div className="w-full h-full bg-slate-100 rounded-lg border border-dashed border-slate-300 flex items-center justify-center relative overflow-hidden">
-                                    {instructorBanner?.imageUrl ? (
-                                        <img src={instructorBanner.imageUrl} className="w-full h-full object-cover" alt="Banner Instrutor" />
-                                    ) : <span className="text-xs text-slate-400">Sem imagem</span>}
+                    <hr className="border-slate-200 dark:border-slate-800"/>
+
+                    {/* Instructor Banner */}
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                            <h4 className="font-bold text-blue-600 text-lg">Banner para Instrutores</h4>
+                            {instructorBanner && <button onClick={() => handleDeleteBanner('instructor')} className="text-red-500 hover:text-red-700"><Trash2 className="w-5 h-5"/></button>}
+                        </div>
+                        
+                        <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-4 bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center min-h-[150px] relative group">
+                            {isUploadingBanner ? <Loader2 className="animate-spin text-blue-500 w-8 h-8"/> : 
+                             instructorBanner ? (
+                                <img src={instructorBanner.imageUrl} alt="Banner Instrutor" className="w-full h-auto rounded-lg shadow-sm max-h-60 object-cover" />
+                             ) : (
+                                <div className="text-center text-slate-400">
+                                    <Image className="w-10 h-10 mx-auto mb-2 opacity-50"/>
+                                    <p>Nenhum banner ativo.</p>
                                 </div>
-                                {instructorBanner?.imageUrl && (
-                                    <button 
-                                        onClick={() => handleDeleteBanner('instructor')}
-                                        className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 shadow-md hover:bg-red-200 transition-colors"
-                                        title="Remover Banner"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                )}
-                            </div>
-                            <div className="flex-1 space-y-3">
-                                <input type="file" accept="image/*" onChange={(e) => e.target.files && handleBannerUpload(e.target.files[0], 'instructor')} disabled={isUploadingBanner} className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
-                                <div className="flex gap-2">
-                                    <Input placeholder="Link de destino (https://...)" value={instructorBannerLink} onChange={(e) => setInstructorBannerLink(e.target.value)} className="mb-0 flex-1" />
-                                    <Button size="sm" onClick={() => handleBannerLinkUpdate('instructor')} disabled={isUploadingBanner}>Salvar Link</Button>
-                                </div>
-                            </div>
+                             )}
+                             <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => e.target.files?.[0] && handleBannerUpload(e.target.files[0], 'instructor')} disabled={isUploadingBanner}/>
+                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white pointer-events-none rounded-xl">
+                                <Upload className="w-6 h-6 mr-2"/> Clique para alterar
+                             </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                            <input 
+                                className="flex-1 p-2 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 text-sm"
+                                placeholder="Link de destino (https://...)"
+                                value={instructorBannerLink}
+                                onChange={(e) => setInstructorBannerLink(e.target.value)}
+                            />
+                            <Button size="sm" onClick={() => handleBannerLinkUpdate('instructor')} disabled={!instructorBanner}>Salvar Link</Button>
                         </div>
                     </div>
                 </div>
@@ -1180,100 +1296,23 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
         </div>
       )}
 
-      {/* Drill Down View */}
-      {viewingOwner && (
+      {/* Register New Studio Modal */}
+      {showRegisterModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-white dark:bg-slate-900 w-full max-w-4xl h-[90vh] rounded-2xl shadow-xl p-6 border border-slate-200 dark:border-slate-800 overflow-y-auto">
-                <div className="flex items-center gap-4 border-b pb-4 mb-4">
-                    <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setViewingOwner(null)}
-                    >
-                        <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
-                    </Button>
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                        {viewingOwner.name}
-                    </h2>
-                    <span className="text-slate-500">| {viewingOwner.contextInfo}</span>
+            <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">Cadastrar Novo Studio</h3>
+                    <button onClick={() => setShowRegisterModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Basic Info */}
-                    <div className="space-y-4">
-                        <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-lg">
-                            <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-2">Detalhes</h3>
-                            <p><strong>Email:</strong> {viewingOwner.email}</p>
-                            <p><strong>Status:</strong> {viewingOwner.isActive ? 'Ativo' : 'Bloqueado'}</p>
-                            <p><strong>Max Alunos (Legado):</strong> {viewingOwner.maxStudents || 'Ilimitado'}</p>
-                        </div>
-
-                        <div className="bg-yellow-50 dark:bg-yellow-900/10 p-4 rounded-lg border border-yellow-100 dark:border-yellow-800">
-                            <h3 className="font-bold text-yellow-800 dark:text-yellow-500 mb-2 flex items-center gap-2">
-                                <Crown className="w-4 h-4"/> Plano de Assinatura
-                            </h3>
-                            <div className="flex gap-2">
-                                <select 
-                                    className="flex-1 p-2 rounded border border-yellow-300 bg-white dark:bg-slate-900 text-sm"
-                                    value={ownerPlanId || ''}
-                                    onChange={(e) => setOwnerPlanId(e.target.value)}
-                                >
-                                    <option value="">Sem Plano</option>
-                                    {plans.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name} ({p.maxStudents} alunos)</option>
-                                    ))}
-                                </select>
-                                <Button size="sm" onClick={handleSavePlanAssignment} isLoading={savingPlan}>Salvar</Button>
-                            </div>
-                        </div>
+                <form onSubmit={handleRegisterStudio} className="space-y-4">
+                    <Input label="Nome do Proprietário" value={regName} onChange={e => setRegName(e.target.value)} required />
+                    <Input label="Email de Login" type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} required />
+                    <Input label="Senha" type="password" value={regPassword} onChange={e => setRegPassword(e.target.value)} required placeholder="Mínimo 6 caracteres" />
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button type="button" variant="ghost" onClick={() => setShowRegisterModal(false)}>Cancelar</Button>
+                        <Button type="submit" isLoading={isRegistering}>Cadastrar</Button>
                     </div>
-
-                    {/* Stats */}
-                    <div className="space-y-4">
-                        <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-lg">
-                            <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-2">Equipe e Alunos</h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="text-center p-2 bg-white dark:bg-slate-900 rounded border">
-                                    <span className="block text-2xl font-bold text-blue-600">{linkedInstructors.length}</span>
-                                    <span className="text-xs text-slate-500">Instrutores</span>
-                                </div>
-                                <div className="text-center p-2 bg-white dark:bg-slate-900 rounded border">
-                                    <span className="block text-2xl font-bold text-green-600">{linkedStudents.length}</span>
-                                    <span className="text-xs text-slate-500">Alunos</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="mt-8">
-                    <h3 className="font-bold text-lg mb-4">Lista de Alunos</h3>
-                    <div className="bg-slate-50 dark:bg-slate-950 rounded-lg overflow-hidden border">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 font-bold">
-                                <tr>
-                                    <th className="p-3">Nome</th>
-                                    <th className="p-3">Email</th>
-                                    <th className="p-3 text-center">Acesso App</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {linkedStudents.map(s => (
-                                    <tr key={s.id} className="border-t border-slate-200 dark:border-slate-800">
-                                        <td className="p-3">{s.name}</td>
-                                        <td className="p-3 text-slate-500">{s.email}</td>
-                                        <td className="p-3 text-center">
-                                            {s.isActive ? <CheckCircle className="w-4 h-4 text-green-500 mx-auto"/> : <span className="text-slate-300">-</span>}
-                                        </td>
-                                    </tr>
-                                ))}
-                                {linkedStudents.length === 0 && (
-                                    <tr><td colSpan={3} className="p-4 text-center text-slate-500">Nenhum aluno cadastrado.</td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                </form>
             </div>
         </div>
       )}

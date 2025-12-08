@@ -96,7 +96,6 @@ export const Login: React.FC = () => {
 
         {loginMode === 'studio' && (
           <div className="mt-6 pt-6 border-t border-slate-100 text-center">
-             <p className="text-sm text-slate-500">{t('no_account')} <Link to={AppRoute.REGISTER} className="text-brand-600 font-medium hover:underline">{t('register_link')}</Link></p>
              <button onClick={() => setLoginMode('admin')} className="text-xs text-slate-400 hover:text-slate-600 mt-4 flex items-center justify-center gap-1 mx-auto"><ShieldCheck className="h-3 w-3"/> Admin</button>
           </div>
         )}
