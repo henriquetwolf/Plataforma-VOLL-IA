@@ -2,11 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { generateMarketingContent, generateTopicSuggestions, generatePilatesImage } from '../services/geminiService';
+import { generateMarketingContent, generateTopicSuggestions, generatePilatesImage, generatePilatesContentStream } from '../services/geminiService';
 import { MarketingFormData, GeneratedContent, SavedPost, StrategicContentPlan } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Megaphone, Sparkles, Video, Image as LucideImage, Copy, Loader2, Lightbulb, ArrowRight, ArrowLeft, RefreshCw, Save, Trash2, History, Download, CalendarDays, FileText, Zap, UserPlus, Heart, BookOpen, ShoppingBag, Users, Camera, MessageCircle, Layout, RotateCcw, Layers, CheckCircle } from 'lucide-react';
+import { Megaphone, Sparkles, Video, Image as LucideImage, Copy, Loader2, Lightbulb, ArrowRight, ArrowLeft, RefreshCw, Save, Trash2, History, Download, CalendarDays, FileText, Zap, UserPlus, Heart, BookOpen, ShoppingBag, Users, Camera, MessageCircle, Layout, RotateCcw, Layers, CheckCircle, Wand2, Eye } from 'lucide-react';
 import { savePost, fetchSavedPosts, deleteSavedPost, recordGenerationUsage, getTodayPostCount, saveContentPlan, fetchContentPlans, deleteContentPlan } from '../services/contentService';
 import { fetchProfile } from '../services/storage';
 
@@ -187,43 +187,6 @@ const StepTopic = ({ value, onChange, onGenerateIdeas, isGeneratingIdeas, sugges
                 </div>
             </div>
         )}
-    </div>
-);
-
-const StepFormatStyle = ({ format, style, onFormatChange, onStyleChange }: any) => (
-    <div className="space-y-8 animate-in fade-in slide-in-from-right-8">
-        <div>
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2"><Layout className="w-5 h-5 text-brand-600"/> Formato do Conteúdo</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {FORMATS.map((item) => (
-                    <button
-                        key={item.id}
-                        onClick={() => onFormatChange(item.id)}
-                        className={`p-4 rounded-xl border-2 text-left relative overflow-hidden ${format === item.id ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'}`}
-                    >
-                        {item.recommended && <span className="absolute top-0 right-0 bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg">RECOMENDADO</span>}
-                        <h3 className="font-bold text-slate-900 dark:text-white">{item.label}</h3>
-                        <p className="text-sm text-slate-500">{item.description}</p>
-                        {format === item.id && <div className="absolute top-1/2 right-4 -translate-y-1/2 w-3 h-3 bg-brand-500 rounded-full"></div>}
-                    </button>
-                ))}
-            </div>
-        </div>
-
-        <div>
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2"><Sparkles className="w-5 h-5 text-brand-600"/> Estilo Visual</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {STYLES.map((s) => (
-                    <button
-                        key={s}
-                        onClick={() => onStyleChange(s)}
-                        className={`p-3 rounded-lg border text-sm transition-all ${style === s ? 'border-brand-500 bg-brand-100 text-brand-800 font-bold' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600'}`}
-                    >
-                        {s}
-                    </button>
-                ))}
-            </div>
-        </div>
     </div>
 );
 
@@ -427,12 +390,26 @@ export const MarketingAgent: React.FC = () => {
   const [savedPlans, setSavedPlans] = useState<StrategicContentPlan[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
+  // Plan Tracking
+  const [currentPlanItemIndices, setCurrentPlanItemIndices] = useState<{weekIndex: number, postIndex: number} | null>(null);
+
+  // Daily Limit
+  const [dailyCount, setDailyCount] = useState(0);
+  const [dailyLimit, setDailyLimit] = useState(5);
+  const isLimitReached = dailyCount >= dailyLimit;
+
   useEffect(() => {
-    if (showHistory && user?.id) {
+    if (user?.id) {
         const targetId = user.isInstructor ? user.studioId : user.id;
-        loadHistory(targetId);
+        if(targetId) {
+            getTodayPostCount(targetId).then(setDailyCount);
+            loadHistory(targetId);
+            fetchProfile(targetId).then(profile => {
+                if (profile?.planMaxDailyPosts) setDailyLimit(profile.planMaxDailyPosts);
+            });
+        }
     }
-  }, [showHistory, user]);
+  }, [user, showHistory]);
 
   const loadHistory = async (studioId: string) => {
       setLoadingHistory(true);
@@ -474,14 +451,12 @@ export const MarketingAgent: React.FC = () => {
   const handleGenerateContent = async () => {
     setIsGenerating(true);
     try {
-        // Prepare data
         const finalData = { ...formData };
         if (finalData.goal === 'Outro (Descrever...)') finalData.goal = finalData.customGoal || '';
         if (finalData.audience === 'Outro (Descrever...)') finalData.audience = finalData.customAudience || '';
         
         const content = await generateMarketingContent(finalData);
         
-        // Image Generation Logic if Visual Prompt exists
         if (content && content.visualPrompt && !content.isPlan) {
              const image = await generatePilatesImage({
                  format: formData.format === 'auto' ? content.suggestedFormat : formData.format,
@@ -492,16 +467,75 @@ export const MarketingAgent: React.FC = () => {
         }
 
         setResult(content);
-        setStep(5); // Result Step (Skip format/style if not needed or assume step 5)
+        setStep(5);
         
-        // Record usage
         const studioId = user?.isInstructor ? user.studioId : user?.id;
-        if(studioId) await recordGenerationUsage(studioId);
+        if(studioId) {
+            await recordGenerationUsage(studioId);
+            setDailyCount(prev => prev + 1);
+        }
 
     } catch (e) {
         alert("Erro ao gerar conteúdo.");
     }
     setIsGenerating(false);
+  };
+
+  const handleGenerateFromPlan = (post: any, weekIndex: number, postIndex: number) => {
+    setFormData(prev => ({ ...prev, mode: 'single' })); // Ensure mode is single for item generation
+    setStep(5); // Jump to result (but wait for generation) or back to edit? Let's use edit
+    // Actually, let's setup the form and go to start of wizard or directly generate?
+    // Better: Setup form state and go to Step 1 (or 4 if we trust the inputs)
+    // To allow refinement, we populate custom inputs
+    
+    // Reset previous results
+    setResult(null);
+    setCurrentPlanItemIndices({ weekIndex, postIndex });
+
+    let fmt = 'auto';
+    const pFormat = (post.format || '').toLowerCase();
+    if (pFormat.includes('reels') || pFormat.includes('vídeo')) fmt = 'reels';
+    else if (pFormat.includes('carrossel')) fmt = 'carousel';
+    else if (pFormat.includes('estático') || pFormat.includes('post')) fmt = 'post';
+
+    setFormData(prev => ({
+        ...prev,
+        mode: 'single',
+        format: fmt,
+        topic: post.idea || post.theme || '',
+        goal: 'Engajamento', // Default from plan context usually
+        audience: 'Público Geral',
+        customGoal: post.objective || '',
+        customAudience: ''
+    }));
+
+    // If we want to auto-generate, we can call handleGenerateContent here, but usually user wants to confirm inputs.
+    // Let's go to the Topic step (Step 4) since format/topic are key.
+    setStep(4);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleViewPost = (postId: string) => {
+      const post = savedPosts.find(p => p.id === postId);
+      if (post) {
+          // Mock a result object from the saved post
+          const mockResult: GeneratedContent = {
+              suggestedFormat: post.request.format,
+              reasoning: 'Post recuperado do histórico.',
+              hashtags: [], // Extract from content if possible or leave empty
+              tips: 'Post já salvo.',
+              captionLong: post.content,
+              generatedImage: post.imageUrl || undefined,
+              isPlan: false,
+              isStory: false,
+              isReels: post.request.format.toLowerCase().includes('reels')
+          };
+          setResult(mockResult);
+          setStep(5);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+          alert("Post não encontrado no histórico.");
+      }
   };
 
   const handleSave = async () => {
@@ -513,7 +547,6 @@ export const MarketingAgent: React.FC = () => {
       let res;
       
       if (result.isPlan) {
-          // Adapt GeneratedContent to StrategicContentPlan
           const plan: StrategicContentPlan = {
               id: crypto.randomUUID(),
               createdAt: new Date().toISOString(),
@@ -526,9 +559,10 @@ export const MarketingAgent: React.FC = () => {
           };
           res = await saveContentPlan(studioId, plan);
       } else {
-          // SavedPost
+          // Post Generation
+          const postId = crypto.randomUUID();
           const post: SavedPost = {
-              id: crypto.randomUUID(),
+              id: postId,
               request: {
                   format: result.suggestedFormat,
                   objective: formData.goal,
@@ -542,14 +576,140 @@ export const MarketingAgent: React.FC = () => {
               createdAt: new Date().toISOString()
           };
           res = await savePost(studioId, post);
+
+          // Update Plan State if this post belongs to a plan item
+          if (res.success && currentPlanItemIndices && result.isPlan === false) {
+              // We need to access the plan that is currently displayed in result? 
+              // NO, the plan is displayed when mode is 'plan'.
+              // We need to keep a reference to the Generated Plan if we are in "Generate Item" mode.
+              // But 'result' is currently the Single Post content.
+              // We need a separate state for the underlying plan if we want to update it visually.
+              // BUT, `generatedPlan` is stored in `result` when we are in plan mode.
+              // When we switch to single post mode, `result` is overwritten.
+              // We need to store the generated plan separately.
+          }
       }
 
       if (res.success) {
           alert("Salvo com sucesso!");
+          loadHistory(studioId);
+          
+          // Logic to update the Plan View if we just saved a post linked to it
+          // NOTE: Since we overwrite `result` when generating the single post, we lose the plan view temporarily.
+          // The user would need to go back to History > Plans to see the updated plan.
+          // To make it seamless, we would need a separate `currentPlan` state variable that persists across mode switches.
       } else {
           alert("Erro ao salvar.");
       }
       setIsSaving(false);
+  };
+
+  // We need to lift the Plan state up to allow switching back and forth
+  // However, refactoring strictly to allow "Back to Plan with State" is complex without a persistent store.
+  // For this request, simply being able to generate is the key.
+  // The "View" button will work for items already saved in the database when the plan is re-loaded from history.
+
+  // Let's check `handleGenerateFromPlan`. It sets `step=4`.
+  // When the user saves, they are at `step=5` (Result).
+  // If they want to go back to the plan, they probably load it from history again.
+  // The "View" button logic relies on `post.generatedPostId` which needs to be in the plan data.
+  // If the plan is re-loaded from DB, and we didn't update the plan in DB with the new postId, the button won't appear.
+  // Updating the plan JSON in DB is hard.
+  // ALTERNATIVE: When rendering the plan list, check if there is a saved post that matches the criteria (Date + Theme) or store a link locally?
+  // The prompt implies a flow. Let's assume we can update the plan in DB. But `savePost` doesn't update the plan.
+  // We can try to update the plan in `handleSave` if we have the plan ID.
+  // But the plan might not be saved yet if it was just generated.
+  
+  // Implementation Compromise:
+  // We will assume the user has SAVED the plan first.
+  // Then they open the plan from history.
+  // Then they generate an item.
+  // Then they save the item.
+  // We should try to update the plan in the DB with the new `generatedPostId`.
+  
+  // Actually, let's keep it simple as requested: "identify this and leave the button".
+  // If we can't persist the link easily to DB without complex logic, we can't show it after reload.
+  // But we can show it in the current session if we keep the plan in state.
+  // Since `result` is used for both, we lose the plan when generating a post.
+  // We need a separate state: `activePlan`.
+
+  const [activePlan, setActivePlan] = useState<GeneratedContent | null>(null); // To store the plan while generating items
+
+  // Intercept Result Setting
+  const handleSetResult = (content: GeneratedContent | null) => {
+      setResult(content);
+      if (content?.isPlan) {
+          setActivePlan(content);
+      }
+  };
+
+  // Improved handleSave to update activePlan
+  const handleSaveWithLink = async () => {
+      if (!user?.id || !result) return;
+      const studioId = user.isInstructor ? user.studioId : user.id;
+      if (!studioId) return;
+
+      setIsSaving(true);
+      let res;
+      
+      if (result.isPlan) {
+          const plan: StrategicContentPlan = {
+              id: crypto.randomUUID(),
+              createdAt: new Date().toISOString(),
+              goals: { mainObjective: formData.goal, targetAudience: [formData.audience], keyThemes: [formData.topic] },
+              weeks: result.weeks?.map((w: any) => ({
+                  week: `Semana ${w.weekNumber}`,
+                  theme: w.theme,
+                  ideas: w.posts
+              })) || []
+          };
+          res = await saveContentPlan(studioId, plan);
+          // If saved, we can optionally attach the DB ID to activePlan to allow future updates, but complexity increases.
+      } else {
+          // Post
+          const postId = crypto.randomUUID();
+          const post: SavedPost = {
+              id: postId,
+              request: {
+                  format: result.suggestedFormat,
+                  objective: formData.goal,
+                  theme: formData.topic,
+                  audience: formData.audience,
+                  tone: formData.style,
+                  imageStyle: formData.style
+              },
+              content: result.captionLong || result.captionShort || '',
+              imageUrl: result.generatedImage || null,
+              createdAt: new Date().toISOString()
+          };
+          res = await savePost(studioId, post);
+
+          if (res.success && currentPlanItemIndices && activePlan) {
+              // Update the Active Plan State locally with the new ID
+              const newPlan = JSON.parse(JSON.stringify(activePlan)); // Deep copy
+              if (newPlan.weeks && newPlan.weeks[currentPlanItemIndices.weekIndex]) {
+                  newPlan.weeks[currentPlanItemIndices.weekIndex].posts[currentPlanItemIndices.postIndex].generatedPostId = postId;
+                  setActivePlan(newPlan);
+              }
+          }
+      }
+
+      if (res.success) {
+          alert("Salvo com sucesso!");
+          loadHistory(studioId);
+      } else {
+          alert("Erro ao salvar.");
+      }
+      setIsSaving(false);
+  };
+
+  const handleBackToPlan = () => {
+      if (activePlan) {
+          setResult(activePlan);
+          setStep(5);
+          setFormData(prev => ({ ...prev, mode: 'plan' }));
+          setCurrentPlanItemIndices(null);
+      }
   };
 
   const handleDelete = async (id: string, type: 'post' | 'plan') => {
@@ -589,19 +749,42 @@ export const MarketingAgent: React.FC = () => {
                     <button onClick={() => setHistoryTab('posts')} className={`text-lg font-bold pb-2 border-b-2 transition-colors ${historyTab === 'posts' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500'}`}>Posts Salvos</button>
                     <button onClick={() => setHistoryTab('plans')} className={`text-lg font-bold pb-2 border-b-2 transition-colors ${historyTab === 'plans' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500'}`}>Planos Salvos</button>
                 </div>
-                {/* Reuse History Rendering from ContentAgent logic (simplified) */}
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {loadingHistory ? <p>Carregando...</p> : 
                         historyTab === 'posts' ? savedPosts.map(p => (
-                            <div key={p.id} className="bg-white p-4 rounded border shadow-sm">
+                            <div key={p.id} className="bg-white dark:bg-slate-900 p-4 rounded border shadow-sm">
                                 <img src={p.imageUrl || ''} className="w-full h-32 object-cover mb-2 rounded" />
-                                <p className="text-sm font-bold">{p.request.theme}</p>
-                                <button onClick={() => handleDelete(p.id, 'post')}><Trash2 className="w-4 h-4 text-red-500"/></button>
+                                <p className="text-sm font-bold dark:text-white">{p.request.theme}</p>
+                                <div className="flex justify-between mt-2">
+                                    <Button size="xs" variant="ghost" onClick={() => handleViewPost(p.id)}>Ver</Button>
+                                    <button onClick={() => handleDelete(p.id, 'post')}><Trash2 className="w-4 h-4 text-red-500"/></button>
+                                </div>
                             </div>
                         )) : savedPlans.map(p => (
-                            <div key={p.id} className="bg-white p-4 rounded border shadow-sm">
-                                <p className="font-bold">{p.goals.keyThemes[0]}</p>
-                                <button onClick={() => handleDelete(p.id, 'plan')}><Trash2 className="w-4 h-4 text-red-500"/></button>
+                            <div key={p.id} className="bg-white dark:bg-slate-900 p-4 rounded border shadow-sm">
+                                <p className="font-bold dark:text-white">{p.goals.keyThemes[0]}</p>
+                                <div className="flex justify-between mt-2">
+                                    <Button size="xs" variant="ghost" onClick={() => {
+                                        // Convert stored plan to GeneratedContent format for viewing
+                                        const viewPlan: GeneratedContent = {
+                                            isPlan: true,
+                                            suggestedFormat: 'Plano Estratégico',
+                                            reasoning: 'Plano recuperado do histórico',
+                                            hashtags: [],
+                                            tips: '',
+                                            weeks: p.weeks?.map((w: any) => ({
+                                                weekNumber: w.week.replace('Semana ', ''),
+                                                theme: w.theme,
+                                                posts: w.ideas
+                                            }))
+                                        };
+                                        handleSetResult(viewPlan);
+                                        setStep(5);
+                                        setShowHistory(false);
+                                    }}>Abrir</Button>
+                                    <button onClick={() => handleDelete(p.id, 'plan')}><Trash2 className="w-4 h-4 text-red-500"/></button>
+                                </div>
                             </div>
                         ))
                     }
@@ -653,7 +836,10 @@ export const MarketingAgent: React.FC = () => {
                             isGeneratingIdeas={isGeneratingIdeas} 
                             suggestions={topicSuggestions} 
                         />
-                        <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
+                        <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800 gap-2">
+                            {currentPlanItemIndices && (
+                                <Button variant="ghost" onClick={handleBackToPlan}>Cancelar e Voltar ao Plano</Button>
+                            )}
                             <Button onClick={handleGenerateContent} isLoading={isGenerating} className="px-8 h-12 text-lg shadow-lg shadow-brand-200">
                                 <Wand2 className="w-5 h-5 mr-2" /> Gerar {formData.mode === 'plan' ? 'Planejamento' : 'Conteúdo'}
                             </Button>
@@ -662,13 +848,57 @@ export const MarketingAgent: React.FC = () => {
                 )}
 
                 {step === 5 && (
-                    <ResultDisplay 
-                        content={result} 
-                        onReset={() => { setStep(1); setResult(null); }}
-                        onSave={handleSave}
-                        onRegenerate={handleGenerateContent}
-                        canRegenerate={true}
-                    />
+                    <>
+                        {currentPlanItemIndices && (
+                            <div className="mb-4">
+                                <Button variant="outline" size="sm" onClick={handleBackToPlan}>
+                                    <ArrowLeft className="w-4 h-4 mr-2"/> Voltar para o Plano
+                                </Button>
+                            </div>
+                        )}
+                        <ResultDisplay 
+                            content={result} 
+                            onReset={() => { setStep(1); setResult(null); setActivePlan(null); }}
+                            onSave={handleSaveWithLink}
+                            onRegenerate={handleGenerateContent}
+                            canRegenerate={!result?.isPlan}
+                        />
+                        {/* Custom Plan Render Injection for Actions */}
+                        {result?.isPlan && result.weeks && (
+                            <div className="mt-6 space-y-4">
+                                {result.weeks.map((week: any, i: number) => (
+                                    <div key={i} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+                                        <h4 className="font-bold text-brand-700 text-lg mb-4 flex items-center gap-2">
+                                            <CalendarDays className="w-5 h-5"/> {week.week}: {week.theme}
+                                        </h4>
+                                        <div className="space-y-3">
+                                            {week.posts?.map((post: any, idx: number) => (
+                                                <div key={idx} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                                                    <div>
+                                                        <div className="flex gap-2 items-center mb-1">
+                                                            <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">{post.day}</span>
+                                                            <span className="text-[10px] bg-white dark:bg-slate-900 border px-2 py-0.5 rounded text-slate-500 uppercase font-bold">{post.format}</span>
+                                                        </div>
+                                                        <p className="text-sm text-slate-600 dark:text-slate-400">{post.idea || post.theme}</p>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        {post.generatedPostId && (
+                                                            <Button size="xs" variant="secondary" onClick={() => handleViewPost(post.generatedPostId)}>
+                                                                <Eye className="w-3 h-3 mr-1"/> Ver
+                                                            </Button>
+                                                        )}
+                                                        <Button size="xs" variant="outline" onClick={() => handleGenerateFromPlan(post, i, idx)}>
+                                                            <Wand2 className="w-3 h-3 mr-1"/> {post.generatedPostId ? 'Refazer' : 'Gerar'}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         )}
