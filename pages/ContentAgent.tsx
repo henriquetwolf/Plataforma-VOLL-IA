@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -92,6 +94,7 @@ export const ContentAgent: React.FC = () => {
   // Generated Plan State
   const [generatedPlan, setGeneratedPlan] = useState<StrategicContentPlan | null>(null);
   const [planFrequency, setPlanFrequency] = useState('3');
+  const [planStartDate, setPlanStartDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Loading & Tracking
   const [isGenerating, setIsGenerating] = useState(false);
@@ -197,7 +200,8 @@ export const ContentAgent: React.FC = () => {
                 audience: audience,
                 topic: theme,
                 format: `${planFrequency} posts por semana`,
-                style: tone
+                style: tone,
+                startDate: planStartDate // Pass start date for date calculation
             };
             
             const result = await generateMarketingContent(planData);
@@ -206,6 +210,7 @@ export const ContentAgent: React.FC = () => {
                 const plan: StrategicContentPlan = {
                     id: crypto.randomUUID(),
                     createdAt: new Date().toISOString(),
+                    startDate: planStartDate,
                     goals: {
                         mainObjective: objective,
                         targetAudience: [audience],
@@ -239,6 +244,17 @@ export const ContentAgent: React.FC = () => {
     } finally {
         setIsGenerating(false);
     }
+  };
+
+  const handleGenerateFromPlan = (post: any) => {
+    setAgentMode('post');
+    setRequest(prev => ({
+        ...prev,
+        theme: post.theme || post.idea, // Sometimes AI puts theme in idea
+        format: post.format === 'Reels' || post.format === 'Carrossel' ? post.format : 'Post Estático',
+        objective: post.objective || 'Engajamento'
+    }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSave = async () => {
@@ -290,8 +306,6 @@ export const ContentAgent: React.FC = () => {
       if (format.includes('Carrossel')) return <Layers className="w-4 h-4 text-blue-600"/>;
       return <FileText className="w-4 h-4 text-green-600"/>;
   };
-
-  const isReels = request.format === 'Reels';
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in pb-12">
@@ -440,19 +454,30 @@ export const ContentAgent: React.FC = () => {
                             )}
 
                             {agentMode === 'plan' && (
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Frequência Semanal</label>
-                                    <select 
-                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
-                                        value={planFrequency}
-                                        onChange={e => setPlanFrequency(e.target.value)}
-                                        disabled={isLimitReached}
-                                    >
-                                        <option value="3">3 posts por semana</option>
-                                        <option value="5">5 posts por semana</option>
-                                        <option value="7">Todos os dias (7 posts)</option>
-                                    </select>
-                                </div>
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Frequência Semanal</label>
+                                        <select 
+                                            className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950"
+                                            value={planFrequency}
+                                            onChange={e => setPlanFrequency(e.target.value)}
+                                            disabled={isLimitReached}
+                                        >
+                                            <option value="3">3 posts por semana</option>
+                                            <option value="5">5 posts por semana</option>
+                                            <option value="7">Todos os dias (7 posts)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Data de Início</label>
+                                        <Input
+                                            type="date"
+                                            value={planStartDate}
+                                            onChange={e => setPlanStartDate(e.target.value)}
+                                            disabled={isLimitReached}
+                                        />
+                                    </div>
+                                </>
                             )}
 
                             {/* OBJECTIVE SELECT */}
@@ -622,12 +647,17 @@ export const ContentAgent: React.FC = () => {
                                                 </h5>
                                                 <div className="space-y-3">
                                                     {week.ideas.map((post: any, idx: number) => (
-                                                        <div key={idx} className="flex gap-3 text-sm">
-                                                            <div className="w-12 shrink-0 font-bold text-slate-500">{post.day}</div>
-                                                            <div>
-                                                                <span className="text-xs font-bold bg-white dark:bg-slate-900 border px-1.5 py-0.5 rounded text-slate-500 uppercase mr-2">{post.format}</span>
-                                                                <span className="text-slate-700 dark:text-slate-300">{post.theme}</span>
+                                                        <div key={idx} className="flex gap-3 text-sm items-center justify-between">
+                                                            <div className="flex gap-3">
+                                                                <div className="w-24 shrink-0 font-bold text-slate-500">{post.day}</div>
+                                                                <div>
+                                                                    <span className="text-xs font-bold bg-white dark:bg-slate-900 border px-1.5 py-0.5 rounded text-slate-500 uppercase mr-2">{post.format}</span>
+                                                                    <span className="text-slate-700 dark:text-slate-300">{post.theme}</span>
+                                                                </div>
                                                             </div>
+                                                            <Button size="xs" variant="outline" onClick={() => handleGenerateFromPlan(post)}>
+                                                                <Wand2 className="w-3 h-3 mr-1"/> Gerar
+                                                            </Button>
                                                         </div>
                                                     ))}
                                                 </div>

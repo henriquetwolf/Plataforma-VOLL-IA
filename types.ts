@@ -11,6 +11,7 @@ export interface MarketingFormData {
   topic: string;
   format: string; 
   style: string;
+  startDate?: string; // Added for Plan Date calculation
   // Specific for carousel logic
   carouselType?: 'image-only' | 'text-only' | 'text-image';
 }

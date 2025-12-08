@@ -1,3 +1,4 @@
+
 // ... existing imports ...
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
@@ -154,8 +155,10 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
   if (isPlan) {
     prompt += `
     Crie um planejamento de 4 semanas.
+    Data de Início do Planejamento: ${formData.startDate || 'Hoje'}
     Para cada semana, defina um tema macro.
     Sugira 3 posts por semana (Dias alternados).
+    IMPORTANTE: No campo 'day', forneça o Dia da Semana E a Data exata (dia/mês), calculado a partir da Data de Início. Exemplo: 'Segunda (23/10)'.
     Preencha 'isPlan' como true.
     `;
   } else if (isStory) {
@@ -228,6 +231,7 @@ export async function* generatePilatesContentStream(request: ContentRequest, sys
   }
 }
 
+// ... rest of the file (generatePilatesImage, etc) ...
 // UPDATE generatePilatesImage to support the new flow
 export const generatePilatesImage = async (request: ContentRequest, persona: any, contentContext: string): Promise<string | null> => {
     try {
