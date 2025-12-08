@@ -20,7 +20,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [promoBanner, setPromoBanner] = useState<SystemBanner | null>(null);
 
-  // Carregar Configurações do Studio (Cor, Idioma e Nomenclatura)
+  // Carregar Configurações do Studio (Cor e Nomenclatura - Idioma é fixo PT)
   useEffect(() => {
     const loadBrandAndSettings = async () => {
       const targetId = user?.isInstructor || user?.isStudent ? user.studioId : user?.id;
@@ -31,7 +31,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
             // Aplicar Cor da Marca
             if (profile.brandColor) setBrandColor(profile.brandColor);
             
-            // Language is enforced to PT, no need to set.
+            // Language is enforced to PT in context, no need to set here.
 
             // Aplicar Nomenclatura Salva
             if (profile.settings?.terminology) {
@@ -137,7 +137,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     setMenuItems(items);
-  }, [user, t]); // Re-run when language changes
+  }, [user, t]); // Re-run when language changes (though it's fixed now)
 
   const isSuperAdmin = user?.email === ADMIN_EMAIL;
   const isInstructor = user?.isInstructor;
@@ -147,9 +147,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
   // Função auxiliar para garantir link absoluto
   const getSafeLink = (url?: string) => {
     if (!url) return '#';
-    // Se já começa com http ou https, retorna como está
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    // Caso contrário, assume que é https
     return `https://${url}`;
   };
 

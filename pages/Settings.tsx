@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage, Terminology } from '../context/LanguageContext';
@@ -9,7 +10,7 @@ import { Settings as SettingsIcon, Save, CheckCircle, Mail, Type } from 'lucide-
 
 export const Settings: React.FC = () => {
   const { user } = useAuth();
-  const { setTerminology: setGlobalTerminology, t, language } = useLanguage();
+  const { setTerminology: setGlobalTerminology, t } = useLanguage();
   const [profile, setProfile] = useState<StudioProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useLanguage } from '../context/LanguageContext';
 import { Student } from '../types';
 import { 
   fetchStudents, 
@@ -20,7 +19,6 @@ import {
 
 export const Students: React.FC = () => {
   const { user } = useAuth();
-  const { t } = useLanguage();
   
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
@@ -204,9 +202,9 @@ export const Students: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <User className="h-6 w-6 text-brand-600" /> {t('students_title')}
+            <User className="h-6 w-6 text-brand-600" /> Meus Alunos
           </h1>
-          <p className="text-slate-500">{t('students_subtitle')}</p>
+          <p className="text-slate-500">Gerencie cadastros, fichas e acesso ao aplicativo.</p>
         </div>
         
         <div className="flex gap-2 w-full md:w-auto">
@@ -239,7 +237,7 @@ export const Students: React.FC = () => {
 
             {!showForm && (
                 <Button onClick={() => openForm()}>
-                    <Plus className="w-4 h-4 mr-2" /> {t('new_student_btn')}
+                    <Plus className="w-4 h-4 mr-2" /> Novo Aluno
                 </Button>
             )}
         </div>
