@@ -2,11 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { generateMarketingContent, generateTopicSuggestions, generatePilatesImage } from '../services/geminiService';
+import { generateMarketingContent, generateTopicSuggestions, generatePilatesImage, generatePilatesContentStream } from '../services/geminiService';
 import { MarketingFormData, GeneratedContent, SavedPost, StrategicContentPlan } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Megaphone, Sparkles, Video, Image as LucideImage, Copy, Loader2, Lightbulb, ArrowRight, ArrowLeft, RefreshCw, Save, Trash2, History, Download, CalendarDays, FileText, Zap, UserPlus, Heart, BookOpen, ShoppingBag, Users, Camera, MessageCircle, RotateCcw, Layers, Eye, CheckCircle, Wand2 } from 'lucide-react';
+import { Megaphone, Sparkles, Video, Image as LucideImage, Copy, Loader2, Lightbulb, ArrowRight, ArrowLeft, RefreshCw, Save, Trash2, History, Download, CalendarDays, FileText, Zap, UserPlus, Heart, BookOpen, ShoppingBag, Users, Camera, MessageCircle, Layout, RotateCcw, Layers, CheckCircle, Wand2, Eye } from 'lucide-react';
 import { savePost, fetchSavedPosts, deleteSavedPost, recordGenerationUsage, getTodayPostCount, saveContentPlan, fetchContentPlans, deleteContentPlan } from '../services/contentService';
 import { fetchProfile } from '../services/storage';
 
@@ -30,7 +30,7 @@ const STORY_GOALS = [
 const AUDIENCES = [
   { id: 'beginners', label: 'Iniciantes / Sedentários' },
   { id: 'women40', label: 'Mulheres 40+ / Menopausa' },
-  { id: 'pathologies', label: 'Alunos com Patologias' },
+  { id: 'pathologies', label: 'Alunos com Patologias (Hérnia, etc)' },
   { id: 'pain_relief', label: 'Foco em Alívio de Dores' },
   { id: 'pregnant', label: 'Gestantes / Pós-Parto' },
   { id: 'seniors', label: 'Idosos / Terceira Idade' },
@@ -39,11 +39,30 @@ const AUDIENCES = [
 ];
 
 const FORMATS = [
-  { id: 'auto', label: 'IA Decide (Recomendado)', description: 'A melhor escolha estratégica para o tema.' },
-  { id: 'reels', label: 'Reels / Vídeo Curto', description: 'Vídeo dinâmico e viral (até 60s).' },
-  { id: 'carousel', label: 'Carrossel (6 Cards)', description: 'Conteúdo educativo aprofundado.' },
-  { id: 'post', label: 'Post Estático', description: 'Imagem única com legenda persuasiva.' },
+  { id: 'auto', label: 'IA Decide (Recomendado)', description: 'A melhor escolha estratégica', recommended: true },
+  { id: 'reels', label: 'Reels / Vídeo Curto', description: 'Vídeo dinâmico (Max 60s)' },
+  { id: 'carousel', label: 'Carrossel (6 Cards)', description: 'Conteúdo profundo em 6 cards (Imagem Panorâmica)' },
+  { id: 'post', label: 'Post Estático', description: 'Imagem única com legenda forte' },
 ];
+
+const STYLES = [
+  'IA Decide (Recomendado)',
+  'Persona da Marca (Padrão)',
+  'Fotorealista / Clean',
+  'Minimalista',
+  'Ilustração',
+  'Cinematográfico',
+  'Energético / Vibrante'
+];
+
+const downloadImage = (dataUrl: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
 
 // --- SUB-COMPONENTS ---
 
@@ -71,19 +90,19 @@ const StepMode = ({ selected, onSelect }: any) => (
 
 const StepFormat = ({ selected, onSelect }: any) => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Qual o formato do post?</h2>
+        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Qual formato você prefere?</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {FORMATS.map((item) => (
                 <button
                     key={item.id}
                     onClick={() => onSelect(item.id)}
-                    className={`p-4 rounded-xl border-2 text-left transition-all ${selected === item.id ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
+                    className={`p-4 rounded-xl border-2 text-left transition-all flex flex-col ${selected === item.id ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
                 >
                     <div className="flex justify-between items-center mb-1">
-                        <span className={`font-bold ${selected === item.id ? 'text-brand-700 dark:text-brand-400' : 'text-slate-700 dark:text-slate-300'}`}>{item.label}</span>
-                        {item.id === 'auto' && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full uppercase font-bold">Smart</span>}
+                        <span className={`font-bold ${selected === item.id ? 'text-brand-900 dark:text-brand-100' : 'text-slate-800 dark:text-white'}`}>{item.label}</span>
+                        {item.recommended && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold uppercase">Recomendado</span>}
                     </div>
-                    <p className="text-xs text-slate-500">{item.description}</p>
+                    <p className={`text-sm ${selected === item.id ? 'text-brand-700 dark:text-brand-300' : 'text-slate-500'}`}>{item.description}</p>
                 </button>
             ))}
         </div>
@@ -111,7 +130,7 @@ const StepGoal = ({ selected, customGoal, mode, onSelect, onCustomChange }: any)
             </div>
             
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                <label className="text-sm font-bold text-slate-500 uppercase mb-2 block flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Outro Objetivo</label>
+                <label className="text-sm font-bold text-slate-500 uppercase mb-2 block flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Outro Objetivo Específico</label>
                 <input 
                     className="w-full p-4 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-950 focus:ring-2 focus:ring-brand-500 outline-none"
                     placeholder="Escreva aqui seu objetivo..."
@@ -140,7 +159,7 @@ const StepAudience = ({ selected, customAudience, onSelect, onCustomChange }: an
         </div>
 
         <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-            <label className="text-sm font-bold text-slate-500 uppercase mb-2 block flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Outro Público</label>
+            <label className="text-sm font-bold text-slate-500 uppercase mb-2 block flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Outro Público Específico</label>
             <input 
                 className="w-full p-4 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-950 focus:ring-2 focus:ring-brand-500 outline-none"
                 placeholder="Ex: Adolescentes, Homens, Praticantes de Corrida..."
@@ -220,7 +239,7 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate }
                 
                 {canRegenerate && (
                     <Button size="sm" onClick={onRegenerate} className="w-full bg-brand-600 hover:bg-brand-700 text-white">
-                        <RefreshCw className="w-4 h-4 mr-2"/> Gerar Novamente
+                        <RefreshCw className="w-4 h-4 mr-2"/> Ver outra sugestão
                     </Button>
                 )}
             </div>
@@ -366,6 +385,7 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate }
 
 export const ContentAgent: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   
   // States
   const [step, setStep] = useState(1);
@@ -382,10 +402,10 @@ export const ContentAgent: React.FC = () => {
   const [isGeneratingIdeas, setIsGeneratingIdeas] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<GeneratedContent | null>(null);
-  const [activePlan, setActivePlan] = useState<GeneratedContent | null>(null);
+  const [activePlan, setActivePlan] = useState<GeneratedContent | null>(null); // To persist plan state during interactions
   const [isSaving, setIsSaving] = useState(false);
 
-  // History
+  // History State
   const [showHistory, setShowHistory] = useState(false);
   const [historyTab, setHistoryTab] = useState<'posts' | 'plans'>('posts');
   const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);
@@ -395,11 +415,20 @@ export const ContentAgent: React.FC = () => {
   // Plan Tracking
   const [currentPlanItemIndices, setCurrentPlanItemIndices] = useState<{weekIndex: number, postIndex: number} | null>(null);
 
+  // Daily Limit
+  const [dailyCount, setDailyCount] = useState(0);
+  const [dailyLimit, setDailyLimit] = useState(5);
+  const isLimitReached = dailyCount >= dailyLimit;
+
   useEffect(() => {
     if (user?.id) {
         const targetId = user.isInstructor ? user.studioId : user.id;
         if(targetId) {
+            getTodayPostCount(targetId).then(setDailyCount);
             loadHistory(targetId);
+            fetchProfile(targetId).then(profile => {
+                if (profile?.planMaxDailyPosts) setDailyLimit(profile.planMaxDailyPosts);
+            });
         }
     }
   }, [user, showHistory]);
@@ -468,14 +497,12 @@ export const ContentAgent: React.FC = () => {
         if (content.isPlan) {
             setActivePlan(content);
         }
-        
-        // Final Step Logic
-        const finalStep = formData.mode === 'single' ? 6 : 5;
-        setStep(finalStep);
+        setStep(5);
         
         const studioId = user?.isInstructor ? user.studioId : user?.id;
         if(studioId) {
             await recordGenerationUsage(studioId);
+            setDailyCount(prev => prev + 1);
         }
 
     } catch (e) {
@@ -505,7 +532,7 @@ export const ContentAgent: React.FC = () => {
         customAudience: ''
     }));
 
-    setStep(5); // Jump to Topic input directly in single mode flow
+    setStep(4);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -524,8 +551,10 @@ export const ContentAgent: React.FC = () => {
               isReels: post.request.format.toLowerCase().includes('reels')
           };
           setResult(mockResult);
-          setStep(6);
+          setStep(5);
           window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+          alert("Post não encontrado no histórico. Pode ter sido excluído.");
       }
   };
 
@@ -569,7 +598,8 @@ export const ContentAgent: React.FC = () => {
           res = await savePost(studioId, post);
 
           if (res.success && currentPlanItemIndices && activePlan) {
-              const newPlan = JSON.parse(JSON.stringify(activePlan)); 
+              // Update the Active Plan State locally with the new ID
+              const newPlan = JSON.parse(JSON.stringify(activePlan)); // Deep copy
               if (newPlan.weeks && newPlan.weeks[currentPlanItemIndices.weekIndex]) {
                   newPlan.weeks[currentPlanItemIndices.weekIndex].posts[currentPlanItemIndices.postIndex].generatedPostId = postId;
                   setActivePlan(newPlan);
@@ -580,6 +610,8 @@ export const ContentAgent: React.FC = () => {
       if (res.success) {
           alert("Salvo com sucesso!");
           loadHistory(studioId);
+      } else {
+          alert("Erro ao salvar.");
       }
       setIsSaving(false);
   };
@@ -587,7 +619,7 @@ export const ContentAgent: React.FC = () => {
   const handleBackToPlan = () => {
       if (activePlan) {
           setResult(activePlan);
-          setStep(6);
+          setStep(5);
           setFormData(prev => ({ ...prev, mode: 'plan' }));
           setCurrentPlanItemIndices(null);
       }
@@ -605,7 +637,11 @@ export const ContentAgent: React.FC = () => {
       }
   };
 
-  const totalSteps = formData.mode === 'single' ? 6 : 5;
+  const getFormatIcon = (format: string) => {
+      if (format.includes('Reels')) return <Video className="w-4 h-4 text-purple-600"/>;
+      if (format.includes('Carrossel')) return <Layers className="w-4 h-4 text-blue-600"/>;
+      return <FileText className="w-4 h-4 text-green-600"/>;
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in pb-12">
@@ -652,7 +688,7 @@ export const ContentAgent: React.FC = () => {
                                         const viewPlan: GeneratedContent = {
                                             isPlan: true,
                                             suggestedFormat: 'Plano Estratégico',
-                                            reasoning: 'Plano recuperado',
+                                            reasoning: 'Plano recuperado do histórico',
                                             hashtags: [],
                                             tips: '',
                                             weeks: p.weeks?.map((w: any) => ({
@@ -663,13 +699,13 @@ export const ContentAgent: React.FC = () => {
                                                     format: idea.format,
                                                     theme: idea.theme,
                                                     idea: idea.theme,
-                                                    generatedPostId: idea.generatedPostId 
+                                                    generatedPostId: idea.generatedPostId // Ensure ID is mapped
                                                 }))
                                             }))
                                         };
                                         setResult(viewPlan);
-                                        setActivePlan(viewPlan);
-                                        setStep(6);
+                                        setActivePlan(viewPlan); // Set as active to allow state updates
+                                        setStep(5);
                                         setShowHistory(false);
                                     }}>Abrir</Button>
                                     <button onClick={() => handleDelete(p.id, 'plan')}><Trash2 className="w-4 h-4 text-red-500"/></button>
@@ -684,15 +720,15 @@ export const ContentAgent: React.FC = () => {
                 {/* Progress Bar */}
                 <div className="mb-8">
                     <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                        <span className={step >= 1 ? 'text-brand-600' : ''}>1. Modo</span>
-                        {formData.mode === 'single' && <span className={step >= 2 ? 'text-brand-600' : ''}>2. Formato</span>}
-                        <span className={step >= (formData.mode === 'single' ? 3 : 2) ? 'text-brand-600' : ''}>{formData.mode === 'single' ? '3' : '2'}. Objetivo</span>
-                        <span className={step >= (formData.mode === 'single' ? 4 : 3) ? 'text-brand-600' : ''}>{formData.mode === 'single' ? '4' : '3'}. Público</span>
-                        <span className={step >= (formData.mode === 'single' ? 5 : 4) ? 'text-brand-600' : ''}>{formData.mode === 'single' ? '5' : '4'}. Tema</span>
-                        <span className={step >= totalSteps ? 'text-brand-600' : ''}>Final</span>
+                        <span className={step >= 1 ? 'text-brand-600' : ''}>Modo</span>
+                        <span className={step >= 2 ? 'text-brand-600' : ''}>{formData.mode === 'single' ? 'Formato' : 'Objetivo'}</span>
+                        <span className={step >= 3 ? 'text-brand-600' : ''}>{formData.mode === 'single' ? 'Objetivo' : 'Público'}</span>
+                        <span className={step >= 4 ? 'text-brand-600' : ''}>{formData.mode === 'single' ? 'Público' : 'Tema'}</span>
+                        <span className={step >= 5 ? 'text-brand-600' : ''}>{formData.mode === 'single' ? 'Tema' : 'Resultado'}</span>
+                        <span className={step >= 6 ? 'text-brand-600' : ''}>Final</span>
                     </div>
                     <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-brand-500 transition-all duration-500" style={{ width: `${(step / totalSteps) * 100}%` }}></div>
+                        <div className="h-full bg-brand-500 transition-all duration-500" style={{ width: `${(step / (formData.mode === 'single' ? 6 : 5)) * 100}%` }}></div>
                     </div>
                 </div>
 
@@ -733,7 +769,7 @@ export const ContentAgent: React.FC = () => {
                         />
                         <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800 gap-2">
                             {currentPlanItemIndices && (
-                                <Button variant="ghost" onClick={handleBackToPlan}>Cancelar e Voltar</Button>
+                                <Button variant="ghost" onClick={handleBackToPlan}>Cancelar e Voltar ao Plano</Button>
                             )}
                             <Button onClick={handleGenerateContent} isLoading={isGenerating} className="px-8 h-12 text-lg shadow-lg shadow-brand-200">
                                 <Wand2 className="w-5 h-5 mr-2" /> Gerar {formData.mode === 'plan' ? 'Planejamento' : 'Conteúdo'}
@@ -742,7 +778,7 @@ export const ContentAgent: React.FC = () => {
                     </div>
                 )}
 
-                {step === totalSteps && (
+                {((formData.mode === 'single' && step === 6) || (formData.mode !== 'single' && step === 5)) && (
                     <>
                         {currentPlanItemIndices && (
                             <div className="mb-4">

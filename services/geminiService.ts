@@ -1,6 +1,3 @@
-
-
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
   MarketingFormData, GeneratedContent, CategorizedTopics, ContentRequest, 
@@ -105,7 +102,7 @@ export const generateMarketingContent = async (formData: MarketingFormData, lang
             items: {
               type: Type.OBJECT,
               properties: {
-                day: { type: Type.STRING },
+                day: { type: Type.STRING, description: "Day of week AND Date (e.g. Segunda, 12/05)" },
                 format: { type: Type.STRING },
                 idea: { type: Type.STRING }
               },
@@ -172,8 +169,8 @@ export const generateMarketingContent = async (formData: MarketingFormData, lang
   Nota: O campo 'visualPrompt' deve ser sempre em Inglês (para o gerador de imagem).
   
   Modo: ${formData.mode}
-  Objetivo: ${formData.customGoal || formData.goal}
-  Público: ${formData.customAudience || formData.audience}
+  Objetivos Selecionados: ${formData.customGoal || formData.goal}
+  Públicos Selecionados: ${formData.customAudience || formData.audience}
   Tema: ${formData.topic}
   Formato Preferido: ${formData.format}
   Estilo: ${formData.style}
@@ -182,11 +179,11 @@ export const generateMarketingContent = async (formData: MarketingFormData, lang
   if (isPlan) {
     prompt += `
     Crie um plano editorial de 4 semanas.
-    Data de Início: ${formData.startDate || 'Hoje'}
+    Data de Início do Planejamento: ${formData.startDate || 'Hoje'}
     Defina um macro-tema para cada semana.
     Frequência: Sugira a melhor frequência.
     
-    IMPORTANTE: No campo 'day', forneça Dia da Semana E Data (DD/MM).
+    IMPORTANTE: No campo 'day', forneça Dia da Semana E Data específica (Ex: Segunda, 12/05) calculada a partir da data de início.
     Distribua formatos (Reels, Carrossel, Estático) de forma estratégica.
     Defina 'isPlan' como true.
     `;
