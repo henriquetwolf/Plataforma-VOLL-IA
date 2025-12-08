@@ -6,7 +6,7 @@ import { generateMarketingContent, generateTopicSuggestions, generatePilatesImag
 import { MarketingFormData, GeneratedContent, SavedPost, StrategicContentPlan } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Megaphone, Sparkles, Video, Image as LucideImage, Copy, Loader2, Lightbulb, ArrowRight, ArrowLeft, RefreshCw, Save, Trash2, History, Download, CalendarDays, FileText, Zap, UserPlus, Heart, BookOpen, ShoppingBag, Users, Camera, MessageCircle, Layout, RotateCcw, Layers, CheckCircle, Wand2, Eye, Calendar, Lock } from 'lucide-react';
+import { Megaphone, Sparkles, Video, Image as LucideImage, Copy, Loader2, Lightbulb, ArrowRight, ArrowLeft, RefreshCw, Save, Trash2, History, Download, CalendarDays, FileText, Zap, UserPlus, Heart, BookOpen, ShoppingBag, Users, Camera, MessageCircle, Layout, RotateCcw, Layers, CheckCircle, Wand2, Eye, Calendar, Lock, Target } from 'lucide-react';
 import { savePost, fetchSavedPosts, deleteSavedPost, recordGenerationUsage, getTodayPostCount, saveContentPlan, fetchContentPlans, deleteContentPlan } from '../services/contentService';
 import { fetchProfile } from '../services/storage';
 
@@ -89,8 +89,6 @@ const StepMode = ({ selected, onSelect }: any) => (
 );
 
 const StepGoal = ({ selected, customGoal, mode, onSelect, onCustomChange }: any) => {
-    // Determine initial selection based on props
-    // Check if current goal is in the standard list
     const list = mode === 'story' ? STORY_GOALS : GOALS;
     
     // Parse the incoming 'selected' prop to handle comma-separated strings
@@ -103,8 +101,6 @@ const StepGoal = ({ selected, customGoal, mode, onSelect, onCustomChange }: any)
         } else {
             newSelection = [...selectedArray, label];
         }
-        // Pass back joined string or first item if parent expects single string structure in some places
-        // The parent state 'goal' will hold the comma-separated string
         onSelect(newSelection.join(', '));
     };
 
@@ -138,6 +134,17 @@ const StepGoal = ({ selected, customGoal, mode, onSelect, onCustomChange }: any)
                     value={customGoal || ''}
                     onChange={e => onCustomChange(e.target.value)}
                 />
+            </div>
+            
+            <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
+                {/* Adding explicit Next button for Step 2 */}
+                <Button onClick={() => { 
+                    // This button acts as "Confirm Selection"
+                    const nextBtn = document.getElementById('step-2-next');
+                    if (nextBtn) nextBtn.click();
+                }}>
+                    Continuar <ArrowRight className="w-4 h-4 ml-2"/>
+                </Button>
             </div>
         </div>
     );
@@ -184,6 +191,16 @@ const StepAudience = ({ selected, customAudience, onSelect, onCustomChange }: an
                     value={customAudience || ''}
                     onChange={e => onCustomChange(e.target.value)}
                 />
+            </div>
+            
+            <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
+                {/* Adding explicit Next button for Step 3 */}
+                <Button onClick={() => { 
+                    const nextBtn = document.getElementById('step-3-next');
+                    if (nextBtn) nextBtn.click();
+                }}>
+                    Continuar <ArrowRight className="w-4 h-4 ml-2"/>
+                </Button>
             </div>
         </div>
     );
@@ -415,15 +432,22 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate, 
                             </h4>
                             <div className="grid md:grid-cols-3 gap-4">
                                 {week.posts?.map((post: any, idx: number) => (
-                                    <div key={idx} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
-                                        <div className="flex justify-between mb-2">
-                                            <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">{post.day}</span>
-                                            <span className="text-[10px] bg-white dark:bg-slate-900 border px-2 py-0.5 rounded text-slate-500 uppercase font-bold">{post.format}</span>
+                                    <div key={idx} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800 h-full flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex justify-between mb-2">
+                                                <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">{post.day}</span>
+                                                <span className="text-[10px] bg-white dark:bg-slate-900 border px-2 py-0.5 rounded text-slate-500 uppercase font-bold">{post.format}</span>
+                                            </div>
+                                            {post.objective && (
+                                                <div className="flex items-center gap-1 mb-2 text-xs text-brand-600 bg-brand-50 w-fit px-2 py-0.5 rounded">
+                                                    <Target className="w-3 h-3" /> {post.objective}
+                                                </div>
+                                            )}
+                                            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">{post.idea || post.theme}</p>
                                         </div>
-                                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">{post.idea || post.theme}</p>
                                         
                                         {/* Generate Button for each Plan Item */}
-                                        <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
+                                        <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800 mt-2">
                                             {post.generatedPostId ? (
                                                 <Button size="xs" variant="secondary" className="w-full bg-green-100 text-green-700 border-green-200 hover:bg-green-200 cursor-default">
                                                     <CheckCircle className="w-3 h-3 mr-1"/> Gerado
@@ -603,10 +627,10 @@ export const ContentAgent: React.FC = () => {
         mode: 'single',
         format: fmt,
         topic: post.idea || post.theme || '',
-        goal: 'Engajamento',
-        audience: 'Público Geral',
+        // Keep previous goal/audience from plan loading if available, otherwise use specific daily objective
+        // Logic: Use daily objective as Custom Goal, retain overall Audience from Plan
         customGoal: post.objective || '',
-        customAudience: ''
+        customAudience: '' // Keep general audience
     }));
 
     setStep(4);
@@ -765,6 +789,7 @@ export const ContentAgent: React.FC = () => {
                         )) : savedPlans.map(p => (
                             <div key={p.id} className="bg-white dark:bg-slate-900 p-4 rounded border shadow-sm">
                                 <p className="font-bold dark:text-white">{p.goals.keyThemes[0]}</p>
+                                <p className="text-xs text-slate-500 mb-2">{new Date(p.createdAt).toLocaleDateString()}</p>
                                 <div className="flex justify-between mt-2">
                                     <Button size="xs" variant="ghost" onClick={() => {
                                         const viewPlan: GeneratedContent = {
@@ -781,12 +806,20 @@ export const ContentAgent: React.FC = () => {
                                                     format: idea.format,
                                                     theme: idea.theme,
                                                     idea: idea.theme,
-                                                    generatedPostId: idea.generatedPostId // Ensure ID is mapped
+                                                    objective: idea.objective, // Load saved objective
+                                                    generatedPostId: idea.generatedPostId
                                                 }))
                                             }))
                                         };
+                                        // Update form data context for subsequent generations
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            goal: p.goals.mainObjective,
+                                            audience: p.goals.targetAudience.join(', ')
+                                        }));
+                                        
                                         setResult(viewPlan);
-                                        setActivePlan(viewPlan); // Set as active to allow state updates
+                                        setActivePlan(viewPlan); 
                                         setStep(5);
                                         setShowHistory(false);
                                     }}>Abrir</Button>
@@ -824,9 +857,8 @@ export const ContentAgent: React.FC = () => {
                             onSelect={handleGoalSelect} 
                             onCustomChange={(val: string) => setFormData(prev => ({...prev, customGoal: val, goal: 'Outro (Descrever...)'}))} 
                         />
-                        <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
-                            <Button onClick={handleNext}>Continuar <ArrowRight className="w-4 h-4 ml-2"/></Button>
-                        </div>
+                        {/* Hidden button for programmatic click */}
+                        <button id="step-2-next" className="hidden" onClick={handleNext}></button>
                     </>
                 )}
 
@@ -838,9 +870,8 @@ export const ContentAgent: React.FC = () => {
                             onSelect={handleAudienceSelect} 
                             onCustomChange={(val: string) => setFormData(prev => ({...prev, customAudience: val, audience: 'Outro (Descrever...)'}))} 
                         />
-                        <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
-                            <Button onClick={handleNext}>Continuar <ArrowRight className="w-4 h-4 ml-2"/></Button>
-                        </div>
+                        {/* Hidden button for programmatic click */}
+                        <button id="step-3-next" className="hidden" onClick={handleNext}></button>
                     </>
                 )}
 
