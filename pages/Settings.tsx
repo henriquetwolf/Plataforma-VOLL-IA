@@ -1,28 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useLanguage, Language, Terminology } from '../context/LanguageContext';
+import { useLanguage, Terminology } from '../context/LanguageContext';
 import { fetchProfile, upsertProfile } from '../services/storage';
 import { StudioProfile } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Settings as SettingsIcon, Save, CheckCircle, Mail, ExternalLink, Globe, Type } from 'lucide-react';
-
-const AVAILABLE_LANGUAGES: { code: Language; label: string }[] = [
-  { code: 'pt', label: '🇧🇷 Português (Brasil)' },
-  { code: 'en', label: '🇺🇸 English (US)' },
-  { code: 'es', label: '🇪🇸 Español' },
-  { code: 'fr', label: '🇫🇷 Français' },
-  { code: 'de', label: '🇩🇪 Deutsch' },
-  { code: 'it', label: '🇮🇹 Italiano' },
-  { code: 'zh', label: '🇨🇳 中文 (Chinese)' },
-  { code: 'ja', label: '🇯🇵 日本語 (Japanese)' },
-  { code: 'ru', label: '🇷🇺 Русский (Russian)' },
-  { code: 'ko', label: '🇰🇷 한국어 (Korean)' }
-];
+import { Settings as SettingsIcon, Save, CheckCircle, Mail, Type } from 'lucide-react';
 
 export const Settings: React.FC = () => {
   const { user } = useAuth();
-  const { setLanguage: setGlobalLanguage, setTerminology: setGlobalTerminology, t, language } = useLanguage();
+  const { setTerminology: setGlobalTerminology, t, language } = useLanguage();
   const [profile, setProfile] = useState<StudioProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -30,7 +17,6 @@ export const Settings: React.FC = () => {
   
   // Estados locais
   const [senderEmail, setSenderEmail] = useState('');
-  const [selectedLanguage, setSelectedLanguage] = useState<Language>('pt');
   const [selectedTerminology, setSelectedTerminology] = useState<Terminology>('student');
 
   useEffect(() => {
@@ -40,10 +26,6 @@ export const Settings: React.FC = () => {
         setProfile(data);
         if (data && data.settings) {
             if (data.settings.sender_email) setSenderEmail(data.settings.sender_email);
-            if (data.settings.language) {
-                setSelectedLanguage(data.settings.language);
-                setGlobalLanguage(data.settings.language);
-            }
             if (data.settings.terminology) {
                 setSelectedTerminology(data.settings.terminology);
                 setGlobalTerminology(data.settings.terminology);
@@ -53,7 +35,7 @@ export const Settings: React.FC = () => {
       setLoading(false);
     };
     loadData();
-  }, [user, setGlobalLanguage, setGlobalTerminology]);
+  }, [user, setGlobalTerminology]);
 
   const handleSave = async () => {
     if (!user?.id || !profile) return;
@@ -64,7 +46,7 @@ export const Settings: React.FC = () => {
     const currentPermissions = profile.settings?.instructor_permissions || { rehab: true, newsletters: true, students: true };
     const updatedSettings = {
         sender_email: senderEmail,
-        language: selectedLanguage,
+        language: 'pt' as const, // Força PT no banco de dados também
         terminology: selectedTerminology,
         instructor_permissions: currentPermissions
     };
@@ -74,7 +56,6 @@ export const Settings: React.FC = () => {
     });
 
     if (result.success) {
-        setGlobalLanguage(selectedLanguage);
         setGlobalTerminology(selectedTerminology);
         setMessage(t('save') + '!');
         setTimeout(() => setMessage(''), 3000);
@@ -129,34 +110,7 @@ export const Settings: React.FC = () => {
             </div>
         </div>
 
-        {/* Seção 2: Idioma */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
-                <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                    <Globe className="w-5 h-5 text-green-600" /> {t('language_settings')}
-                </h2>
-                <p className="text-sm text-slate-500 mt-1">
-                    {t('language_desc')}
-                </p>
-            </div>
-            <div className="p-6">
-                <div className="max-w-md">
-                    <select 
-                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                        value={selectedLanguage}
-                        onChange={(e) => setSelectedLanguage(e.target.value as any)}
-                    >
-                        {AVAILABLE_LANGUAGES.map(lang => (
-                            <option key={lang.code} value={lang.code}>
-                                {lang.label}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        {/* Seção 3: Nomenclatura */}
+        {/* Seção 2: Nomenclatura */}
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
                 <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
@@ -178,7 +132,7 @@ export const Settings: React.FC = () => {
                             className="w-4 h-4 text-brand-600 focus:ring-brand-500"
                         />
                         <span className="text-slate-700 dark:text-slate-300 font-medium">
-                            {language === 'pt' ? 'Aluno (Padrão)' : 'Student (Default)'}
+                            Aluno (Padrão)
                         </span>
                     </label>
                     
@@ -192,7 +146,7 @@ export const Settings: React.FC = () => {
                             className="w-4 h-4 text-brand-600 focus:ring-brand-500"
                         />
                         <span className="text-slate-700 dark:text-slate-300 font-medium">
-                            {language === 'pt' ? 'Cliente' : 'Client'}
+                            Cliente
                         </span>
                     </label>
                 </div>

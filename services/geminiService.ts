@@ -1,5 +1,4 @@
 
-// ... existing imports ...
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
   MarketingFormData, GeneratedContent, CategorizedTopics, ContentRequest, 
@@ -11,26 +10,14 @@ import {
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-const getLanguageName = (lang: string) => {
-    const map: Record<string, string> = {
-        pt: 'Português do Brasil',
-        en: 'English (US)',
-        es: 'Español',
-        fr: 'Français',
-        de: 'Deutsch',
-        it: 'Italiano',
-        zh: 'Chinese (Simplified)',
-        ja: 'Japanese',
-        ru: 'Russian',
-        ko: 'Korean'
-    };
-    return map[lang] || 'Português do Brasil';
+const getLanguageName = () => {
+    return 'Português do Brasil';
 };
 
 export const handleGeminiError = (err: any): string => {
   console.error("Gemini API Error:", err);
   return `<div class="bg-red-50 p-4 rounded text-red-800 border border-red-200">
-    <strong>Error:</strong> ${err.message || "Unknown error."}
+    <strong>Erro na IA:</strong> ${err.message || "Ocorreu um erro inesperado."}
   </div>`;
 };
 
@@ -56,15 +43,14 @@ const cleanJSON = (text: string) => {
 // --- NEW MARKETING AGENT ---
 
 export const generateTopicSuggestions = async (goal: string, audience: string, lang: string = 'pt'): Promise<string[]> => {
-  const languageName = getLanguageName(lang);
   const prompt = `
-  Act as a marketing expert for Pilates Studios.
-  Suggest 5 creative and specific topics for Instagram posts.
-  Goal: ${goal}
-  Audience: ${audience}
+  Atue como um especialista em Marketing Digital para Studios de Pilates no Brasil.
+  Sugira 5 temas criativos e específicos para posts no Instagram.
+  Objetivo: ${goal}
+  Público-Alvo: ${audience}
   
-  IMPORTANT: Response strictly in ${languageName}.
-  Return ONLY a JSON array of strings with the topic titles.
+  IMPORTANTE: Responda estritamente em Português do Brasil.
+  Retorne APENAS um array JSON de strings com os títulos dos temas.
   `;
 
   try {
@@ -89,7 +75,6 @@ export const generateTopicSuggestions = async (goal: string, audience: string, l
 export const generateMarketingContent = async (formData: MarketingFormData, lang: string = 'pt'): Promise<GeneratedContent | null> => {
   const isPlan = formData.mode === 'plan';
   const isStory = formData.mode === 'story';
-  const languageName = getLanguageName(lang);
   
   const baseProperties: any = {
     suggestedFormat: { type: Type.STRING },
@@ -178,44 +163,44 @@ export const generateMarketingContent = async (formData: MarketingFormData, lang
   }
 
   let prompt = `
-  Act as a Digital Marketing Expert for Pilates Studios.
-  Generate content for Instagram based on this data.
+  Atue como um Especialista em Marketing Digital para Studios de Pilates.
+  Gere conteúdo para Instagram com base nestes dados.
   
-  OUTPUT LANGUAGE: ${languageName} (The final content must be in this language).
-  Note: 'visualPrompt' field must always be in English.
+  IDIOMA DE SAÍDA: Português do Brasil.
+  Nota: O campo 'visualPrompt' deve ser sempre em Inglês (para o gerador de imagem).
   
-  Mode: ${formData.mode}
-  Goal: ${formData.customGoal || formData.goal}
-  Audience: ${formData.customAudience || formData.audience}
-  Topic: ${formData.topic}
-  Format: ${formData.format}
-  Style: ${formData.style}
+  Modo: ${formData.mode}
+  Objetivo: ${formData.customGoal || formData.goal}
+  Público: ${formData.customAudience || formData.audience}
+  Tema: ${formData.topic}
+  Formato Preferido: ${formData.format}
+  Estilo: ${formData.style}
   `;
 
   if (isPlan) {
     prompt += `
-    Create a 4-week editorial plan.
-    Start Date: ${formData.startDate || 'Today'}
-    Define a macro theme for each week.
-    Frequency: ${formData.format}
+    Crie um plano editorial de 4 semanas.
+    Data de Início: ${formData.startDate || 'Hoje'}
+    Defina um macro-tema para cada semana.
+    Frequência: Sugira a melhor frequência.
     
-    IMPORTANT: In 'day' field, provide Day of Week AND Date (DD/MM).
-    Distribute formats (Reels, Carousel, Static) strategically.
-    Set 'isPlan' to true.
+    IMPORTANTE: No campo 'day', forneça Dia da Semana E Data (DD/MM).
+    Distribua formatos (Reels, Carrossel, Estático) de forma estratégica.
+    Defina 'isPlan' como true.
     `;
   } else if (isStory) {
     prompt += `
-    Create a strategic Story sequence (3 to 6 frames).
-    Focus on retention and interaction.
-    Set 'isStory' to true.
+    Crie uma sequência estratégica de Stories (3 a 6 frames).
+    Foco em retenção e interação.
+    Defina 'isStory' como true.
     `;
   } else {
     prompt += `
-    Create a complete single post.
-    Generate 'captionShort' and 'captionLong'.
-    If format is Reels/Video, provide scripts in 'reelsOptions' and set 'isReels' true.
-    If Static/Carousel, focus on 'visualContent'.
-    If Carousel, describe image as a connected panoramic sequence.
+    Crie um post único completo.
+    Gere 'captionShort' (legenda curta) e 'captionLong' (legenda longa e persuasiva).
+    Se o formato for Reels/Vídeo, forneça roteiros em 'reelsOptions' e defina 'isReels' como true.
+    Se for Estático/Carrossel, foque em 'visualContent' descrevendo a imagem.
+    Se Carrossel, descreva a imagem como uma sequência panorâmica conectada.
     `;
   }
 
@@ -236,25 +221,24 @@ export const generateMarketingContent = async (formData: MarketingFormData, lang
 };
 
 export async function* generatePilatesContentStream(request: ContentRequest, systemInstruction: string, lang: string = 'pt') {
-  const languageName = getLanguageName(lang);
   const prompt = `
-  Act as a Pilates Marketing Expert.
-  Create content for Instagram.
+  Atue como um Especialista em Marketing para Pilates.
+  Crie conteúdo para Instagram.
   
-  OUTPUT LANGUAGE: ${languageName}
+  IDIOMA: Português do Brasil
   
-  Format: ${request.format}
-  Goal: ${request.objective}
-  Theme: ${request.theme}
-  Audience: ${request.audience}
-  Tone: ${request.tone}
+  Formato: ${request.format}
+  Objetivo: ${request.objective}
+  Tema: ${request.theme}
+  Público: ${request.audience}
+  Tom: ${request.tone}
   
-  ${request.modificationPrompt ? `Refinement: ${request.modificationPrompt}` : ''}
+  ${request.modificationPrompt ? `Refinamento: ${request.modificationPrompt}` : ''}
 
-  Instructions:
-  1. Use emojis.
-  2. If Video/Reels, include script and audio suggestion.
-  3. If Static, include caption and image description.
+  Instruções:
+  1. Use emojis relevantes.
+  2. Se for Vídeo/Reels, inclua roteiro e sugestão de áudio.
+  3. Se for Estático, inclua legenda e descrição da imagem.
   `;
 
   try {
@@ -279,11 +263,12 @@ export const generatePilatesImage = async (request: ContentRequest, persona: any
     try {
         const isCarousel = request.format.toLowerCase().includes('carrossel') || request.format.toLowerCase().includes('carousel');
         
+        // Image prompts must be in English for better results with Gemini Image/Imagen
         let prompt = `Create a high quality image for a Pilates studio Instagram post.
         Style: ${request.imageStyle}.
         Theme: ${request.theme}.
         Context: ${contentContext.substring(0, 300)}...
-        No text in image.`;
+        No text in image. Photorealistic, professional lighting.`;
 
         if (isCarousel) {
             prompt = `Create a wide panoramic storyboard image (16:9 ratio).
@@ -317,47 +302,47 @@ export const generatePilatesImage = async (request: ContentRequest, persona: any
 };
 
 export const generateFinancialAnalysis = async (inputs: any, model: any, results: any, targetRev: number, potentialRev: number, maxCap: number, profRev: number, lang: string = 'pt'): Promise<string> => {
-    const languageName = getLanguageName(lang);
     try { 
         const response = await ai.models.generateContent({ 
             model: 'gemini-2.5-flash', 
-            contents: `Act as a senior financial consultant for fitness studios.
-            Generate a detailed financial analysis in HTML format (use <h2>, <p>, <ul>, <li>, <strong>).
+            contents: `Atue como um consultor financeiro sênior para estúdios fitness.
+            Gere uma análise financeira detalhada em formato HTML (use tags <h2>, <p>, <ul>, <li>, <strong>).
             
-            OUTPUT LANGUAGE: ${languageName}
+            IDIOMA DE SAÍDA: Português do Brasil.
             
-            Studio Data: ${JSON.stringify({inputs, model, results, targetRev, potentialRev})}
-            ` 
+            Dados do Studio: ${JSON.stringify({inputs, model, results, targetRev, potentialRev})}
+            
+            Foque na viabilidade dos modelos de contratação (CLT vs PJ vs Autônomo) e dê recomendações práticas.` 
         }); 
         return response.text || ''; 
     } catch (e) { return ''; }
 };
 
 export const generateWhatsAppScript = async (request: WhatsAppScriptRequest, lang: string = 'pt'): Promise<string> => {
-    const languageName = getLanguageName(lang);
     try { 
         const response = await ai.models.generateContent({ 
             model: 'gemini-2.5-flash', 
-            contents: `Create a persuasive and human WhatsApp script.
-            Language: ${languageName}.
-            Client Name: ${request.clientName}. 
-            Goal: ${request.objective}.
-            Tone: ${request.tone}.
-            Context: ${request.context || 'None'}` 
+            contents: `Crie um roteiro de mensagem para WhatsApp persuasivo e humano.
+            Idioma: Português do Brasil (Natural, Brasileiro).
+            Nome do Cliente: ${request.clientName}. 
+            Objetivo: ${request.objective}.
+            Tom de Voz: ${request.tone}.
+            Contexto Extra: ${request.context || 'Nenhum'}.
+            
+            Use quebras de linha e emojis adequados.` 
         }); 
         return response.text || ''; 
     } catch (e) { return ''; }
 };
 
 export const generateActionIdeas = async (input: ActionInput, lang: string = 'pt'): Promise<ActionIdea[]> => {
-    const languageName = getLanguageName(lang);
     try { 
         const response = await ai.models.generateContent({ 
             model: 'gemini-2.5-flash', 
-            contents: `Suggest 3 campaign/event ideas for a Pilates studio.
-            Language: ${languageName}.
-            Theme: ${input.theme}. 
-            Goal: ${input.objective}.`, 
+            contents: `Sugira 3 ideias de campanhas ou eventos para um studio de Pilates.
+            Idioma: Português do Brasil.
+            Tema: ${input.theme}. 
+            Objetivo: ${input.objective}.`, 
             config: { 
                 responseMimeType: "application/json", 
                 responseSchema: { 
@@ -379,32 +364,32 @@ export const generateActionIdeas = async (input: ActionInput, lang: string = 'pt
 };
 
 export const generateActionPlanDetail = async (idea: ActionIdea, input: ActionInput, lang: string = 'pt'): Promise<string> => {
-    const languageName = getLanguageName(lang);
     try { 
         const response = await ai.models.generateContent({ 
             model: 'gemini-2.5-flash', 
-            contents: `Create a detailed action plan in HTML format.
-            Language: ${languageName}.
-            Idea: ${idea.title}. 
-            Context: ${JSON.stringify(input)}` 
+            contents: `Crie um plano de ação detalhado em formato HTML.
+            Idioma: Português do Brasil.
+            Ideia Escolhida: ${idea.title}. 
+            Contexto do Studio: ${JSON.stringify(input)}.
+            
+            Inclua: Passo a passo, Cronograma sugerido, Materiais necessários e Dicas de execução.` 
         }); 
         return response.text || ''; 
     } catch (e) { return ''; }
 };
 
 export const fetchTriageQuestion = async (initialQuery: string, history: ChatMessage[], studentName?: string, lang: string = 'pt'): Promise<{status: TriageStatus, question?: string}> => {
-    const languageName = getLanguageName(lang);
     try { 
         const response = await ai.models.generateContent({ 
             model: 'gemini-2.5-flash', 
-            contents: `Act as a Senior Pilates Clinical Mentor.
-            Language: ${languageName}.
-            Student: ${studentName}. Complaint: ${initialQuery}. 
-            Conversation History: ${JSON.stringify(history)}. 
+            contents: `Atue como um Mentor Clínico Sênior de Pilates.
+            Idioma: Português do Brasil.
+            Aluno: ${studentName}. Queixa: ${initialQuery}. 
+            Histórico da Conversa: ${JSON.stringify(history)}. 
             
-            Goal: Ask questions to understand pain and limitation to build a class.
-            Ask ONE question at a time.
-            If sufficient info (pain, limitation, goal), return status FINISH. Else CONTINUE.`, 
+            Objetivo: Fazer perguntas para entender a dor e limitação para montar uma aula segura.
+            Faça UMA pergunta por vez. Seja empático e técnico.
+            Se já tiver informações suficientes (dor, limitação, objetivo), retorne status FINISH. Senão, CONTINUE.`, 
             config: { 
                 responseMimeType: "application/json", 
                 responseSchema: { 
@@ -421,14 +406,15 @@ export const fetchTriageQuestion = async (initialQuery: string, history: ChatMes
 };
 
 export const fetchPathologyData = async (query: string, equipment: string[], history?: ChatMessage[], lang: string = 'pt'): Promise<PathologyResponse | null> => {
-    const languageName = getLanguageName(lang);
     try { 
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Generate a clinical Pilates guide for: ${query}.
-            Language: ${languageName}.
-            Available Equipment: ${equipment.join(', ')}. 
-            Anamnesis History: ${JSON.stringify(history)}`,
+            contents: `Gere um guia clínico de Pilates para: ${query}.
+            Idioma: Português do Brasil.
+            Equipamentos Disponíveis: ${equipment.join(', ')}. 
+            Histórico da Anamnese: ${JSON.stringify(history)}
+            
+            Forneça objetivos, exercícios indicados e contraindicados.`,
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
@@ -470,16 +456,17 @@ export const fetchPathologyData = async (query: string, equipment: string[], his
 };
 
 export const fetchLessonPlan = async (query: string, equipment: string[], history?: any[], observations?: string, focus?: string, lang: string = 'pt'): Promise<LessonPlanResponse | null> => {
-    const languageName = getLanguageName(lang);
     try { 
         const response = await ai.models.generateContent({ 
             model: 'gemini-2.5-flash', 
-            contents: `Create a safe and complete Pilates lesson plan.
-            Language: ${languageName}.
-            Case: ${query}. 
-            Equipment: ${equipment.join(', ')}. 
-            Obs: ${observations}. 
-            Session Focus: ${focus || 'General'}.`, 
+            contents: `Crie um plano de aula de Pilates completo e seguro.
+            Idioma: Português do Brasil.
+            Caso/Queixa: ${query}. 
+            Equipamentos: ${equipment.join(', ')}. 
+            Observações do Aluno: ${observations}. 
+            Foco da Sessão: ${focus || 'Geral'}.
+            
+            Retorne uma sequência de exercícios lógica (Aquecimento -> Principal -> Volta à calma).`, 
             config: { 
                 responseMimeType: "application/json", 
                 responseSchema: { 
@@ -511,69 +498,69 @@ export const fetchLessonPlan = async (query: string, equipment: string[], histor
 };
 
 export const generateEvolutionReport = async (evolutions: any[], context: string, lang: string = 'pt'): Promise<string> => {
-    const languageName = getLanguageName(lang);
     try { 
         const response = await ai.models.generateContent({ 
             model: 'gemini-2.5-flash', 
-            contents: `Generate a clinical evolution report in HTML.
-            Language: ${languageName}.
-            Context: ${context}. 
-            Data: ${JSON.stringify(evolutions)}` 
+            contents: `Gere um relatório de evolução clínica em formato HTML.
+            Idioma: Português do Brasil.
+            Contexto: ${context}. 
+            Dados das Evoluções: ${JSON.stringify(evolutions)}.
+            
+            Analise o progresso de dor, força e mobilidade ao longo do tempo.` 
         }); 
         return response.text || ''; 
     } catch (e) { return ''; }
 };
 
 export const generateEvaluationAnalysis = async (evaluations: any[], context: string, lang: string = 'pt'): Promise<string> => {
-    const languageName = getLanguageName(lang);
     try { 
         const response = await ai.models.generateContent({ 
             model: 'gemini-2.5-flash', 
-            contents: `Analyze these class ratings and generate a quality report in HTML.
-            Language: ${languageName}.
-            Context: ${context}. 
-            Data: ${JSON.stringify(evaluations)}` 
+            contents: `Analise as avaliações de aula e gere um relatório de qualidade em HTML.
+            Idioma: Português do Brasil.
+            Contexto: ${context}. 
+            Dados das Avaliações: ${JSON.stringify(evaluations)}.
+            
+            Identifique pontos fortes dos instrutores e áreas de melhoria.` 
         }); 
         return response.text || ''; 
     } catch (e) { return ''; }
 };
 
 export const generateSuggestionTrends = async (suggestions: any[], lang: string = 'pt'): Promise<string> => {
-    const languageName = getLanguageName(lang);
     try { 
         const response = await ai.models.generateContent({ 
             model: 'gemini-2.5-flash', 
-            contents: `Analyze student suggestions and identify trends. Generate HTML report.
-            Language: ${languageName}.
-            Data: ${JSON.stringify(suggestions)}` 
+            contents: `Analise as sugestões dos alunos e identifique tendências. Gere relatório em HTML.
+            Idioma: Português do Brasil.
+            Sugestões: ${JSON.stringify(suggestions)}.
+            
+            Agrupe por temas e sugira ações.` 
         }); 
         return response.text || ''; 
     } catch (e) { return ''; }
 };
 
 export const generateActionPlanFromSuggestions = async (suggestions: any[], observations: string, lang: string = 'pt'): Promise<string> => {
-    const languageName = getLanguageName(lang);
     try { 
         const response = await ai.models.generateContent({ 
             model: 'gemini-2.5-flash', 
-            contents: `Create an action plan to address these suggestions. HTML format.
-            Language: ${languageName}.
-            Owner Obs: ${observations}. 
-            Selected Suggestions: ${JSON.stringify(suggestions)}` 
+            contents: `Crie um plano de ação prático para resolver as sugestões selecionadas. Formato HTML.
+            Idioma: Português do Brasil.
+            Obs do Dono: ${observations}. 
+            Sugestões Selecionadas: ${JSON.stringify(suggestions)}` 
         }); 
         return response.text || ''; 
     } catch (e) { return ''; }
 };
 
-// ... strategic functions (mission, vision) can also be updated similarly ...
 export const generateMissionOptions = async (studioName: string, lang: string = 'pt'): Promise<string[]> => {
-  const languageName = getLanguageName(lang);
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: `Create 5 Mission Statement options for a Pilates studio named "${studioName}".
-      Language: ${languageName}.
-      Return JSON string array.`,
+      contents: `Crie 5 opções de Missão para um studio de Pilates chamado "${studioName}".
+      Idioma: Português do Brasil.
+      Retorne array JSON de strings.`,
       config: {
         responseMimeType: 'application/json',
         responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } }
@@ -583,13 +570,11 @@ export const generateMissionOptions = async (studioName: string, lang: string = 
   } catch (e) { return []; }
 };
 
-// Export all other functions with lang parameter support where text generation is involved
 export const generateVisionOptions = async (studioName: string, year: string, lang: string = 'pt'): Promise<string[]> => {
-    const languageName = getLanguageName(lang);
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Create 5 Vision options for "${studioName}" for year ${year}. Language: ${languageName}. Return JSON array.`,
+            contents: `Crie 5 opções de Visão de futuro para "${studioName}" para o ano ${year}. Idioma: Português do Brasil. Retorne JSON array.`,
             config: { responseMimeType: 'application/json', responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }
         });
         return JSON.parse(cleanJSON(response.text || '[]'));
@@ -597,11 +582,10 @@ export const generateVisionOptions = async (studioName: string, year: string, la
 };
 
 export const generateSwotSuggestions = async (category: string, lang: string = 'pt'): Promise<string[]> => {
-    const languageName = getLanguageName(lang);
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Suggest 5 SWOT items for "${category}" for a Pilates Studio. Language: ${languageName}. Return JSON array.`,
+            contents: `Sugira 5 itens de análise SWOT para a categoria "${category}" de um Studio de Pilates. Idioma: Português do Brasil. Retorne JSON array.`,
             config: { responseMimeType: 'application/json', responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }
         });
         return JSON.parse(cleanJSON(response.text || '[]'));
@@ -609,11 +593,10 @@ export const generateSwotSuggestions = async (category: string, lang: string = '
 };
 
 export const generateObjectivesSmart = async (swot: any, lang: string = 'pt'): Promise<any[]> => {
-    const languageName = getLanguageName(lang);
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Based on this SWOT: ${JSON.stringify(swot)}, create 3 SMART objectives with OKRs. Language: ${languageName}. Return JSON.`,
+            contents: `Com base nesta análise SWOT: ${JSON.stringify(swot)}, crie 3 objetivos SMART com OKRs. Idioma: Português do Brasil. Retorne JSON.`,
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: {
@@ -630,11 +613,10 @@ export const generateObjectivesSmart = async (swot: any, lang: string = 'pt'): P
 };
 
 export const generateActionsSmart = async (objectives: any[], lang: string = 'pt'): Promise<any[]> => {
-    const languageName = getLanguageName(lang);
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Create a quarterly action plan based on these objectives: ${JSON.stringify(objectives)}. Language: ${languageName}. Return JSON.`,
+            contents: `Crie um plano de ação trimestral baseado nestes objetivos: ${JSON.stringify(objectives)}. Idioma: Português do Brasil. Retorne JSON.`,
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: {
@@ -651,22 +633,20 @@ export const generateActionsSmart = async (objectives: any[], lang: string = 'pt
 };
 
 export const generateFullReport = async (planData: StrategicPlan, lang: string = 'pt'): Promise<string> => {
-    const languageName = getLanguageName(lang);
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Generate a full strategic report in HTML. Language: ${languageName}. Data: ${JSON.stringify(planData)}.`
+            contents: `Gere um relatório completo de Planejamento Estratégico em HTML. Idioma: Português do Brasil. Dados: ${JSON.stringify(planData)}.`
         });
         return response.text || '';
     } catch (e) { return ''; }
 };
 
 export const generateTailoredMissions = async (studioName: string, specialties: string[], focus: string, tone: string, lang: string = 'pt'): Promise<string[]> => {
-    const languageName = getLanguageName(lang);
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Create 3 Mission options. Studio: ${studioName}. Specialties: ${specialties.join(', ')}. Focus: ${focus}. Tone: ${tone}. Language: ${languageName}. Return JSON array.`,
+            contents: `Crie 3 opções de Missão. Studio: ${studioName}. Especialidades: ${specialties.join(', ')}. Foco: ${focus}. Tom: ${tone}. Idioma: Português do Brasil. Retorne JSON array.`,
             config: { responseMimeType: 'application/json', responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }
         });
         return JSON.parse(cleanJSON(response.text || '[]'));
@@ -674,11 +654,13 @@ export const generateTailoredMissions = async (studioName: string, specialties: 
 };
 
 export const fetchTreatmentPlan = async (query: string, equipment: string[], history?: any[], observations?: string, lang: string = 'pt'): Promise<TreatmentPlanResponse | null> => {
-    const languageName = getLanguageName(lang);
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Create a 4-session Pilates treatment plan. Case: ${query}. Equipment: ${equipment.join(', ')}. Obs: ${observations || ''}. Language: ${languageName}. Return JSON.`,
+            contents: `Crie um plano de tratamento de Pilates de 4 sessões progressivas.
+            Idioma: Português do Brasil.
+            Caso: ${query}. Equipamentos: ${equipment.join(', ')}. Obs: ${observations || ''}.
+            Retorne JSON.`,
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: {
@@ -702,11 +684,13 @@ export const fetchTreatmentPlan = async (query: string, equipment: string[], his
 };
 
 export const regenerateSingleExercise = async (query: string, currentExercise: LessonExercise, equipment: string[], lang: string = 'pt'): Promise<LessonExercise> => {
-    const languageName = getLanguageName(lang);
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Suggest an alternative Pilates exercise to replace: "${currentExercise.name}". Case: ${query}. Equipment: ${equipment.join(', ')}. Language: ${languageName}. Return JSON.`,
+            contents: `Sugira um exercício alternativo de Pilates para substituir: "${currentExercise.name}". 
+            Idioma: Português do Brasil.
+            Caso: ${query}. Equipamentos Disponíveis: ${equipment.join(', ')}.
+            Retorne JSON.`,
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: {
@@ -720,11 +704,13 @@ export const regenerateSingleExercise = async (query: string, currentExercise: L
 };
 
 export const generateHealthyRecipe = async (goal: string, restrictions: string, lang: string = 'pt'): Promise<RecipeResponse | null> => {
-    const languageName = getLanguageName(lang);
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Create a healthy recipe. Goal: ${goal}. Restrictions: ${restrictions}. Language: ${languageName}. Return JSON.`,
+            contents: `Crie uma receita saudável.
+            Idioma: Português do Brasil.
+            Objetivo: ${goal}. Restrições: ${restrictions}.
+            Retorne JSON.`,
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: {
@@ -738,11 +724,13 @@ export const generateHealthyRecipe = async (goal: string, restrictions: string, 
 };
 
 export const generateRecipeFromIngredients = async (ingredients: string[], extraInfo: string, lang: string = 'pt'): Promise<RecipeResponse | null> => {
-    const languageName = getLanguageName(lang);
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Create a healthy recipe using: ${ingredients.join(', ')}. Extra info: ${extraInfo}. Language: ${languageName}. Return JSON.`,
+            contents: `Crie uma receita saudável usando estes ingredientes: ${ingredients.join(', ')}.
+            Idioma: Português do Brasil.
+            Info Extra: ${extraInfo}.
+            Retorne JSON.`,
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: {
@@ -756,11 +744,13 @@ export const generateRecipeFromIngredients = async (ingredients: string[], extra
 };
 
 export const generateHomeWorkout = async (studentName: string, observations: string, equipment: string, duration: string, lang: string = 'pt'): Promise<WorkoutResponse | null> => {
-    const languageName = getLanguageName(lang);
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Create a home Pilates workout for ${studentName}. Obs: ${observations}. Equipment: ${equipment}. Duration: ${duration}. Language: ${languageName}. Return JSON.`,
+            contents: `Crie um treino de Pilates em casa para ${studentName}.
+            Idioma: Português do Brasil.
+            Obs: ${observations}. Equipamento: ${equipment}. Duração: ${duration}.
+            Retorne JSON.`,
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: {
@@ -774,11 +764,13 @@ export const generateHomeWorkout = async (studentName: string, observations: str
 };
 
 export const generateNewsletter = async (senderName: string, audience: string, topic: string, style: string, lang: string = 'pt'): Promise<{title: string, content: string} | null> => {
-    const languageName = getLanguageName(lang);
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Create a newsletter for a Pilates studio. Sender: ${senderName}. Audience: ${audience}. Topic: ${topic}. Style: ${style}. Language: ${languageName}. Return JSON with title and content (simple HTML).`,
+            contents: `Crie uma newsletter para um Studio de Pilates.
+            Idioma: Português do Brasil.
+            Remetente: ${senderName}. Público: ${audience}. Tópico: ${topic}. Estilo: ${style}.
+            Retorne JSON com título e conteúdo (HTML simples).`,
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, content: { type: Type.STRING } } }

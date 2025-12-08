@@ -1,5 +1,4 @@
 
-
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -15,7 +14,7 @@ const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
 export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { logout, user } = useAuth();
   const { theme, toggleTheme, setBrandColor } = useTheme();
-  const { t, setLanguage, setTerminology } = useLanguage();
+  const { t, setTerminology } = useLanguage();
   const location = useLocation();
   
   const [menuItems, setMenuItems] = useState<any[]>([]);
@@ -32,10 +31,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
             // Aplicar Cor da Marca
             if (profile.brandColor) setBrandColor(profile.brandColor);
             
-            // Aplicar Idioma Salvo (Persistência)
-            if (profile.settings?.language) {
-                setLanguage(profile.settings.language);
-            }
+            // Language is enforced to PT, no need to set.
 
             // Aplicar Nomenclatura Salva
             if (profile.settings?.terminology) {
@@ -45,7 +41,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
       }
     };
     loadBrandAndSettings();
-  }, [user, setBrandColor, setLanguage, setTerminology]);
+  }, [user, setBrandColor, setTerminology]);
 
   // Carregar Banner Promocional
   useEffect(() => {
