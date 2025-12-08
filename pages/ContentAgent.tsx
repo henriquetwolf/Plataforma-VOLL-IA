@@ -189,7 +189,7 @@ const StepAudience = ({ selected, customAudience, onSelect, onCustomChange }: an
     );
 };
 
-const StepTopic = ({ value, onChange, onGenerateIdeas, isGeneratingIdeas, suggestions }: any) => (
+const StepTopic = ({ value, onChange, onGenerateIdeas, isGeneratingIdeas, suggestions, mode, formData, onFormChange }: any) => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
         <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Sobre qual tema você quer falar?</h2>
         
@@ -227,10 +227,48 @@ const StepTopic = ({ value, onChange, onGenerateIdeas, isGeneratingIdeas, sugges
                 </div>
             </div>
         )}
+
+        {/* Start Date & Frequency Input for Plan Mode */}
+        {mode === 'plan' && (
+            <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800/50 mt-6 space-y-4">
+                <div>
+                    <label className="block text-sm font-bold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
+                        <Calendar className="w-4 h-4" /> Data de Início do Calendário
+                    </label>
+                    <Input
+                        type="date"
+                        value={formData.startDate || new Date().toISOString().split('T')[0]}
+                        onChange={(e) => onFormChange({...formData, startDate: e.target.value})}
+                        className="bg-white dark:bg-slate-900 border-blue-200 dark:border-blue-800"
+                    />
+                </div>
+                
+                <div>
+                    <label className="block text-sm font-bold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
+                        <Layers className="w-4 h-4" /> Frequência de Postagens (por semana)
+                    </label>
+                    <select
+                        value={formData.postsPerWeek || 5}
+                        onChange={(e) => onFormChange({...formData, postsPerWeek: parseInt(e.target.value)})}
+                        className="w-full p-2.5 border rounded-lg bg-white dark:bg-slate-900 border-blue-200 dark:border-blue-800 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value={3}>3 posts por semana</option>
+                        <option value={4}>4 posts por semana</option>
+                        <option value={5}>5 posts por semana</option>
+                        <option value={6}>6 posts por semana</option>
+                        <option value={7}>7 posts por semana (Diário)</option>
+                    </select>
+                </div>
+
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                    A IA calculará os dias exatos com base na data de início e frequência.
+                </p>
+            </div>
+        )}
     </div>
 );
 
-const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate }: any) => {
+const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate, onGenerateFromPlan }: any) => {
     const [showLongCaption, setShowLongCaption] = useState(false);
 
     if (!content) return null;
@@ -382,7 +420,20 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate }
                                             <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">{post.day}</span>
                                             <span className="text-[10px] bg-white dark:bg-slate-900 border px-2 py-0.5 rounded text-slate-500 uppercase font-bold">{post.format}</span>
                                         </div>
-                                        <p className="text-sm text-slate-600 dark:text-slate-400">{post.idea || post.theme}</p>
+                                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">{post.idea || post.theme}</p>
+                                        
+                                        {/* Generate Button for each Plan Item */}
+                                        <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
+                                            {post.generatedPostId ? (
+                                                <Button size="xs" variant="secondary" className="w-full bg-green-100 text-green-700 border-green-200 hover:bg-green-200 cursor-default">
+                                                    <CheckCircle className="w-3 h-3 mr-1"/> Gerado
+                                                </Button>
+                                            ) : (
+                                                <Button size="xs" variant="outline" className="w-full text-xs" onClick={() => onGenerateFromPlan(post, i, idx)}>
+                                                    <Wand2 className="w-3 h-3 mr-1"/> Gerar
+                                                </Button>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -415,7 +466,8 @@ export const ContentAgent: React.FC = () => {
     topic: '',
     format: 'auto',
     style: 'Persona da Marca (Padrão)',
-    startDate: new Date().toISOString().split('T')[0]
+    startDate: new Date().toISOString().split('T')[0],
+    postsPerWeek: 5
   });
   
   const [topicSuggestions, setTopicSuggestions] = useState<string[]>([]);
@@ -800,25 +852,10 @@ export const ContentAgent: React.FC = () => {
                             onGenerateIdeas={handleGenerateIdeas} 
                             isGeneratingIdeas={isGeneratingIdeas} 
                             suggestions={topicSuggestions} 
+                            mode={formData.mode}
+                            formData={formData}
+                            onFormChange={setFormData}
                         />
-                        {/* Start Date Input for Plan Mode */}
-                        {formData.mode === 'plan' && (
-                            <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800/50">
-                                <label className="block text-sm font-bold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
-                                    <Calendar className="w-4 h-4" /> Data de Início do Calendário
-                                </label>
-                                <Input
-                                    type="date"
-                                    value={formData.startDate || new Date().toISOString().split('T')[0]}
-                                    onChange={(e) => setFormData({...formData, startDate: e.target.value})}
-                                    className="bg-white dark:bg-slate-900 border-blue-200 dark:border-blue-800"
-                                />
-                                <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-                                    A IA usará esta data para calcular os dias exatos das postagens nas próximas 4 semanas.
-                                </p>
-                            </div>
-                        )}
-
                         <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800 gap-2">
                             {currentPlanItemIndices && (
                                 <Button variant="ghost" onClick={handleBackToPlan}>Cancelar e Voltar ao Plano</Button>
@@ -851,48 +888,8 @@ export const ContentAgent: React.FC = () => {
                             onSave={handleSaveWithLink}
                             onRegenerate={handleGenerateContent}
                             canRegenerate={!result?.isPlan}
+                            onGenerateFromPlan={handleGenerateFromPlan}
                         />
-                        {/* Custom Plan Render Injection for Actions */}
-                        {result?.isPlan && result.weeks && (
-                            <div className="mt-6 space-y-4">
-                                {result.weeks.map((week: any, i: number) => (
-                                    <div key={i} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
-                                        <h4 className="font-bold text-brand-700 text-lg mb-4 flex items-center gap-2">
-                                            <CalendarDays className="w-5 h-5"/> {week.week}: {week.theme}
-                                        </h4>
-                                        <div className="space-y-3">
-                                            {week.posts?.map((post: any, idx: number) => (
-                                                <div key={idx} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                                                    <div>
-                                                        <div className="flex gap-2 items-center mb-1">
-                                                            <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">{post.day}</span>
-                                                            <span className="text-[10px] bg-white dark:bg-slate-900 border px-2 py-0.5 rounded text-slate-500 uppercase font-bold">{post.format}</span>
-                                                        </div>
-                                                        <p className="text-sm text-slate-600 dark:text-slate-400">{post.idea || post.theme}</p>
-                                                    </div>
-                                                    <div className="flex gap-2 items-center">
-                                                        {post.generatedPostId ? (
-                                                            <>
-                                                                <Button size="xs" variant="secondary" onClick={() => handleViewPost(post.generatedPostId)} className="bg-green-100 text-green-700 border-green-200 hover:bg-green-200">
-                                                                    <Eye className="w-3 h-3 mr-1"/> Visualizar
-                                                                </Button>
-                                                                <button onClick={() => handleGenerateFromPlan(post, i, idx)} className="text-slate-400 hover:text-brand-600 p-2 rounded hover:bg-slate-100" title="Gerar Novamente">
-                                                                    <RefreshCw className="w-4 h-4"/>
-                                                                </button>
-                                                            </>
-                                                        ) : (
-                                                            <Button size="xs" variant="outline" onClick={() => handleGenerateFromPlan(post, i, idx)}>
-                                                                <Wand2 className="w-3 h-3 mr-1"/> Gerar
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
                     </>
                 )}
             </div>

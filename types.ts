@@ -1,4 +1,5 @@
 
+
 export type MarketingMode = 'single' | 'plan' | 'story';
 
 export interface MarketingFormData {
@@ -11,6 +12,7 @@ export interface MarketingFormData {
   format: string; 
   style: string;
   startDate?: string; // New field for Plan mode
+  postsPerWeek?: number; // New field for frequency
 }
 
 export interface ReelOption {

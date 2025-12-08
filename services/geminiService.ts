@@ -186,7 +186,7 @@ export const generateMarketingContent = async (formData: MarketingFormData, lang
     Crie um plano editorial de 4 semanas.
     Data de Início do Planejamento: ${formData.startDate || 'Hoje'}
     Defina um macro-tema para cada semana.
-    Frequência: Sugira a melhor frequência.
+    Frequência Solicitada: ${formData.postsPerWeek || '5'} posts por semana.
     
     IMPORTANTE: No campo 'day', forneça Dia da Semana E Data específica (Ex: Segunda, 12/05) calculada a partir da data de início: ${formData.startDate || 'hoje'}.
     Distribua formatos (Reels, Carrossel, Estático) de forma estratégica.
