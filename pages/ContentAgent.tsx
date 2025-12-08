@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -18,58 +19,14 @@ const downloadImage = (dataUrl: string, filename: string) => {
     document.body.removeChild(link);
 };
 
-const GOALS = [
-  { id: 'attract', label: 'Atrair Novos Alunos', icon: UserPlus },
-  { id: 'retain', label: 'Fidelizar / Engajar', icon: Heart },
-  { id: 'educate', label: 'Educativo / Informativo', icon: BookOpen },
-  { id: 'inspire', label: 'Inspiracional / Motivacional', icon: Zap },
-  { id: 'sell', label: 'Vendas / Promoção', icon: ShoppingBag },
-];
-
-const STORY_GOALS = [
-  { id: 'backstage', label: 'Bastidores / Conexão', icon: Camera },
-  { id: 'educate', label: 'Autoridade / Educativo', icon: BookOpen },
-  { id: 'social_proof', label: 'Prova Social / Alunos', icon: Users },
-  { id: 'sell', label: 'Venda / Conversão', icon: ShoppingBag },
-  { id: 'engagement', label: 'Engajamento / Interação', icon: MessageCircle },
-];
-
-const AUDIENCES = [
-  { id: 'beginners', label: 'Iniciantes / Sedentários' },
-  { id: 'women40', label: 'Mulheres 40+ / Menopausa' },
-  { id: 'pathologies', label: 'Alunos com Patologias (Hérnia, etc)' },
-  { id: 'pain_relief', label: 'Foco em Alívio de Dores' },
-  { id: 'pregnant', label: 'Gestantes / Pós-Parto' },
-  { id: 'seniors', label: 'Idosos / Terceira Idade' },
-  { id: 'advanced', label: 'Avançados / Desafios' },
-  { id: 'all', label: 'Público Geral do Studio' },
-];
-
-const FORMATS = [
-  { id: 'auto', label: 'IA Decide (Recomendado)', description: 'A melhor escolha estratégica', recommended: true },
-  { id: 'reels', label: 'Reels / Vídeo Curto', description: 'Vídeo dinâmico (Max 60s)' },
-  { id: 'carousel', label: 'Carrossel (6 Cards)', description: 'Conteúdo profundo em 6 cards (Imagem Panorâmica)' },
-  { id: 'post', label: 'Post Estático', description: 'Imagem única com legenda forte' },
-];
-
-const STYLES = [
-  'IA Decide (Recomendado)',
-  'Persona da Marca (Padrão)',
-  'Fotorealista / Clean',
-  'Minimalista',
-  'Ilustração',
-  'Cinematográfico',
-  'Energético / Vibrante'
-];
-
 // --- SUB-COMPONENTS ---
 
-const StepMode = ({ selected, onSelect }: any) => (
+const StepMode = ({ selected, onSelect, t }: any) => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-right-8">
         {[
-            { id: 'single', label: 'Post Único', desc: 'Reels ou Post Estático focado em um objetivo imediato.', icon: FileText, color: 'bg-teal-50 text-teal-600' },
-            { id: 'story', label: 'Sequência de Stories', desc: 'Roteiro estratégico de 3 a 8 stories para conexão e venda.', icon: Zap, color: 'bg-purple-50 text-purple-600' },
-            { id: 'plan', label: 'Plano 4 Semanas', desc: 'Calendário completo com temas semanais e organização.', icon: CalendarDays, color: 'bg-blue-50 text-blue-600' }
+            { id: 'single', label: t('mode_single'), desc: 'Post Estático ou Reels focado.', icon: FileText, color: 'bg-teal-50 text-teal-600' },
+            { id: 'story', label: t('mode_story'), desc: 'Sequência estratégica de 3 a 8 stories.', icon: Zap, color: 'bg-purple-50 text-purple-600' },
+            { id: 'plan', label: t('mode_plan'), desc: 'Calendário completo com temas semanais.', icon: CalendarDays, color: 'bg-blue-50 text-blue-600' }
         ].map((item) => (
             <button
                 key={item.id}
@@ -86,11 +43,27 @@ const StepMode = ({ selected, onSelect }: any) => (
     </div>
 );
 
-const StepGoal = ({ selected, customGoal, mode, onSelect, onCustomChange }: any) => {
+const StepGoal = ({ selected, customGoal, mode, onSelect, onCustomChange, t }: any) => {
+    const GOALS = [
+        { id: 'attract', label: t('goal_attract'), icon: UserPlus },
+        { id: 'retain', label: t('goal_retain'), icon: Heart },
+        { id: 'educate', label: t('goal_educate'), icon: BookOpen },
+        { id: 'inspire', label: t('goal_inspire'), icon: Zap },
+        { id: 'sell', label: t('goal_sell'), icon: ShoppingBag },
+    ];
+
+    const STORY_GOALS = [
+        { id: 'backstage', label: 'Bastidores', icon: Camera },
+        { id: 'educate', label: t('goal_educate'), icon: BookOpen },
+        { id: 'social_proof', label: 'Prova Social', icon: Users },
+        { id: 'sell', label: t('goal_sell'), icon: ShoppingBag },
+        { id: 'engagement', label: 'Engajamento', icon: MessageCircle },
+    ];
+
     const list = mode === 'story' ? STORY_GOALS : GOALS;
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Qual é o objetivo desse conteúdo?</h2>
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">{t('objective_label')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {list.map((item: any) => (
                     <button
@@ -107,10 +80,10 @@ const StepGoal = ({ selected, customGoal, mode, onSelect, onCustomChange }: any)
             </div>
             
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                <label className="text-sm font-bold text-slate-500 uppercase mb-2 block flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Outro Objetivo Específico</label>
+                <label className="text-sm font-bold text-slate-500 uppercase mb-2 block flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Outro</label>
                 <input 
                     className="w-full p-4 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-950 focus:ring-2 focus:ring-brand-500 outline-none"
-                    placeholder="Escreva aqui seu objetivo..."
+                    placeholder="..."
                     value={customGoal || ''}
                     onChange={e => onCustomChange(e.target.value)}
                 />
@@ -119,41 +92,54 @@ const StepGoal = ({ selected, customGoal, mode, onSelect, onCustomChange }: any)
     );
 };
 
-const StepAudience = ({ selected, customAudience, onSelect, onCustomChange }: any) => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Para quem é esse conteúdo?</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {AUDIENCES.map((item) => (
-                <button
-                    key={item.id}
-                    onClick={() => onSelect(item.label)}
-                    className={`p-4 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center min-h-[120px] ${selected === item.label ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
-                >
-                    <Users className={`w-8 h-8 mb-3 ${selected === item.label ? 'text-brand-600' : 'text-slate-400'}`} />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{item.label}</span>
-                </button>
-            ))}
-        </div>
+const StepAudience = ({ selected, customAudience, onSelect, onCustomChange, t }: any) => {
+    const AUDIENCES = [
+        { id: 'beginners', label: 'Iniciantes' },
+        { id: 'women40', label: 'Mulheres 40+' },
+        { id: 'pathologies', label: 'Patologias' },
+        { id: 'pain_relief', label: 'Alívio da Dor' },
+        { id: 'pregnant', label: 'Gestantes' },
+        { id: 'seniors', label: 'Idosos' },
+        { id: 'advanced', label: 'Avançados' },
+        { id: 'all', label: 'Geral' },
+    ];
 
-        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-            <label className="text-sm font-bold text-slate-500 uppercase mb-2 block flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Outro Público Específico</label>
-            <input 
-                className="w-full p-4 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-950 focus:ring-2 focus:ring-brand-500 outline-none"
-                placeholder="Ex: Adolescentes, Homens, Praticantes de Corrida..."
-                value={customAudience || ''}
-                onChange={e => onCustomChange(e.target.value)}
-            />
-        </div>
-    </div>
-);
+    return (
+        <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">{t('audience_label')}</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {AUDIENCES.map((item) => (
+                    <button
+                        key={item.id}
+                        onClick={() => onSelect(item.label)}
+                        className={`p-4 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center min-h-[120px] ${selected === item.label ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
+                    >
+                        <Users className={`w-8 h-8 mb-3 ${selected === item.label ? 'text-brand-600' : 'text-slate-400'}`} />
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{item.label}</span>
+                    </button>
+                ))}
+            </div>
 
-const StepTopic = ({ value, onChange, onGenerateIdeas, isGeneratingIdeas, suggestions }: any) => (
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                <label className="text-sm font-bold text-slate-500 uppercase mb-2 block flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Outro</label>
+                <input 
+                    className="w-full p-4 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-950 focus:ring-2 focus:ring-brand-500 outline-none"
+                    placeholder="..."
+                    value={customAudience || ''}
+                    onChange={e => onCustomChange(e.target.value)}
+                />
+            </div>
+        </div>
+    );
+};
+
+const StepTopic = ({ value, onChange, onGenerateIdeas, isGeneratingIdeas, suggestions, t }: any) => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-8">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Sobre qual tema você quer falar?</h2>
+        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">{t('theme_label')}</h2>
         
         <textarea 
             className="w-full p-4 border border-slate-300 dark:border-slate-700 rounded-xl h-32 resize-none focus:ring-2 focus:ring-brand-500 outline-none bg-white dark:bg-slate-900 text-lg"
-            placeholder="Ex: Benefícios do Pilates para dor nas costas, Promoção de verão..."
+            placeholder={t('topic_placeholder')}
             value={value}
             onChange={e => onChange(e.target.value)}
         />
@@ -165,13 +151,13 @@ const StepTopic = ({ value, onChange, onGenerateIdeas, isGeneratingIdeas, sugges
                 onClick={onGenerateIdeas} 
                 isLoading={isGeneratingIdeas}
             >
-                <Sparkles className="w-4 h-4 mr-2"/> Gerar Sugestões com IA
+                <Sparkles className="w-4 h-4 mr-2"/> {t('generate_suggestions')}
             </Button>
         </div>
 
         {suggestions.length > 0 && (
             <div className="mt-6">
-                <p className="text-xs font-bold text-brand-600 uppercase mb-3 flex items-center gap-2"><Lightbulb className="w-4 h-4"/> Sugestões para você</p>
+                <p className="text-xs font-bold text-brand-600 uppercase mb-3 flex items-center gap-2"><Lightbulb className="w-4 h-4"/> Sugestões</p>
                 <div className="flex flex-wrap gap-2">
                     {suggestions.map((s: string, i: number) => (
                         <button 
@@ -188,12 +174,11 @@ const StepTopic = ({ value, onChange, onGenerateIdeas, isGeneratingIdeas, sugges
     </div>
 );
 
-const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate }: any) => {
+const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate, t }: any) => {
     const [showLongCaption, setShowLongCaption] = useState(false);
 
     if (!content) return null;
     
-    // Determine layout for image
     const isCarousel = content.suggestedFormat?.toLowerCase().includes('carrossel');
     const isReels = content.isReels;
 
@@ -205,29 +190,27 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate }
                         <span className="bg-brand-200 text-brand-800 text-xs font-bold px-2 py-1 rounded uppercase mb-2 inline-block">
                             {content.suggestedFormat}
                         </span>
-                        <h3 className="text-xl font-bold text-brand-900 dark:text-brand-100">Estratégia Escolhida</h3>
+                        <h3 className="text-xl font-bold text-brand-900 dark:text-brand-100">{t('chosen_strategy')}</h3>
                         <p className="text-brand-700 dark:text-brand-300 text-sm mt-1">{content.reasoning}</p>
                     </div>
                     <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={onReset}><RotateCcw className="w-4 h-4 mr-2"/> Início</Button>
-                        <Button size="sm" onClick={onSave}><Save className="w-4 h-4 mr-2"/> Salvar</Button>
+                        <Button size="sm" variant="outline" onClick={onReset}><RotateCcw className="w-4 h-4 mr-2"/> {t('clear')}</Button>
+                        <Button size="sm" onClick={onSave}><Save className="w-4 h-4 mr-2"/> {t('save')}</Button>
                     </div>
                 </div>
                 
                 {canRegenerate && (
                     <Button size="sm" onClick={onRegenerate} className="w-full bg-brand-600 hover:bg-brand-700 text-white">
-                        <RefreshCw className="w-4 h-4 mr-2"/> Ver outra sugestão
+                        <RefreshCw className="w-4 h-4 mr-2"/> Gerar Novamente
                     </Button>
                 )}
             </div>
 
-            {/* SINGLE POST / REELS / CAROUSEL VIEW */}
             {!content.isPlan && !content.isStory && (
                 <div className="grid md:grid-cols-2 gap-6">
-                    {/* LEGENDA */}
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
                         <div className="flex justify-between items-center mb-4">
-                            <h4 className="font-bold text-slate-800 dark:text-white flex items-center gap-2"><FileText className="w-5 h-5"/> Legenda</h4>
+                            <h4 className="font-bold text-slate-800 dark:text-white flex items-center gap-2"><FileText className="w-5 h-5"/> {t('caption')}</h4>
                             <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
                                 <button 
                                     onClick={() => setShowLongCaption(false)}
@@ -251,15 +234,14 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate }
                             </div>
                         </div>
                         <Button variant="outline" size="sm" className="mt-4 w-full" onClick={() => navigator.clipboard.writeText(`${showLongCaption ? content.captionLong : content.captionShort}\n\n${content.hashtags.join(' ')}`)}>
-                            <Copy className="w-4 h-4 mr-2"/> Copiar
+                            <Copy className="w-4 h-4 mr-2"/> {t('copy')}
                         </Button>
                     </div>
 
-                    {/* IMAGEM / VISUAL */}
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
                         <h4 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
                             {isReels ? <Video className="w-5 h-5"/> : <ImageIcon className="w-5 h-5"/>} 
-                            {isReels ? 'Roteiro de Vídeo' : (isCarousel ? 'Panorâmica Carrossel (6 Cards)' : 'Imagem Sugerida')}
+                            {t('visual_description')}
                         </h4>
                         
                         <div className="flex-1 bg-slate-50 dark:bg-slate-950 p-4 rounded-xl text-sm overflow-y-auto max-h-[400px] flex flex-col items-center justify-center">
@@ -270,10 +252,9 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate }
                                         alt="Gerado pela IA" 
                                         className={`w-full object-contain rounded-lg shadow-sm ${isCarousel ? 'aspect-[6/1]' : isReels ? 'aspect-[9/16]' : 'aspect-square'}`} 
                                     />
-                                    {isCarousel && <p className="text-center text-xs text-slate-400 mt-2">Panorâmica simulando 6 cards integrados (Estilo 6:1).</p>}
+                                    {isCarousel && <p className="text-center text-xs text-slate-400 mt-2">Panorâmica 6:1</p>}
                                 </div>
                             ) : (
-                                // Fallback info if image isn't ready
                                 <div className="text-center text-slate-400">
                                     {isReels && content.reelsOptions ? (
                                         <div className="text-left space-y-4">
@@ -288,7 +269,7 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate }
                                         </div>
                                     ) : (
                                         <div className="text-left">
-                                            <p className="mb-2 font-bold text-slate-600">Descrição Visual:</p>
+                                            <p className="mb-2 font-bold text-slate-600">Descrição:</p>
                                             <ul className="list-disc pl-4 space-y-2 text-slate-600 dark:text-slate-400">
                                                 {content.visualContent?.map((vc: string, i: number) => <li key={i}>{vc}</li>)}
                                             </ul>
@@ -301,10 +282,9 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate }
                 </div>
             )}
 
-            {/* STORIES SEQUENCE */}
             {content.isStory && content.storySequence && (
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm overflow-x-auto">
-                    <h4 className="font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2"><Zap className="w-5 h-5 text-yellow-500"/> Sequência Estratégica</h4>
+                    <h4 className="font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2"><Zap className="w-5 h-5 text-yellow-500"/> Sequência</h4>
                     <div className="flex gap-6 min-w-[800px] pb-4">
                         {content.storySequence.frames.map((frame: any, i: number) => (
                             <div key={i} className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 min-w-[220px] flex flex-col relative group hover:border-brand-300 transition-all">
@@ -325,7 +305,6 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate }
                 </div>
             )}
 
-            {/* PLAN */}
             {content.isPlan && content.weeks && (
                 <div className="space-y-4">
                     {content.weeks.map((week: any, i: number) => (
@@ -348,64 +327,44 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate }
                     ))}
                 </div>
             )}
-
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800 flex items-start gap-3">
-                <Lightbulb className="w-5 h-5 text-blue-600 mt-0.5" />
-                <div>
-                    <h4 className="font-bold text-blue-800 dark:text-blue-300 text-sm">Dica de Engajamento</h4>
-                    <p className="text-xs text-blue-700 dark:text-blue-400">{content.tips}</p>
-                </div>
-            </div>
         </div>
     );
 };
 
 export const ContentAgent: React.FC = () => {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   
-  // States
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<MarketingFormData>({
     mode: 'single',
-    goal: GOALS[0].label,
-    audience: AUDIENCES[0].label,
+    goal: 'Atrair',
+    audience: 'Geral',
     topic: '',
     format: 'auto',
-    style: 'Persona da Marca (Padrão)'
+    style: 'Padrão'
   });
   
   const [topicSuggestions, setTopicSuggestions] = useState<string[]>([]);
   const [isGeneratingIdeas, setIsGeneratingIdeas] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<GeneratedContent | null>(null);
-  const [activePlan, setActivePlan] = useState<GeneratedContent | null>(null); // To persist plan state during interactions
+  const [activePlan, setActivePlan] = useState<GeneratedContent | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // History State
   const [showHistory, setShowHistory] = useState(false);
   const [historyTab, setHistoryTab] = useState<'posts' | 'plans'>('posts');
   const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);
   const [savedPlans, setSavedPlans] = useState<StrategicContentPlan[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // Plan Tracking
   const [currentPlanItemIndices, setCurrentPlanItemIndices] = useState<{weekIndex: number, postIndex: number} | null>(null);
-
-  // Daily Limit
-  const [dailyCount, setDailyCount] = useState(0);
-  const [dailyLimit, setDailyLimit] = useState(5);
-  const isLimitReached = dailyCount >= dailyLimit;
 
   useEffect(() => {
     if (user?.id) {
         const targetId = user.isInstructor ? user.studioId : user.id;
         if(targetId) {
-            getTodayPostCount(targetId).then(setDailyCount);
             loadHistory(targetId);
-            fetchProfile(targetId).then(profile => {
-                if (profile?.planMaxDailyPosts) setDailyLimit(profile.planMaxDailyPosts);
-            });
         }
     }
   }, [user, showHistory]);
@@ -442,7 +401,7 @@ export const ContentAgent: React.FC = () => {
   const handleGenerateIdeas = async () => {
       if (!formData.goal || !formData.audience) return;
       setIsGeneratingIdeas(true);
-      const ideas = await generateTopicSuggestions(formData.customGoal || formData.goal, formData.customAudience || formData.audience);
+      const ideas = await generateTopicSuggestions(formData.customGoal || formData.goal, formData.customAudience || formData.audience, language);
       setTopicSuggestions(ideas);
       setIsGeneratingIdeas(false);
   };
@@ -451,10 +410,7 @@ export const ContentAgent: React.FC = () => {
     setIsGenerating(true);
     try {
         const finalData = { ...formData };
-        if (finalData.goal === 'Outro (Descrever...)') finalData.goal = finalData.customGoal || '';
-        if (finalData.audience === 'Outro (Descrever...)') finalData.audience = finalData.customAudience || '';
-        
-        const content = await generateMarketingContent(finalData);
+        const content = await generateMarketingContent(finalData, language);
         
         if (content && content.visualPrompt && !content.isPlan) {
              const image = await generatePilatesImage({
@@ -474,7 +430,6 @@ export const ContentAgent: React.FC = () => {
         const studioId = user?.isInstructor ? user.studioId : user?.id;
         if(studioId) {
             await recordGenerationUsage(studioId);
-            setDailyCount(prev => prev + 1);
         }
 
     } catch (e) {
@@ -513,9 +468,9 @@ export const ContentAgent: React.FC = () => {
       if (post) {
           const mockResult: GeneratedContent = {
               suggestedFormat: post.request.format,
-              reasoning: 'Post recuperado do histórico.',
+              reasoning: 'Recuperado do histórico.',
               hashtags: [],
-              tips: 'Post já salvo.',
+              tips: '',
               captionLong: post.content,
               generatedImage: post.imageUrl || undefined,
               isPlan: false,
@@ -525,8 +480,6 @@ export const ContentAgent: React.FC = () => {
           setResult(mockResult);
           setStep(5);
           window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-          alert("Post não encontrado no histórico. Pode ter sido excluído.");
       }
   };
 
@@ -551,7 +504,6 @@ export const ContentAgent: React.FC = () => {
           };
           res = await saveContentPlan(studioId, plan);
       } else {
-          // Post Generation
           const postId = crypto.randomUUID();
           const post: SavedPost = {
               id: postId,
@@ -570,8 +522,7 @@ export const ContentAgent: React.FC = () => {
           res = await savePost(studioId, post);
 
           if (res.success && currentPlanItemIndices && activePlan) {
-              // Update the Active Plan State locally with the new ID
-              const newPlan = JSON.parse(JSON.stringify(activePlan)); // Deep copy
+              const newPlan = JSON.parse(JSON.stringify(activePlan)); 
               if (newPlan.weeks && newPlan.weeks[currentPlanItemIndices.weekIndex]) {
                   newPlan.weeks[currentPlanItemIndices.weekIndex].posts[currentPlanItemIndices.postIndex].generatedPostId = postId;
                   setActivePlan(newPlan);
@@ -580,10 +531,8 @@ export const ContentAgent: React.FC = () => {
       }
 
       if (res.success) {
-          alert("Salvo com sucesso!");
+          alert(t('save') + " ok!");
           loadHistory(studioId);
-      } else {
-          alert("Erro ao salvar.");
       }
       setIsSaving(false);
   };
@@ -598,7 +547,7 @@ export const ContentAgent: React.FC = () => {
   };
 
   const handleDelete = async (id: string, type: 'post' | 'plan') => {
-      if (confirm("Excluir?")) {
+      if (confirm(t('delete') + "?")) {
           if (type === 'post') {
               await deleteSavedPost(id);
               setSavedPosts(prev => prev.filter(p => p.id !== id));
@@ -609,46 +558,40 @@ export const ContentAgent: React.FC = () => {
       }
   };
 
-  const getFormatIcon = (format: string) => {
-      if (format.includes('Reels')) return <Video className="w-4 h-4 text-purple-600"/>;
-      if (format.includes('Carrossel')) return <Layers className="w-4 h-4 text-blue-600"/>;
-      return <FileText className="w-4 h-4 text-green-600"/>;
-  };
-
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in pb-12">
         <div className="flex justify-between items-center">
             <div>
                 <h1 className="text-3xl font-bold flex items-center gap-2 text-slate-900 dark:text-white">
-                    <Megaphone className="h-8 w-8 text-brand-600" /> Marketing Digital
+                    <Megaphone className="h-8 w-8 text-brand-600" /> {t('marketing_title')}
                 </h1>
-                <p className="text-slate-500">Crie conteúdo estratégico de alta conversão em segundos.</p>
+                <p className="text-slate-500">{t('content_subtitle')}</p>
             </div>
             {!showHistory && step > 1 && (
                 <div className="flex gap-2">
-                    <Button variant="ghost" onClick={handleBack}><ArrowLeft className="w-4 h-4 mr-2"/> Voltar</Button>
+                    <Button variant="ghost" onClick={handleBack}><ArrowLeft className="w-4 h-4 mr-2"/> {t('back')}</Button>
                 </div>
             )}
             <Button variant="outline" onClick={() => setShowHistory(!showHistory)}>
-                <History className="w-4 h-4 mr-2"/> {showHistory ? 'Voltar' : 'Histórico'}
+                <History className="w-4 h-4 mr-2"/> {showHistory ? t('back') : t('history')}
             </Button>
         </div>
 
         {showHistory ? (
             <div className="space-y-6">
                 <div className="flex gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
-                    <button onClick={() => setHistoryTab('posts')} className={`text-lg font-bold pb-2 border-b-2 transition-colors ${historyTab === 'posts' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500'}`}>Posts Salvos</button>
-                    <button onClick={() => setHistoryTab('plans')} className={`text-lg font-bold pb-2 border-b-2 transition-colors ${historyTab === 'plans' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500'}`}>Planos Salvos</button>
+                    <button onClick={() => setHistoryTab('posts')} className={`text-lg font-bold pb-2 border-b-2 transition-colors ${historyTab === 'posts' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500'}`}>Posts</button>
+                    <button onClick={() => setHistoryTab('plans')} className={`text-lg font-bold pb-2 border-b-2 transition-colors ${historyTab === 'plans' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500'}`}>Planos</button>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {loadingHistory ? <p>Carregando...</p> : 
+                    {loadingHistory ? <p>{t('loading')}</p> : 
                         historyTab === 'posts' ? savedPosts.map(p => (
                             <div key={p.id} className="bg-white dark:bg-slate-900 p-4 rounded border shadow-sm">
                                 <img src={p.imageUrl || ''} className="w-full h-32 object-cover mb-2 rounded" />
                                 <p className="text-sm font-bold dark:text-white">{p.request.theme}</p>
                                 <div className="flex justify-between mt-2">
-                                    <Button size="xs" variant="ghost" onClick={() => handleViewPost(p.id)}>Ver</Button>
+                                    <Button size="xs" variant="ghost" onClick={() => handleViewPost(p.id)}>{t('view_details')}</Button>
                                     <button onClick={() => handleDelete(p.id, 'post')}><Trash2 className="w-4 h-4 text-red-500"/></button>
                                 </div>
                             </div>
@@ -660,7 +603,7 @@ export const ContentAgent: React.FC = () => {
                                         const viewPlan: GeneratedContent = {
                                             isPlan: true,
                                             suggestedFormat: 'Plano Estratégico',
-                                            reasoning: 'Plano recuperado do histórico',
+                                            reasoning: 'Plano recuperado',
                                             hashtags: [],
                                             tips: '',
                                             weeks: p.weeks?.map((w: any) => ({
@@ -671,15 +614,15 @@ export const ContentAgent: React.FC = () => {
                                                     format: idea.format,
                                                     theme: idea.theme,
                                                     idea: idea.theme,
-                                                    generatedPostId: idea.generatedPostId // Ensure ID is mapped
+                                                    generatedPostId: idea.generatedPostId
                                                 }))
                                             }))
                                         };
                                         setResult(viewPlan);
-                                        setActivePlan(viewPlan); // Set as active to allow state updates
+                                        setActivePlan(viewPlan);
                                         setStep(5);
                                         setShowHistory(false);
-                                    }}>Abrir</Button>
+                                    }}>{t('view_details')}</Button>
                                     <button onClick={() => handleDelete(p.id, 'plan')}><Trash2 className="w-4 h-4 text-red-500"/></button>
                                 </div>
                             </div>
@@ -689,21 +632,20 @@ export const ContentAgent: React.FC = () => {
             </div>
         ) : (
             <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl min-h-[500px]">
-                {/* Progress Bar */}
                 <div className="mb-8">
                     <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                        <span className={step >= 1 ? 'text-brand-600' : ''}>Modo</span>
-                        <span className={step >= 2 ? 'text-brand-600' : ''}>Objetivo</span>
-                        <span className={step >= 3 ? 'text-brand-600' : ''}>Público</span>
-                        <span className={step >= 4 ? 'text-brand-600' : ''}>Tema</span>
-                        <span className={step >= 5 ? 'text-brand-600' : ''}>Resultado</span>
+                        <span className={step >= 1 ? 'text-brand-600' : ''}>1</span>
+                        <span className={step >= 2 ? 'text-brand-600' : ''}>2</span>
+                        <span className={step >= 3 ? 'text-brand-600' : ''}>3</span>
+                        <span className={step >= 4 ? 'text-brand-600' : ''}>4</span>
+                        <span className={step >= 5 ? 'text-brand-600' : ''}>5</span>
                     </div>
                     <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
                         <div className="h-full bg-brand-500 transition-all duration-500" style={{ width: `${(step / 5) * 100}%` }}></div>
                     </div>
                 </div>
 
-                {step === 1 && <StepMode selected={formData.mode} onSelect={handleModeSelect} />}
+                {step === 1 && <StepMode selected={formData.mode} onSelect={handleModeSelect} t={t} />}
                 
                 {step === 2 && (
                     <StepGoal 
@@ -712,6 +654,7 @@ export const ContentAgent: React.FC = () => {
                         mode={formData.mode} 
                         onSelect={handleGoalSelect} 
                         onCustomChange={(val: string) => setFormData(prev => ({...prev, customGoal: val, goal: 'Outro (Descrever...)'}))} 
+                        t={t}
                     />
                 )}
 
@@ -721,6 +664,7 @@ export const ContentAgent: React.FC = () => {
                         customAudience={formData.customAudience} 
                         onSelect={handleAudienceSelect} 
                         onCustomChange={(val: string) => setFormData(prev => ({...prev, customAudience: val, audience: 'Outro (Descrever...)'}))} 
+                        t={t}
                     />
                 )}
 
@@ -732,13 +676,14 @@ export const ContentAgent: React.FC = () => {
                             onGenerateIdeas={handleGenerateIdeas} 
                             isGeneratingIdeas={isGeneratingIdeas} 
                             suggestions={topicSuggestions} 
+                            t={t}
                         />
                         <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800 gap-2">
                             {currentPlanItemIndices && (
-                                <Button variant="ghost" onClick={handleBackToPlan}>Cancelar e Voltar ao Plano</Button>
+                                <Button variant="ghost" onClick={handleBackToPlan}>{t('cancel')}</Button>
                             )}
                             <Button onClick={handleGenerateContent} isLoading={isGenerating} className="px-8 h-12 text-lg shadow-lg shadow-brand-200">
-                                <Wand2 className="w-5 h-5 mr-2" /> Gerar {formData.mode === 'plan' ? 'Planejamento' : 'Conteúdo'}
+                                <Wand2 className="w-5 h-5 mr-2" /> {formData.mode === 'plan' ? t('btn_generate_plan') : t('btn_generate_content')}
                             </Button>
                         </div>
                     </div>
@@ -749,7 +694,7 @@ export const ContentAgent: React.FC = () => {
                         {currentPlanItemIndices && (
                             <div className="mb-4">
                                 <Button variant="outline" size="sm" onClick={handleBackToPlan}>
-                                    <ArrowLeft className="w-4 h-4 mr-2"/> Voltar para o Plano
+                                    <ArrowLeft className="w-4 h-4 mr-2"/> {t('back')}
                                 </Button>
                             </div>
                         )}
@@ -759,8 +704,8 @@ export const ContentAgent: React.FC = () => {
                             onSave={handleSaveWithLink}
                             onRegenerate={handleGenerateContent}
                             canRegenerate={!result?.isPlan}
+                            t={t}
                         />
-                        {/* Custom Plan Render Injection for Actions */}
                         {result?.isPlan && result.weeks && (
                             <div className="mt-6 space-y-4">
                                 {result.weeks.map((week: any, i: number) => (
@@ -782,7 +727,7 @@ export const ContentAgent: React.FC = () => {
                                                         {post.generatedPostId ? (
                                                             <>
                                                                 <Button size="xs" variant="secondary" onClick={() => handleViewPost(post.generatedPostId)} className="bg-green-100 text-green-700 border-green-200 hover:bg-green-200">
-                                                                    <Eye className="w-3 h-3 mr-1"/> Visualizar
+                                                                    <Eye className="w-3 h-3 mr-1"/> {t('view_details')}
                                                                 </Button>
                                                                 <button onClick={() => handleGenerateFromPlan(post, i, idx)} className="text-slate-400 hover:text-brand-600 p-2 rounded hover:bg-slate-100" title="Gerar Novamente">
                                                                     <RefreshCw className="w-4 h-4"/>
@@ -790,7 +735,7 @@ export const ContentAgent: React.FC = () => {
                                                             </>
                                                         ) : (
                                                             <Button size="xs" variant="outline" onClick={() => handleGenerateFromPlan(post, i, idx)}>
-                                                                <Wand2 className="w-3 h-3 mr-1"/> Gerar
+                                                                <Wand2 className="w-3 h-3 mr-1"/> {t('generate_btn')}
                                                             </Button>
                                                         )}
                                                     </div>

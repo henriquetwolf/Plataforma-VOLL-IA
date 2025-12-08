@@ -135,8 +135,44 @@ const translations: Record<Language, TranslationDict> = {
     'language_desc': 'Escolha o idioma de exibição da plataforma.',
     'terminology_settings': 'Nomenclatura do Sistema',
     'terminology_desc': 'Escolha como se referir aos seus alunos/clientes em todo o sistema.',
+
+    // Content Agent
+    'mode_single': 'Post Único',
+    'mode_story': 'Sequência de Stories',
+    'mode_plan': 'Plano 4 Semanas',
+    'goal_attract': 'Atrair Novos Alunos',
+    'goal_retain': 'Fidelizar / Engajar',
+    'goal_educate': 'Educativo / Informativo',
+    'goal_inspire': 'Inspiracional / Motivacional',
+    'goal_sell': 'Vendas / Promoção',
+    'generate_suggestions': 'Gerar Sugestões com IA',
+    'topic_placeholder': 'Ex: Benefícios do Pilates para dor nas costas...',
+    'btn_generate_content': 'Gerar Conteúdo',
+    'btn_generate_plan': 'Gerar Planejamento',
+    'chosen_strategy': 'Estratégia Escolhida',
+    'caption': 'Legenda',
+    'visual_description': 'Descrição Visual',
+    'save_post': 'Salvar Post',
+    'copy': 'Copiar',
+
+    // Financial Agent
+    'calc_studio_capacity': '1. Capacidade do Estúdio',
+    'calc_professional_data': '2. Dados do Profissional',
+    'calc_financial_model': '3. Modelo Financeiro (Metas)',
+    'lbl_monthly_price': 'Mensalidade Média',
+    'lbl_occupancy': 'Taxa de Ocupação',
+    'lbl_hours_day': 'Horas/Dia',
+    'lbl_clients_hour': 'Alunos/Hora',
+    'lbl_prof_hours': 'Horas Semanais Prof.',
+    'lbl_commission': '% Repasse (Comissão)',
+    'lbl_payroll': 'Folha (Max %)',
+    'lbl_operating': 'Custos Oper. (%)',
+    'lbl_profit': 'Lucro/Reserva (%)',
+    'generate_analysis': 'Gerar Análise IA',
+    'analysis_result': 'Análise Financeira',
   },
   en: {
+    // Menu & General
     'general_panel': 'Dashboard',
     'registrations': 'Registration',
     'studio_profile': 'Studio Profile',
@@ -210,6 +246,7 @@ const translations: Record<Language, TranslationDict> = {
     'creations_today': 'Creations Today',
     'download_pdf': 'Download PDF',
 
+    // Dashboard Cards
     'step_1_title': 'Records & Organization',
     'step_1_desc': 'The foundation of your studio. Keep data up to date.',
     'step_2_title': 'Planning & Execution',
@@ -231,6 +268,7 @@ const translations: Record<Language, TranslationDict> = {
     'card_surveys_desc': 'Create and manage personalized satisfaction surveys.',
     'access_link': 'Access',
 
+    // Settings
     'settings_title': 'Studio Settings',
     'settings_subtitle': 'Manage platform preferences and language.',
     'email_integration': 'Email Integration',
@@ -239,8 +277,44 @@ const translations: Record<Language, TranslationDict> = {
     'language_desc': 'Choose the display language for the platform.',
     'terminology_settings': 'System Terminology',
     'terminology_desc': 'Choose how to refer to your students/clients across the system.',
+
+    // Content Agent
+    'mode_single': 'Single Post',
+    'mode_story': 'Story Sequence',
+    'mode_plan': '4-Week Plan',
+    'goal_attract': 'Attract New Students',
+    'goal_retain': 'Retain / Engage',
+    'goal_educate': 'Educate / Inform',
+    'goal_inspire': 'Inspire / Motivate',
+    'goal_sell': 'Sales / Promo',
+    'generate_suggestions': 'Generate AI Suggestions',
+    'topic_placeholder': 'Ex: Pilates benefits for back pain...',
+    'btn_generate_content': 'Generate Content',
+    'btn_generate_plan': 'Generate Plan',
+    'chosen_strategy': 'Chosen Strategy',
+    'caption': 'Caption',
+    'visual_description': 'Visual Description',
+    'save_post': 'Save Post',
+    'copy': 'Copy',
+
+    // Financial Agent
+    'calc_studio_capacity': '1. Studio Capacity',
+    'calc_professional_data': '2. Professional Data',
+    'calc_financial_model': '3. Financial Model (Targets)',
+    'lbl_monthly_price': 'Average Monthly Fee',
+    'lbl_occupancy': 'Occupancy Rate',
+    'lbl_hours_day': 'Hours/Day',
+    'lbl_clients_hour': 'Clients/Hour',
+    'lbl_prof_hours': 'Instructor Weekly Hours',
+    'lbl_commission': 'Commission %',
+    'lbl_payroll': 'Payroll (Max %)',
+    'lbl_operating': 'Operating Costs (%)',
+    'lbl_profit': 'Profit/Reserves (%)',
+    'generate_analysis': 'Generate AI Analysis',
+    'analysis_result': 'Financial Analysis',
   },
   es: {
+    // Menu & General
     'general_panel': 'Panel General',
     'registrations': 'Registros',
     'studio_profile': 'Perfil del Estudio',
@@ -283,6 +357,20 @@ const translations: Record<Language, TranslationDict> = {
     'clinical_guide_desc': 'Inteligencia Artificial para ayudar en el razonamiento clínico.',
     'main_complaint': '¿Cuál es la queja principal o patología?',
     'consult': 'Consultar',
+    
+    // Content Agent
+    'mode_single': 'Post Único',
+    'mode_story': 'Secuencia de Historias',
+    'mode_plan': 'Plan de 4 Semanas',
+    'goal_attract': 'Atraer Nuevos Alumnos',
+    'generate_suggestions': 'Generar Sugerencias con IA',
+    'btn_generate_content': 'Generar Contenido',
+    'save_post': 'Guardar Post',
+
+    // Financial Agent
+    'calc_studio_capacity': '1. Capacidad del Estudio',
+    'calc_professional_data': '2. Datos del Profesional',
+    'generate_analysis': 'Generar Análisis IA',
   },
   fr: {
     'general_panel': 'Tableau de Bord',
@@ -298,6 +386,7 @@ const translations: Record<Language, TranslationDict> = {
     'finance_title': 'Agent Financier',
     'rehab_title': 'Guide Clinique',
     'marketing_title': 'Agent Marketing',
+    'generate_analysis': 'Générer une analyse IA',
   },
   de: {
     'general_panel': 'Dashboard',
@@ -310,6 +399,7 @@ const translations: Record<Language, TranslationDict> = {
     'password_label': 'Passwort',
     'generate_btn': 'Inhalt generieren',
     'result_title': 'Generiertes Ergebnis',
+    'generate_analysis': 'KI-Analyse generieren',
   },
   it: {
     'general_panel': 'Pannello di Controllo',
@@ -322,6 +412,7 @@ const translations: Record<Language, TranslationDict> = {
     'password_label': 'Password',
     'generate_btn': 'Genera contenuto',
     'result_title': 'Risultato generato',
+    'generate_analysis': 'Genera Analisi IA',
   },
   zh: {
     'general_panel': '仪表板',
@@ -334,6 +425,7 @@ const translations: Record<Language, TranslationDict> = {
     'password_label': '密码',
     'generate_btn': '生成内容',
     'result_title': '生成结果',
+    'generate_analysis': '生成 AI 分析',
   },
   ja: {
     'general_panel': 'ダッシュボード',
@@ -346,6 +438,7 @@ const translations: Record<Language, TranslationDict> = {
     'password_label': 'パスワード',
     'generate_btn': 'コンテンツを生成',
     'result_title': '生成結果',
+    'generate_analysis': 'AI分析を生成',
   },
   ru: {
     'general_panel': 'Панель управления',
@@ -358,6 +451,7 @@ const translations: Record<Language, TranslationDict> = {
     'password_label': 'Пароль',
     'generate_btn': 'Создать контент',
     'result_title': 'Сгенерированный результат',
+    'generate_analysis': 'Создать анализ ИИ',
   },
   ko: {
     'general_panel': '대시보드',
@@ -370,6 +464,7 @@ const translations: Record<Language, TranslationDict> = {
     'password_label': '비밀번호',
     'generate_btn': '콘텐츠 생성',
     'result_title': '생성된 결과',
+    'generate_analysis': 'AI 분석 생성',
   }
 };
 
