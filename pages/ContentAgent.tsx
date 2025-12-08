@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -9,7 +6,7 @@ import { savePost, getTodayPostCount, recordGenerationUsage, fetchSavedPosts, de
 import { ContentRequest, SavedPost, StrategicContentPlan } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Wand2, Image as ImageIcon, Save, Copy, Loader2, History, Trash2, Video, FileText, Layers, Download, CalendarDays, CheckCircle } from 'lucide-react';
+import { Wand2, Image as ImageIcon, Save, Copy, Loader2, Lightbulb, ArrowRight, ArrowLeft, RefreshCw, Trash2, History, Download, CalendarDays, FileText, Zap, UserPlus, Heart, BookOpen, ShoppingBag, Users, Camera, MessageCircle, Layout, RotateCcw, Layers, Video, CheckCircle } from 'lucide-react';
 import { fetchProfile } from '../services/storage';
 
 const OBJECTIVE_OPTIONS = [
@@ -248,12 +245,29 @@ export const ContentAgent: React.FC = () => {
 
   const handleGenerateFromPlan = (post: any) => {
     setAgentMode('post');
+    
+    // Logic to normalize format from plan string to dropdown value
+    let fmt = 'Post Estático';
+    const pFormat = (post.format || '').toLowerCase();
+    if (pFormat.includes('reels') || pFormat.includes('vídeo') || pFormat.includes('video')) fmt = 'Reels';
+    else if (pFormat.includes('carrossel')) fmt = 'Carrossel';
+
+    // Update state to reflect plan item's specific data
     setRequest(prev => ({
         ...prev,
-        theme: post.theme || post.idea, // Sometimes AI puts theme in idea
-        format: post.format === 'Reels' || post.format === 'Carrossel' ? post.format : 'Post Estático',
-        objective: post.objective || 'Engajamento'
+        format: fmt,
+        theme: 'Outro (Descrever...)', // Switch to custom input to show specific text
+        objective: 'Outro (Descrever...)',
+        audience: 'Outro (Descrever...)' 
     }));
+
+    setCustomInputs(prev => ({
+        ...prev,
+        theme: post.idea || post.theme || '', // Map specific idea text
+        objective: post.objective || 'Engajamento',
+        audience: request.audience === 'Outro (Descrever...)' ? prev.audience : request.audience
+    }));
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

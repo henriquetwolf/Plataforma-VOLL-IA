@@ -165,6 +165,7 @@ export const generateMarketingContent = async (formData: MarketingFormData): Pro
     Para cada semana, defina um tema macro.
     Sugira 3 posts por semana (Dias alternados).
     IMPORTANTE: No campo 'day', forneça o Dia da Semana E a Data exata (dia/mês), calculado a partir da Data de Início. Exemplo: 'Segunda (23/10)'.
+    IMPORTANTE: Distribua os formatos sugeridos. PRIORIZE 'Post Estático' (maioria das sugestões). Use 'Carrossel' e 'Reels' apenas ocasionalmente para variar.
     Preencha 'isPlan' como true.
     `;
   } else if (isStory) {
