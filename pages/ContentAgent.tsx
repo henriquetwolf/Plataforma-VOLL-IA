@@ -38,6 +38,15 @@ const AUDIENCES = [
   { id: 'all', label: 'Público Geral do Studio' },
 ];
 
+const downloadImage = (dataUrl: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
 // --- SUB-COMPONENTS ---
 
 const StepMode = ({ selected, onSelect }: any) => (
@@ -287,7 +296,7 @@ const StepTopic = ({ value, onChange, onGenerateIdeas, isGeneratingIdeas, sugges
     </div>
 );
 
-const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate, onGenerateFromPlan }: any) => {
+const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate, onGenerateFromPlan, onViewSavedPost }: any) => {
     const [showLongCaption, setShowLongCaption] = useState(false);
 
     if (!content) return null;
@@ -370,6 +379,11 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate, 
                                         className={`w-full object-contain rounded-lg shadow-sm ${isCarousel ? 'aspect-[6/1]' : isReels ? 'aspect-[9/16]' : 'aspect-square'}`} 
                                     />
                                     {isCarousel && <p className="text-center text-xs text-slate-400 mt-2">Panorâmica simulando 6 cards integrados (Estilo 6:1).</p>}
+                                    <div className="mt-3 flex justify-center">
+                                        <Button variant="secondary" size="xs" onClick={() => downloadImage(content.generatedImage!, 'post-instagram.png')}>
+                                            <Download className="w-3 h-3 mr-1" /> Baixar Imagem
+                                        </Button>
+                                    </div>
                                 </div>
                             ) : (
                                 // Fallback info if image isn't ready
@@ -451,8 +465,8 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate, 
                                         {/* Generate Button for each Plan Item */}
                                         <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800 mt-2">
                                             {post.generatedPostId ? (
-                                                <Button size="xs" variant="secondary" className="w-full bg-green-100 text-green-700 border-green-200 hover:bg-green-200 cursor-default">
-                                                    <CheckCircle className="w-3 h-3 mr-1"/> Gerado
+                                                <Button size="xs" variant="secondary" onClick={() => onViewSavedPost(post.generatedPostId)} className="w-full bg-green-100 text-green-700 border-green-200 hover:bg-green-200">
+                                                    <Eye className="w-3 h-3 mr-1"/> Ver Conteúdo
                                                 </Button>
                                             ) : (
                                                 <Button size="xs" variant="outline" className="w-full text-xs" onClick={() => onGenerateFromPlan(post, i, idx)}>
@@ -646,6 +660,7 @@ export const ContentAgent: React.FC = () => {
   };
 
   const handleViewPost = (postId: string) => {
+      // Find post in savedPosts
       const post = savedPosts.find(p => p.id === postId);
       if (post) {
           const mockResult: GeneratedContent = {
@@ -661,6 +676,7 @@ export const ContentAgent: React.FC = () => {
           };
           setResult(mockResult);
           setStep(5);
+          setShowHistory(false); // Close history view
           window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
           alert("Post não encontrado no histórico. Pode ter sido excluído.");
@@ -712,6 +728,7 @@ export const ContentAgent: React.FC = () => {
               if (newPlan.weeks && newPlan.weeks[currentPlanItemIndices.weekIndex]) {
                   newPlan.weeks[currentPlanItemIndices.weekIndex].posts[currentPlanItemIndices.postIndex].generatedPostId = postId;
                   setActivePlan(newPlan);
+                  // Optional: We could trigger a save of the whole plan here too to persist the link immediately
               }
           }
       }
@@ -814,12 +831,12 @@ export const ContentAgent: React.FC = () => {
                                                     format: idea.format,
                                                     theme: idea.theme,
                                                     idea: idea.theme,
-                                                    objective: idea.objective, // Load saved objective
+                                                    objective: idea.objective,
                                                     generatedPostId: idea.generatedPostId
                                                 }))
                                             }))
                                         };
-                                        // Update form data context for subsequent generations
+                                        // Update form data context
                                         setFormData(prev => ({
                                             ...prev,
                                             goal: p.goals.mainObjective,
@@ -928,6 +945,7 @@ export const ContentAgent: React.FC = () => {
                             onRegenerate={handleGenerateContent}
                             canRegenerate={!result?.isPlan}
                             onGenerateFromPlan={handleGenerateFromPlan}
+                            onViewSavedPost={handleViewPost}
                         />
                     </>
                 )}
