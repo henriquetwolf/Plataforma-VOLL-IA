@@ -1,8 +1,3 @@
-
-
-
-
-
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -42,7 +37,7 @@ import { ContentAgent } from './pages/ContentAgent';
 import { WhatsAppAgent } from './pages/WhatsAppAgent';
 import { ActionAgent } from './pages/ActionAgent'; 
 import { MarketingAgent } from './pages/MarketingAgent';
-import { PilatesQuest } from './pages/PilatesQuest'; // NEW
+import { PilatesQuest } from './pages/PilatesQuest';
 import { StudentEvolutionPage } from './pages/StudentEvolution';
 import { StudentAssessmentPage } from './pages/StudentAssessment';
 import { AppRoute } from './types';
@@ -117,6 +112,17 @@ const StudentRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   return <DashboardLayout>{children}</DashboardLayout>;
 };
 
+// Guard for All Authenticated Users (Universal)
+const UniversalRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isLoading, isAuthenticated } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div></div>;
+  if (!isAuthenticated) return <Navigate to={AppRoute.LOGIN} state={{ from: location }} replace />;
+
+  return <DashboardLayout>{children}</DashboardLayout>;
+};
+
 // Admin Route
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -172,7 +178,9 @@ const AppRoutes = () => {
       <Route path={AppRoute.STUDENT_EVALUATION} element={<StudentRoute><StudentEvaluation /></StudentRoute>} />
       <Route path={AppRoute.STUDENT_SURVEYS} element={<StudentRoute><StudentSurveys /></StudentRoute>} /> 
       <Route path={AppRoute.STUDENT_DAILY_LUCK} element={<StudentRoute><StudentDailyLuck /></StudentRoute>} />
-      <Route path={AppRoute.STUDENT_PARTNERS} element={<StudentRoute><StudentPartners /></StudentRoute>} />
+      
+      {/* Rota Universal (Aluno, Instrutor, Dono) */}
+      <Route path={AppRoute.STUDENT_PARTNERS} element={<UniversalRoute><StudentPartners /></UniversalRoute>} />
 
       <Route path={AppRoute.ADMIN} element={<AdminRoute><AdminPanel /></AdminRoute>} />
       

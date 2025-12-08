@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, AuthState, AppRoute } from '../types';
 import { supabase } from '../services/supabase';
@@ -152,7 +151,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isAdmin: profile?.isAdmin || false,
           isInstructor: false,
           isStudent: false,
-          isOwner: true 
+          isOwner: true,
+          studioId: sessionUser.id // Dono é o próprio studio
       };
       setState({ user: userObj, isAuthenticated: true, isLoading: false });
       return userObj;

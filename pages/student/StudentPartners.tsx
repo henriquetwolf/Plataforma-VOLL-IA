@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { fetchPartners } from '../../services/partnerService';
@@ -34,12 +33,17 @@ export const StudentPartners: React.FC = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Determine back link based on role
+  const backLink = user?.isStudent ? AppRoute.STUDENT_DASHBOARD : 
+                   user?.isInstructor ? AppRoute.INSTRUCTOR_DASHBOARD : 
+                   AppRoute.DASHBOARD;
+
   return (
     <div className="max-w-6xl mx-auto p-4 space-y-8 animate-in fade-in pb-12">
       
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link to={AppRoute.STUDENT_DASHBOARD} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
+        <Link to={backLink} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
           <ArrowLeft className="w-6 h-6 text-slate-600 dark:text-slate-400"/>
         </Link>
         <div>
