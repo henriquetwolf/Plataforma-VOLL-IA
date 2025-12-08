@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { DuoLesson, DuoQuestion } from '../../types';
 import { Button } from '../ui/Button';
-import { CheckCircle, XCircle, ArrowRight, Trophy, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, ArrowRight, Trophy, AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface Props {
   lesson: DuoLesson;
@@ -63,25 +63,48 @@ export const DuoQuiz: React.FC<Props> = ({ lesson, onComplete, onCancel }) => {
     onComplete(score);
   };
 
+  const handleRetry = () => {
+    setCurrentQIndex(0);
+    setSelectedOption(null);
+    setIsAnswered(false);
+    setIsCorrect(false);
+    setScore(0);
+    setShowResult(false);
+  };
+
   if (showResult) {
-    const passed = score === (lesson.questions?.length || 0);
+    const totalQuestions = lesson.questions?.length || 0;
+    const passed = score === totalQuestions;
+    const points = score * 5;
+
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center animate-in fade-in h-full min-h-[400px]">
         <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 ${passed ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
           {passed ? <Trophy size={48} /> : <AlertTriangle size={48} />}
         </div>
         <h2 className="text-2xl font-bold mb-2 text-slate-800 dark:text-white">
-          {passed ? "Aula Concluída!" : "Tente Novamente"}
+          {passed ? "Aula Concluída!" : "Quase lá..."}
         </h2>
-        <p className="text-slate-500 mb-6">
-          Você acertou {score} de {lesson.questions?.length} questões.
-          {passed ? " Você ganhou 25 VOLLs!" : " Você precisa acertar todas para avançar."}
+        <p className="text-slate-500 mb-8 max-w-xs mx-auto">
+          Você acertou <strong className={passed ? "text-green-600" : "text-red-500"}>{score}</strong> de {totalQuestions} questões.
+          {passed ? " Parabéns pela dedicação!" : " É necessário acertar todas para liberar o próximo nível."}
         </p>
-        <div className="flex gap-4">
-          <Button variant="ghost" onClick={onCancel}>Sair</Button>
-          <Button onClick={finishQuiz} className={passed ? "bg-green-600 hover:bg-green-700" : ""}>
-            {passed ? "Receber Pontos" : "Refazer Aula"}
-          </Button>
+        
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          {passed ? (
+            <Button onClick={finishQuiz} className="bg-green-600 hover:bg-green-700 w-full py-4 text-lg shadow-lg shadow-green-200">
+              Resgatar {points} VOLLs
+            </Button>
+          ) : (
+            <>
+              <Button onClick={handleRetry} className="w-full bg-brand-600 hover:bg-brand-700">
+                <RefreshCw className="w-4 h-4 mr-2"/> Tentar Novamente
+              </Button>
+              <Button variant="ghost" onClick={onCancel} className="text-slate-400">
+                Sair
+              </Button>
+            </>
+          )}
         </div>
       </div>
     );

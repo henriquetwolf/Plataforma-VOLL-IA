@@ -62,19 +62,15 @@ export const PilatesQuest: React.FC = () => {
     const totalQuestions = currentLesson.questions?.length || 5;
     
     if (score === totalQuestions) {
-      // Success! Update DB
+      // Success! Update DB and State
       const newProg = await advanceProgress(progress, score * 5);
       setProgress(newProg);
       // Update local ranking view optimistically
       const newRank = ranking.map(r => r.userId === user?.id ? newProg : r).sort((a,b) => b.totalVolls - a.totalVolls);
       setRanking(newRank);
-      
-      alert(`Parabéns! Você ganhou ${score * 5} VOLLs e desbloqueou o próximo nível!`);
-    } else {
-      // Fail
-      alert(`Você acertou ${score}/${totalQuestions}. Precisa acertar todas para avançar.`);
     }
     
+    // Return to map quietly
     setMode('map');
     setCurrentLesson(null);
   };
@@ -137,8 +133,7 @@ export const PilatesQuest: React.FC = () => {
                const levelNum = (progress?.currentLevel || 1) + offset;
                const isCurrent = offset === 0;
                const isLocked = offset > 0;
-               const isCompleted = false; // We only show current and next ones for simplicity
-
+               
                return (
                  <div key={levelNum} className="mb-12 relative group">
                     <button
