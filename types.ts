@@ -322,6 +322,7 @@ export interface SystemPartner {
   linkUrl?: string;
   active: boolean;
   createdAt?: string;
+  commission?: string;
 }
 
 export interface SubscriptionPlan {

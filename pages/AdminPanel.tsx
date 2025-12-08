@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -82,6 +84,7 @@ export const AdminPanel: React.FC = () => {
   const [newPartnerDesc, setNewPartnerDesc] = useState('');
   const [newPartnerDiscount, setNewPartnerDiscount] = useState('');
   const [newPartnerLink, setNewPartnerLink] = useState('');
+  const [newPartnerCommission, setNewPartnerCommission] = useState('');
   const [partnerImageFile, setPartnerImageFile] = useState<File | null>(null);
   const [isCreatingPartner, setIsCreatingPartner] = useState(false);
 
@@ -345,10 +348,10 @@ export const AdminPanel: React.FC = () => {
         if (uploaded) imageUrl = uploaded;
     }
 
-    const result = await createPartner(newPartnerName, newPartnerDesc, newPartnerDiscount, imageUrl, newPartnerLink);
+    const result = await createPartner(newPartnerName, newPartnerDesc, newPartnerDiscount, imageUrl, newPartnerLink, newPartnerCommission);
     if (result.success) {
         alert("Parceiro cadastrado!");
-        setNewPartnerName(''); setNewPartnerDesc(''); setNewPartnerDiscount(''); setNewPartnerLink(''); setPartnerImageFile(null);
+        setNewPartnerName(''); setNewPartnerDesc(''); setNewPartnerDiscount(''); setNewPartnerLink(''); setNewPartnerCommission(''); setPartnerImageFile(null);
         setShowPartnerModal(false);
         const data = await fetchPartners();
         setPartners(data);
@@ -919,6 +922,11 @@ create policy "Admin manage partners" on system_partners for all to authenticate
                             <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded">{p.discountValue}</span>
                         </div>
                         <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-2">{p.description}</p>
+                        {p.commission && (
+                            <div className="mb-3 text-xs bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300 p-2 rounded">
+                                <strong>Comissão Studio:</strong> {p.commission}
+                            </div>
+                        )}
                         {p.linkUrl && (
                             <a href={p.linkUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-600 hover:underline flex items-center gap-1">
                                 Acessar Site <ExternalLink className="w-3 h-3" />
@@ -1427,8 +1435,9 @@ create policy "Admin manage partners" on system_partners for all to authenticate
                     <Input label="Descrição da Promoção" value={newPartnerDesc} onChange={e => setNewPartnerDesc(e.target.value)} required placeholder="Ex: Desconto em suplementos..." />
                     <div className="grid grid-cols-2 gap-4">
                         <Input label="Valor do Desconto" value={newPartnerDiscount} onChange={e => setNewPartnerDiscount(e.target.value)} required placeholder="Ex: 15% OFF" />
-                        <Input label="Link (Site/Insta)" value={newPartnerLink} onChange={e => setNewPartnerLink(e.target.value)} placeholder="https://..." />
+                        <Input label="Comissão do Studio" value={newPartnerCommission} onChange={e => setNewPartnerCommission(e.target.value)} placeholder="Ex: 5% (Opcional)" />
                     </div>
+                    <Input label="Link (Site/Insta)" value={newPartnerLink} onChange={e => setNewPartnerLink(e.target.value)} placeholder="https://..." />
                     <div>
                         <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-300">Imagem (Logo/Foto)</label>
                         <input type="file" accept="image/*" onChange={e => setPartnerImageFile(e.target.files?.[0] || null)} className="text-sm" />

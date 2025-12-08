@@ -1,9 +1,11 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { fetchPartners } from '../../services/partnerService';
 import { SystemPartner, AppRoute } from '../../types';
 import { Button } from '../../components/ui/Button';
-import { ArrowLeft, Tag, Copy, ExternalLink, Ticket, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Tag, Copy, ExternalLink, Ticket, CheckCircle2, DollarSign } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const StudentPartners: React.FC = () => {
@@ -112,6 +114,14 @@ export const StudentPartners: React.FC = () => {
                             {partner.description}
                         </p>
                         
+                        {user?.isOwner && partner.commission && (
+                            <div className="mb-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded border border-green-200 dark:border-green-800">
+                                    <DollarSign className="w-3 h-3" /> Comissão para o Studio: {partner.commission}
+                                </span>
+                            </div>
+                        )}
+
                         {partner.linkUrl ? (
                             <a 
                                 href={partner.linkUrl} 

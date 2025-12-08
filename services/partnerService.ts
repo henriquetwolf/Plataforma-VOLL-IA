@@ -1,4 +1,5 @@
 
+
 import { supabase } from './supabase';
 import { SystemPartner } from '../types';
 
@@ -15,6 +16,8 @@ import { SystemPartner } from '../types';
     active boolean default true,
     created_at timestamptz default now()
   );
+
+  alter table system_partners add column if not exists commission text;
 
   alter table system_partners enable row level security;
 
@@ -52,7 +55,8 @@ export const fetchPartners = async (): Promise<SystemPartner[]> => {
       imageUrl: item.image_url,
       linkUrl: item.link_url,
       active: item.active,
-      createdAt: item.created_at
+      createdAt: item.created_at,
+      commission: item.commission
     }));
   } catch (err) {
     console.error("Fetch Partner Exception:", err);
@@ -65,7 +69,8 @@ export const createPartner = async (
   description: string,
   discountValue: string,
   imageUrl?: string,
-  linkUrl?: string
+  linkUrl?: string,
+  commission?: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     const { error } = await supabase
@@ -76,6 +81,7 @@ export const createPartner = async (
         discount_value: discountValue,
         image_url: imageUrl,
         link_url: linkUrl,
+        commission: commission,
         active: true
       });
 
