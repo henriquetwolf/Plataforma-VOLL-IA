@@ -1,4 +1,6 @@
 
+
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -6,13 +8,14 @@ import { fetchAllProfiles, toggleUserStatus, adminResetPassword, upsertProfile, 
 import { fetchInstructors, toggleInstructorStatus } from '../services/instructorService';
 import { fetchStudents, revokeStudentAccess } from '../services/studentService';
 import { uploadBannerImage, upsertBanner, fetchBannerByType, deleteBanner } from '../services/bannerService';
+import { fetchPartners, createPartner, deletePartner, uploadPartnerImage } from '../services/partnerService';
 import { fetchAllSuggestions } from '../services/suggestionService';
 import { generateSuggestionTrends } from '../services/geminiService';
 import { fetchAdminDashboardStats, fetchAdminTimelineStats, fetchApiUsageStats, registerNewStudio, AdminStats, TimelineDataPoint, UserApiCost } from '../services/adminService';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2, MessageSquare, Sparkles, FileText, Download, BarChart3, PieChart as PieChartIcon, TrendingUp, Banknote, Video, Type, Image as ImageIcon, Activity, Calculator, Filter, UserPlus, Link as LinkIcon, ExternalLink } from 'lucide-react';
-import { SubscriptionPlan, SystemBanner, Suggestion, AppRoute } from '../types';
+import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2, MessageSquare, Sparkles, FileText, Download, BarChart3, PieChart as PieChartIcon, TrendingUp, Banknote, Video, Type, Image as ImageIcon, Activity, Calculator, Filter, UserPlus, Link as LinkIcon, ExternalLink, Tag } from 'lucide-react';
+import { SubscriptionPlan, SystemBanner, Suggestion, AppRoute, SystemPartner } from '../types';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
@@ -39,7 +42,7 @@ export const AdminPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'all' | 'owner' | 'instructor' | 'student' | 'suggestions' | 'costs'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'all' | 'owner' | 'instructor' | 'student' | 'suggestions' | 'costs' | 'partners'>('dashboard');
   
   // Dashboard Stats
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -71,6 +74,16 @@ export const AdminPanel: React.FC = () => {
   const [studioBannerLink, setStudioBannerLink] = useState('');
   const [instructorBannerLink, setInstructorBannerLink] = useState('');
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+
+  // Partners Management
+  const [partners, setPartners] = useState<SystemPartner[]>([]);
+  const [showPartnerModal, setShowPartnerModal] = useState(false);
+  const [newPartnerName, setNewPartnerName] = useState('');
+  const [newPartnerDesc, setNewPartnerDesc] = useState('');
+  const [newPartnerDiscount, setNewPartnerDiscount] = useState('');
+  const [newPartnerLink, setNewPartnerLink] = useState('');
+  const [partnerImageFile, setPartnerImageFile] = useState<File | null>(null);
+  const [isCreatingPartner, setIsCreatingPartner] = useState(false);
 
   // Global Suggestions
   const [allSuggestions, setAllSuggestions] = useState<(Suggestion & { studioName?: string })[]>([]);
@@ -157,6 +170,10 @@ export const AdminPanel: React.FC = () => {
           };
       });
       setAllSuggestions(suggestionsWithNames);
+
+      // 5. Fetch Partners
+      const partnersData = await fetchPartners();
+      setPartners(partnersData);
 
     } catch (err: any) {
       console.error("Admin Load Error:", err);
@@ -313,6 +330,41 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
+  // Partners Actions
+  const handleCreatePartner = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPartnerName || !newPartnerDesc || !newPartnerDiscount) {
+        alert("Preencha os campos obrigatórios.");
+        return;
+    }
+    setIsCreatingPartner(true);
+    
+    let imageUrl = '';
+    if (partnerImageFile) {
+        const uploaded = await uploadPartnerImage(partnerImageFile);
+        if (uploaded) imageUrl = uploaded;
+    }
+
+    const result = await createPartner(newPartnerName, newPartnerDesc, newPartnerDiscount, imageUrl, newPartnerLink);
+    if (result.success) {
+        alert("Parceiro cadastrado!");
+        setNewPartnerName(''); setNewPartnerDesc(''); setNewPartnerDiscount(''); setNewPartnerLink(''); setPartnerImageFile(null);
+        setShowPartnerModal(false);
+        const data = await fetchPartners();
+        setPartners(data);
+    } else {
+        alert("Erro ao criar parceiro: " + result.error);
+    }
+    setIsCreatingPartner(false);
+  };
+
+  const handleDeletePartner = async (id: string) => {
+      if(confirm("Remover este parceiro?")) {
+          await deletePartner(id);
+          setPartners(prev => prev.filter(p => p.id !== id));
+      }
+  };
+
   const getFilteredSuggestions = () => {
     return allSuggestions.filter(s => {
         if (suggestionStartDate) {
@@ -394,6 +446,7 @@ alter table content_posts enable row level security;
 alter table class_evaluations enable row level security;
 alter table rehab_lessons enable row level security;
 alter table suggestions enable row level security;
+alter table system_partners enable row level security;
 
 -- Admin needs global read access for dashboard stats
 drop policy if exists "Admin view all posts" on content_posts;
@@ -407,6 +460,13 @@ create policy "Admin view all lessons" on rehab_lessons for select to authentica
 
 drop policy if exists "Admin view all suggestions" on suggestions;
 create policy "Admin view all suggestions" on suggestions for select to authenticated using (auth.jwt() ->> 'email' = '${ADMIN_EMAIL}');
+
+-- Partners public read, admin write
+drop policy if exists "Read partners" on system_partners;
+create policy "Read partners" on system_partners for select to authenticated using (true);
+
+drop policy if exists "Admin manage partners" on system_partners;
+create policy "Admin manage partners" on system_partners for all to authenticated using (auth.jwt() ->> 'email' = '${ADMIN_EMAIL}');
     `;
     navigator.clipboard.writeText(sql.trim());
     alert('SQL copiado! Execute no Supabase SQL Editor para liberar as métricas e sugestões globais.');
@@ -440,7 +500,6 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
     });
     const [timelineEndDate, setTimelineEndDate] = useState(() => new Date().toISOString().split('T')[0]);
     
-    // NEW: Registration Link Logic
     const registrationLink = `${window.location.origin}/#${AppRoute.REGISTER}`;
 
     useEffect(() => {
@@ -827,6 +886,57 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
     );
   };
 
+  // --- PARTNERS VIEW ---
+  const PartnersView = () => (
+    <div className="space-y-6 animate-in fade-in">
+        <div className="flex justify-between items-center">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Parceiros e Descontos</h2>
+            <Button onClick={() => setShowPartnerModal(true)}>
+                <Tag className="w-4 h-4 mr-2" /> Novo Parceiro
+            </Button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {partners.map(p => (
+                <div key={p.id} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all">
+                    <div className="h-32 bg-slate-100 dark:bg-slate-800 relative">
+                        {p.imageUrl ? (
+                            <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-slate-400">
+                                <ImageIcon className="w-8 h-8" />
+                            </div>
+                        )}
+                        <div className="absolute top-2 right-2 flex gap-1">
+                            <button onClick={() => handleDeletePartner(p.id)} className="p-1.5 bg-white/80 dark:bg-slate-900/80 rounded-full hover:text-red-500 shadow-sm backdrop-blur-sm">
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                    <div className="p-4">
+                        <div className="flex justify-between items-start mb-2">
+                            <h3 className="font-bold text-lg text-slate-900 dark:text-white">{p.name}</h3>
+                            <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded">{p.discountValue}</span>
+                        </div>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-2">{p.description}</p>
+                        {p.linkUrl && (
+                            <a href={p.linkUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-600 hover:underline flex items-center gap-1">
+                                Acessar Site <ExternalLink className="w-3 h-3" />
+                            </a>
+                        )}
+                    </div>
+                </div>
+            ))}
+            {partners.length === 0 && (
+                <div className="col-span-3 text-center py-12 text-slate-500 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                    <Tag className="w-12 h-12 mx-auto mb-3 opacity-50"/>
+                    <p>Nenhum parceiro cadastrado.</p>
+                </div>
+            )}
+        </div>
+    </div>
+  );
+
   // --- MAIN VIEW ---
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in pb-12">
@@ -873,6 +983,12 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
           <Banknote className="h-4 w-4"/> {t('admin_tab_costs')}
         </button>
         <button 
+          onClick={() => setActiveTab('partners')} 
+          className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'partners' ? 'bg-white shadow text-pink-600' : 'text-slate-500'}`}
+        >
+          <Tag className="h-4 w-4"/> Parceiros
+        </button>
+        <button 
           onClick={() => setActiveTab('all')} 
           className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'all' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}
         >
@@ -907,6 +1023,8 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
       {activeTab === 'dashboard' && <DashboardView />}
       
       {activeTab === 'costs' && <ApiCostView />}
+
+      {activeTab === 'partners' && <PartnersView />}
 
       {activeTab === 'suggestions' && (
         <div className="space-y-6 animate-in fade-in">
@@ -964,7 +1082,7 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
       )}
 
       {/* Users Table */}
-      {activeTab !== 'dashboard' && activeTab !== 'suggestions' && activeTab !== 'costs' && (
+      {activeTab !== 'dashboard' && activeTab !== 'suggestions' && activeTab !== 'costs' && activeTab !== 'partners' && (
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
           <div className="relative max-w-md">
@@ -1292,6 +1410,34 @@ create policy "Admin view all suggestions" on suggestions for select to authenti
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+      )}
+
+      {/* Create Partner Modal */}
+      {showPartnerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">Cadastrar Parceiro</h3>
+                    <button onClick={() => setShowPartnerModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+                </div>
+                <form onSubmit={handleCreatePartner} className="space-y-4">
+                    <Input label="Nome do Estabelecimento" value={newPartnerName} onChange={e => setNewPartnerName(e.target.value)} required placeholder="Ex: Farmácia Saúde" />
+                    <Input label="Descrição da Promoção" value={newPartnerDesc} onChange={e => setNewPartnerDesc(e.target.value)} required placeholder="Ex: Desconto em suplementos..." />
+                    <div className="grid grid-cols-2 gap-4">
+                        <Input label="Valor do Desconto" value={newPartnerDiscount} onChange={e => setNewPartnerDiscount(e.target.value)} required placeholder="Ex: 15% OFF" />
+                        <Input label="Link (Site/Insta)" value={newPartnerLink} onChange={e => setNewPartnerLink(e.target.value)} placeholder="https://..." />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-300">Imagem (Logo/Foto)</label>
+                        <input type="file" accept="image/*" onChange={e => setPartnerImageFile(e.target.files?.[0] || null)} className="text-sm" />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-4">
+                        <Button type="button" variant="ghost" onClick={() => setShowPartnerModal(false)}>Cancelar</Button>
+                        <Button type="submit" isLoading={isCreatingPartner}>Cadastrar</Button>
+                    </div>
+                </form>
             </div>
         </div>
       )}

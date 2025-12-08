@@ -1,6 +1,8 @@
 
 
 
+
+
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -28,6 +30,7 @@ import { StudentNewsletters } from './pages/student/StudentNewsletters';
 import { StudentEvaluation } from './pages/student/StudentEvaluation';
 import { StudentSurveys } from './pages/student/StudentSurveys'; 
 import { StudentDailyLuck } from './pages/student/StudentDailyLuck';
+import { StudentPartners } from './pages/student/StudentPartners';
 import { InstructorNewsletters } from './pages/instructor/InstructorNewsletters';
 import { InstructorDashboard } from './pages/instructor/InstructorDashboard';
 import { InstructorSurveys } from './pages/instructor/InstructorSurveys'; 
@@ -169,6 +172,7 @@ const AppRoutes = () => {
       <Route path={AppRoute.STUDENT_EVALUATION} element={<StudentRoute><StudentEvaluation /></StudentRoute>} />
       <Route path={AppRoute.STUDENT_SURVEYS} element={<StudentRoute><StudentSurveys /></StudentRoute>} /> 
       <Route path={AppRoute.STUDENT_DAILY_LUCK} element={<StudentRoute><StudentDailyLuck /></StudentRoute>} />
+      <Route path={AppRoute.STUDENT_PARTNERS} element={<StudentRoute><StudentPartners /></StudentRoute>} />
 
       <Route path={AppRoute.ADMIN} element={<AdminRoute><AdminPanel /></AdminRoute>} />
       

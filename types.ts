@@ -313,6 +313,17 @@ export interface SystemBanner {
   active: boolean;
 }
 
+export interface SystemPartner {
+  id: string;
+  name: string;
+  description: string;
+  discountValue: string;
+  imageUrl?: string;
+  linkUrl?: string;
+  active: boolean;
+  createdAt?: string;
+}
+
 export interface SubscriptionPlan {
   id: string;
   name: string;
@@ -435,6 +446,7 @@ export enum AppRoute {
   STUDENT_EVALUATION = '/student/evaluation',
   STUDENT_SURVEYS = '/student/surveys',
   STUDENT_DAILY_LUCK = '/student/daily-luck', 
+  STUDENT_PARTNERS = '/student/partners',
   STUDIO_SUGGESTIONS = '/suggestions',
   STUDIO_EVALUATIONS = '/evaluations',
   SURVEY_MANAGER = '/surveys', 

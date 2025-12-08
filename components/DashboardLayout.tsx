@@ -1,12 +1,14 @@
 
 
 
+
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper, Settings, Home, Wand2, Star, TrendingUp, ClipboardList, MessageCircle, FileText, Rocket, Trophy } from 'lucide-react';
+import { LayoutDashboard, UserCircle, LogOut, Sparkles, Users, Compass, Sun, Moon, Calculator, Banknote, Activity, ShieldAlert, BookUser, Utensils, MessageSquare, Newspaper, Settings, Home, Wand2, Star, TrendingUp, ClipboardList, MessageCircle, FileText, Rocket, Trophy, Tag } from 'lucide-react';
 import { AppRoute, SystemBanner } from '../types';
 import { fetchProfile } from '../services/storage';
 import { fetchBannerByType } from '../services/bannerService';
@@ -83,6 +85,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         { type: 'link', label: t('class_ratings'), icon: Star, path: AppRoute.STUDENT_EVALUATION },
         { type: 'link', label: 'Treino em Casa', icon: Activity, path: AppRoute.STUDENT_WORKOUT },
         { type: 'header', label: 'Comunidade' },
+        { type: 'link', label: 'Parceiros e Descontos', icon: Tag, path: AppRoute.STUDENT_PARTNERS },
         { type: 'link', label: 'Receitas', icon: Utensils, path: AppRoute.STUDENT_RECIPES },
         { type: 'link', label: t('suggestions'), icon: MessageSquare, path: AppRoute.STUDENT_SUGGESTIONS },
         { type: 'link', label: 'Pesquisas', icon: ClipboardList, path: AppRoute.STUDENT_SURVEYS }, 
