@@ -69,7 +69,7 @@ export const Login: React.FC = () => {
 
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-slate-900">
-            {loginMode === 'admin' ? t('admin_panel') : loginMode === 'instructor' ? 'Portal do Instrutor' : loginMode === 'student' ? 'Área do Aluno' : t('welcome_login')}
+            {loginMode === 'admin' ? t('admin_panel') : loginMode === 'instructor' ? 'Portal do Instrutor' : loginMode === 'student' ? 'Área do Aluno' : 'Bem-vindo à Plataforma VOLL IA'}
           </h1>
           <p className="text-slate-500 mt-2 text-sm">
             {loginMode === 'student' ? 'Acesse seus treinos e receitas personalizadas' : t('login_subtitle')}

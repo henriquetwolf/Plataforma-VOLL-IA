@@ -3,14 +3,16 @@
 
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useLanguage, Language } from '../context/LanguageContext';
+import { useLanguage, Language, Terminology } from '../context/LanguageContext';
 import { fetchProfile, upsertProfile } from '../services/storage';
 import { StudioProfile } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Settings as SettingsIcon, Save, CheckCircle, Mail, ExternalLink, Globe } from 'lucide-react';
+import { Settings as SettingsIcon, Save, CheckCircle, Mail, ExternalLink, Globe, Type } from 'lucide-react';
 
 const AVAILABLE_LANGUAGES: { code: Language; label: string }[] = [
   { code: 'pt', label: '🇧🇷 Português (Brasil)' },
@@ -27,7 +29,7 @@ const AVAILABLE_LANGUAGES: { code: Language; label: string }[] = [
 
 export const Settings: React.FC = () => {
   const { user } = useAuth();
-  const { setLanguage: setGlobalLanguage, t } = useLanguage();
+  const { setLanguage: setGlobalLanguage, setTerminology: setGlobalTerminology, t } = useLanguage();
   const [profile, setProfile] = useState<StudioProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -36,6 +38,7 @@ export const Settings: React.FC = () => {
   // Estados locais
   const [senderEmail, setSenderEmail] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState<Language>('pt');
+  const [selectedTerminology, setSelectedTerminology] = useState<Terminology>('student');
 
   useEffect(() => {
     const loadData = async () => {
@@ -48,12 +51,16 @@ export const Settings: React.FC = () => {
                 setSelectedLanguage(data.settings.language);
                 setGlobalLanguage(data.settings.language); // Sync context on load
             }
+            if (data.settings.terminology) {
+                setSelectedTerminology(data.settings.terminology);
+                setGlobalTerminology(data.settings.terminology); // Sync context
+            }
         }
       }
       setLoading(false);
     };
     loadData();
-  }, [user, setGlobalLanguage]);
+  }, [user, setGlobalLanguage, setGlobalTerminology]);
 
   const handleSave = async () => {
     if (!user?.id || !profile) return;
@@ -65,6 +72,7 @@ export const Settings: React.FC = () => {
     const updatedSettings = {
         sender_email: senderEmail,
         language: selectedLanguage,
+        terminology: selectedTerminology,
         instructor_permissions: currentPermissions
     };
 
@@ -74,6 +82,7 @@ export const Settings: React.FC = () => {
 
     if (result.success) {
         setGlobalLanguage(selectedLanguage); // Update global context immediately
+        setGlobalTerminology(selectedTerminology); // Update global context
         setMessage('Configurações salvas com sucesso!');
         setTimeout(() => setMessage(''), 3000);
     } else {
@@ -161,6 +170,45 @@ export const Settings: React.FC = () => {
                             </option>
                         ))}
                     </select>
+                </div>
+            </div>
+        </div>
+
+        {/* Seção 3: Nomenclatura (Nova) */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
+                <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                    <Type className="w-5 h-5 text-purple-600" /> {t('terminology_settings')}
+                </h2>
+                <p className="text-sm text-slate-500 mt-1">
+                    {t('terminology_desc')}
+                </p>
+            </div>
+            <div className="p-6">
+                <div className="max-w-md space-y-4">
+                    <label className="flex items-center gap-3 p-3 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                        <input 
+                            type="radio" 
+                            name="terminology" 
+                            value="student" 
+                            checked={selectedTerminology === 'student'} 
+                            onChange={() => setSelectedTerminology('student')}
+                            className="w-4 h-4 text-brand-600 focus:ring-brand-500"
+                        />
+                        <span className="text-slate-700 dark:text-slate-300 font-medium">Aluno / Alunos (Padrão)</span>
+                    </label>
+                    
+                    <label className="flex items-center gap-3 p-3 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                        <input 
+                            type="radio" 
+                            name="terminology" 
+                            value="client" 
+                            checked={selectedTerminology === 'client'} 
+                            onChange={() => setSelectedTerminology('client')}
+                            className="w-4 h-4 text-brand-600 focus:ring-brand-500"
+                        />
+                        <span className="text-slate-700 dark:text-slate-300 font-medium">Cliente / Clientes</span>
+                    </label>
                 </div>
             </div>
         </div>

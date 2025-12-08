@@ -1,4 +1,5 @@
 
+
 import { supabase } from './supabase';
 import { StudioProfile, SubscriptionPlan } from '../types';
 
@@ -76,6 +77,7 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
   const defaultSettings = { 
     sender_email: '', 
     language: 'pt',
+    terminology: 'student', // Default to student
     instructor_permissions: { rehab: true, newsletters: true, students: true } 
   };
 
@@ -86,6 +88,7 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
     ...dbSettings,
     sender_email: dbSettings.sender_email || defaultSettings.sender_email,
     language: dbSettings.language || defaultSettings.language,
+    terminology: dbSettings.terminology || defaultSettings.terminology,
     instructor_permissions: {
       ...defaultSettings.instructor_permissions,
       ...(dbSettings.instructor_permissions || {})

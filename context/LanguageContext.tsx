@@ -1,4 +1,5 @@
 
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 // Top 10 Languages
@@ -14,9 +15,13 @@ export type Language =
   | 'ru' // Russian
   | 'ko'; // Korean
 
+export type Terminology = 'student' | 'client';
+
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
+  terminology: Terminology;
+  setTerminology: (term: Terminology) => void;
   t: (key: string) => string;
 }
 
@@ -136,6 +141,8 @@ const translations: Record<Language, TranslationDict> = {
     'email_desc': 'Conecte seu Gmail para facilitar o envio de mensagens.',
     'language_settings': 'Preferências de Idioma',
     'language_desc': 'Escolha o idioma de exibição da plataforma.',
+    'terminology_settings': 'Nomenclatura do Sistema',
+    'terminology_desc': 'Escolha como se referir aos seus alunos/clientes em todo o sistema.',
 
     // Login
     'welcome_login': 'Bem-vindo(a)',
@@ -322,6 +329,10 @@ const translations: Record<Language, TranslationDict> = {
     'trends_report': 'Relatório de Tendências',
   },
   en: {
+    // ... existing EN translations ...
+    'terminology_settings': 'System Terminology',
+    'terminology_desc': 'Choose how to refer to your students/clients across the system.',
+    // ... rest of keys ...
     'general_panel': 'Dashboard',
     'registrations': 'Records',
     'studio_profile': 'Studio Profile',
@@ -639,18 +650,40 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [language, setLanguage] = useState<Language>(() => {
     return (localStorage.getItem('app_language') as Language) || 'pt';
   });
+  
+  const [terminology, setTerminology] = useState<Terminology>(() => {
+    return (localStorage.getItem('app_terminology') as Terminology) || 'student';
+  });
 
   useEffect(() => {
     localStorage.setItem('app_language', language);
   }, [language]);
 
+  useEffect(() => {
+    localStorage.setItem('app_terminology', terminology);
+  }, [terminology]);
+
   const t = (key: string): string => {
     const dict = translations[language] || translations['pt'];
-    return dict[key] || translations['pt'][key] || key;
+    let text = dict[key] || translations['pt'][key] || key;
+
+    // Terminology Replacement Logic
+    if (terminology === 'client') {
+      text = text.replace(/Aluno/g, 'Cliente');
+      text = text.replace(/Alunos/g, 'Clientes');
+      text = text.replace(/Aluna/g, 'Cliente');
+      text = text.replace(/Alunas/g, 'Clientes');
+      text = text.replace(/aluno/g, 'cliente');
+      text = text.replace(/alunos/g, 'clientes');
+      text = text.replace(/aluna/g, 'cliente');
+      text = text.replace(/alunas/g, 'clientes');
+    }
+
+    return text;
   };
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={{ language, setLanguage, terminology, setTerminology, t }}>
       {children}
     </LanguageContext.Provider>
   );

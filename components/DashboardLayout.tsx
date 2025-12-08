@@ -1,3 +1,5 @@
+
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -13,13 +15,13 @@ const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
 export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { logout, user } = useAuth();
   const { theme, toggleTheme, setBrandColor } = useTheme();
-  const { t, setLanguage } = useLanguage();
+  const { t, setLanguage, setTerminology } = useLanguage();
   const location = useLocation();
   
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [promoBanner, setPromoBanner] = useState<SystemBanner | null>(null);
 
-  // Carregar Configurações do Studio (Cor e Idioma)
+  // Carregar Configurações do Studio (Cor, Idioma e Nomenclatura)
   useEffect(() => {
     const loadBrandAndSettings = async () => {
       const targetId = user?.isInstructor || user?.isStudent ? user.studioId : user?.id;
@@ -34,11 +36,16 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
             if (profile.settings?.language) {
                 setLanguage(profile.settings.language);
             }
+
+            // Aplicar Nomenclatura Salva
+            if (profile.settings?.terminology) {
+                setTerminology(profile.settings.terminology);
+            }
         }
       }
     };
     loadBrandAndSettings();
-  }, [user, setBrandColor, setLanguage]);
+  }, [user, setBrandColor, setLanguage, setTerminology]);
 
   // Carregar Banner Promocional
   useEffect(() => {

@@ -363,7 +363,8 @@ export interface StudioProfile {
   planMaxDailyPosts?: number; 
   settings?: {
     sender_email?: string; 
-    language?: 'pt' | 'en' | 'es' | 'fr' | 'de' | 'it' | 'zh' | 'ja' | 'ru' | 'ko'; 
+    language?: 'pt' | 'en' | 'es' | 'fr' | 'de' | 'it' | 'zh' | 'ja' | 'ru' | 'ko';
+    terminology?: 'student' | 'client'; 
     instructor_permissions?: {
       rehab?: boolean;
       newsletters?: boolean;
