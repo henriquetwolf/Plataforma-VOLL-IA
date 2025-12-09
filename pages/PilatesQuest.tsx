@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchUserProgress, generateLessonContent, advanceProgress, fetchStudioRanking } from '../services/duoService';
 import { DuoUserProgress, DuoLesson } from '../types';
 import { DuoQuiz } from '../components/duo/DuoQuiz';
 import { Button } from '../components/ui/Button';
-import { Trophy, Sparkles, Map, Lock, Play, RotateCcw, Loader2 } from 'lucide-react';
+import { Trophy, Sparkles, Map, Lock, Play, RotateCcw, Loader2, CheckCircle } from 'lucide-react';
 
 export const PilatesQuest: React.FC = () => {
   const { user } = useAuth();
@@ -21,17 +20,23 @@ export const PilatesQuest: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       if (user?.id) {
-        // Assume studioId is set correctly in user context either by ownership or association
+        // Identificar Studio ID corretamente para Donos (id) e Instrutores (studioId)
         const studioId = user.isInstructor ? user.studioId : user.id;
         const role = user.isOwner ? 'owner' : 'instructor';
         
         if (studioId) {
-          const [userProg, rank] = await Promise.all([
-            fetchUserProgress(user.id, studioId, user.name, role),
-            fetchStudioRanking(studioId)
-          ]);
-          setProgress(userProg);
-          setRanking(rank);
+          try {
+            const [userProg, rank] = await Promise.all([
+              fetchUserProgress(user.id, studioId, user.name, role),
+              fetchStudioRanking(studioId)
+            ]);
+            setProgress(userProg);
+            setRanking(rank);
+          } catch (error) {
+            console.error("Erro ao carregar dados do Quest:", error);
+          }
+        } else {
+            console.warn("Studio ID não encontrado para o usuário.");
         }
       }
       setLoading(false);
@@ -40,7 +45,10 @@ export const PilatesQuest: React.FC = () => {
   }, [user]);
 
   const handleStartLevel = async () => {
-    if (!progress) return;
+    if (!progress) {
+        alert("Erro ao carregar seu progresso. Por favor, recarregue a página.");
+        return;
+    }
     
     // Verificação de Limite Diário
     const today = new Date().toISOString().split('T')[0];
@@ -157,7 +165,7 @@ export const PilatesQuest: React.FC = () => {
                         isCurrent 
                           ? (playedToday 
                               ? 'bg-slate-200 border-slate-300 text-green-600 cursor-default' 
-                              : 'bg-green-500 border-green-700 text-white shadow-lg shadow-green-200 hover:brightness-110')
+                              : 'bg-green-500 border-green-700 text-white shadow-lg shadow-green-200 hover:brightness-110 cursor-pointer')
                           : 'bg-slate-200 border-slate-300 text-slate-400 cursor-not-allowed'
                       }`}
                     >
@@ -236,4 +244,3 @@ export const PilatesQuest: React.FC = () => {
     </div>
   );
 };
-import { CheckCircle } from 'lucide-react';

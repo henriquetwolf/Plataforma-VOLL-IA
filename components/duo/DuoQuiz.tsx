@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { DuoLesson, DuoQuestion } from '../../types';
 import { Button } from '../ui/Button';
@@ -80,12 +78,22 @@ export const DuoQuiz: React.FC<Props> = ({ lesson, onComplete, onCancel }) => {
 
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center animate-in fade-in h-full min-h-[400px]">
+        
+        {passed && (
+            <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-6 animate-in slide-in-from-top-4">
+                Aula Finalizada!
+            </h2>
+        )}
+
         <div className={`w-32 h-32 rounded-full flex items-center justify-center mb-8 ${passed ? 'bg-yellow-100 text-yellow-500' : 'bg-red-100 text-red-500'}`}>
           {passed ? <Trophy size={64} /> : <AlertTriangle size={64} />}
         </div>
         
         {passed ? (
             <div className="w-full max-w-xs animate-in slide-in-from-bottom-4">
+                <p className="text-slate-600 dark:text-slate-300 mb-6 font-medium">
+                    Você completou o desafio com sucesso!
+                </p>
                 <Button onClick={finishQuiz} className="bg-green-600 hover:bg-green-700 w-full py-4 text-xl font-bold shadow-lg shadow-green-200 transform hover:scale-105 transition-all">
                     RESGATAR {points} VOLLs
                 </Button>
