@@ -1,4 +1,5 @@
 
+
 import { supabase } from './supabase';
 import { GoogleGenAI, Type } from "@google/genai";
 import { DuoLesson, DuoUserProgress, DuoQuestion } from '../types';
@@ -7,21 +8,61 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // Static list of topics for levels to guide the AI
 const LEVEL_TOPICS = [
-  "Princípios Básicos do Pilates (Respiração, Centro)",
-  "História de Joseph Pilates",
-  "Anatomia Básica para Pilates (Powerhouse)",
-  "Exercícios de Mat Pilates (Iniciante)",
-  "Reformer: Componentes e Segurança",
-  "Patologias da Coluna e Pilates",
-  "Cadillac: Exercícios Fundamentais",
-  "Chair: Desafios de Equilíbrio",
-  "Pilates para Gestantes",
-  "Pilates para Idosos",
-  "Barrel: Mobilidade de Coluna",
-  "Acessórios (Bola, Faixa, Anel)",
-  "Biomecânica do Movimento",
-  "Avaliação Postural Básica",
-  "Planejamento de Aula"
+  "História de Joseph Pilates e a Contrologia", // Nível 1
+  "Os 6 Princípios Fundamentais do Pilates", // Nível 2
+  "Anatomia do Powerhouse (Centro de Força)", // Nível 3
+  "Mat Pilates vs Equipamentos: Diferenças", // Nível 4
+  "Reformer: Estrutura e Molas", // Nível 5
+  "Respiração Tridimensional e Diafragma", // Nível 6
+  "Cadillac: A Cama Trapézio", // Nível 7
+  "Chair (Cadeira): Desafios de Estabilidade", // Nível 8
+  "Barrel: Mobilidade de Coluna e Alongamento", // Nível 9
+  "Pilates para Patologias de Coluna (Hérnia)", // Nível 10
+  "Pilates para Gestantes: Indicações", // Nível 11
+  "Pilates para Idosos: Cuidados", // Nível 12
+  "Acessórios: Magic Circle e Bola", // Nível 13
+  "Biomecânica: Cadeias Musculares", // Nível 14
+  "Avaliação Postural no Studio" // Nível 15
+];
+
+// Fallback lessons rotation to ensure variety even if AI fails
+const FALLBACK_LESSONS: DuoLesson[] = [
+  {
+    level: 1,
+    title: "História do Pilates",
+    topic: "Quem foi Joseph Pilates?",
+    questions: [
+      { question: "Onde Joseph Pilates nasceu?", options: ["Alemanha", "EUA", "França", "Brasil"], correctAnswerIndex: 0, explanation: "Joseph nasceu em Mönchengladbach, Alemanha, em 1883." },
+      { question: "Qual era o nome original do método?", options: ["Pilates", "Contrologia", "Yoga Dinâmico", "Stretching"], correctAnswerIndex: 1, explanation: "Ele chamou seu método de 'Contrologia' (A arte do controle)." },
+      { question: "Joseph foi enfermeiro durante qual guerra?", options: ["1ª Guerra Mundial", "2ª Guerra Mundial", "Guerra Civil", "Guerra Fria"], correctAnswerIndex: 0, explanation: "Ele atuou na Inglaterra durante a 1ª Guerra." },
+      { question: "Quem foi a esposa e parceira de Joseph?", options: ["Clara", "Maria", "Ana", "Julia"], correctAnswerIndex: 0, explanation: "Clara Pilates foi fundamental no ensino do método." },
+      { question: "Joseph migrou para qual cidade nos EUA?", options: ["Nova York", "Los Angeles", "Chicago", "Miami"], correctAnswerIndex: 0, explanation: "Eles abriram o estúdio em NYC, perto de escolas de dança." }
+    ]
+  },
+  {
+    level: 2,
+    title: "Princípios do Método",
+    topic: "Os 6 Princípios",
+    questions: [
+      { question: "Qual destes é um princípio chave?", options: ["Velocidade", "Centralização", "Força Bruta", "Hipertrofia"], correctAnswerIndex: 1, explanation: "Centralização refere-se ao uso do Powerhouse." },
+      { question: "O que significa 'Fluidez' no Pilates?", options: ["Suar muito", "Movimentos contínuos e elegantes", "Beber água", "Rápida execução"], correctAnswerIndex: 1, explanation: "Movimentos sem trancos, com ritmo e graça." },
+      { question: "A respiração deve ser:", options: ["Apneia", "Torácica Lateral", "Apenas abdominal", "Curta"], correctAnswerIndex: 1, explanation: "Expansão das costelas lateralmente e posteriormente." },
+      { question: "Controle refere-se a:", options: ["Mente sobre músculo", "Professor mandando", "Segurar a respiração", "Rigidez"], correctAnswerIndex: 0, explanation: "A mente comanda o movimento do corpo." },
+      { question: "Precisão significa:", options: ["Fazer rápido", "Fazer perfeito (qualidade)", "Fazer muitas repetições", "Usar muita carga"], correctAnswerIndex: 1, explanation: "Poucas repetições com execução perfeita." }
+    ]
+  },
+  {
+    level: 3,
+    title: "Anatomia do Powerhouse",
+    topic: "Centro de Força",
+    questions: [
+      { question: "Qual músculo é o 'teto' do Powerhouse?", options: ["Diafragma", "Transverso", "Assoalho Pélvico", "Multífidos"], correctAnswerIndex: 0, explanation: "O Diafragma fecha a caixa torácica superiormente." },
+      { question: "Qual músculo é o 'cinturão' natural?", options: ["Reto Abdominal", "Transverso do Abdômen", "Oblíquos", "Psoas"], correctAnswerIndex: 1, explanation: "O Transverso estabiliza a coluna lombar." },
+      { question: "Onde fica o Assoalho Pélvico?", options: ["Base da pelve", "Costas", "Pescoço", "Coxa"], correctAnswerIndex: 0, explanation: "Sustenta os órgãos pélvicos." },
+      { question: "Os Multífidos atuam principalmente na:", options: ["Flexão", "Estabilização da coluna", "Respiração", "Caminhada"], correctAnswerIndex: 1, explanation: "Pequenos músculos que estabilizam as vértebras." },
+      { question: "Powerhouse engloba:", options: ["Só abdômen", "Abdômen, Lombar, Pelve e Quadril", "Só Glúteos", "Braços e Pernas"], correctAnswerIndex: 1, explanation: "É o cilindro de força central do corpo." }
+    ]
+  }
 ];
 
 // Clean JSON helper
@@ -90,25 +131,36 @@ export const fetchUserProgress = async (userId: string, studioId: string, userNa
 };
 
 export const generateLessonContent = async (level: number): Promise<DuoLesson> => {
+  // Cycle through topics based on level (1-based index)
   const topicIndex = (level - 1) % LEVEL_TOPICS.length;
   const topic = LEVEL_TOPICS[topicIndex];
-  const realLevel = level;
+  
+  // Select fallback based on rotation to ensure distinct static lessons too
+  const fallbackLesson = FALLBACK_LESSONS[(level - 1) % FALLBACK_LESSONS.length];
 
   const prompt = `
-    Crie uma aula de Pilates estilo "Duolingo" (Quiz) sobre o tema: "${topic}".
-    Nível: ${realLevel}.
-    Gere 5 perguntas de múltipla escolha.
+    Crie um Quiz Educativo de Pilates (Estilo Duolingo) sobre o TEMA ESPECÍFICO: "${topic}".
+    Nível do Jogador: ${level}.
+    Gere EXATAMENTE 5 perguntas de múltipla escolha.
     
-    Retorne APENAS um JSON com este formato:
+    IMPORTANTE:
+    - As perguntas DEVEM ser exclusivamente sobre "${topic}". Não faça perguntas genéricas se o tema for específico.
+    - Se o tema for Anatomia, pergunte sobre músculos/ossos.
+    - Se for História, pergunte sobre Joseph.
+    - Dê 4 opções de resposta para cada pergunta.
+    - Indique o índice da correta (0 a 3).
+    - Explicação curta e educativa.
+    
+    Retorne APENAS um JSON válido:
     {
-      "title": "Título Criativo da Aula",
+      "title": "Título Divertido da Aula",
       "topic": "${topic}",
       "questions": [
         {
-          "question": "Texto da pergunta?",
-          "options": ["Opção A", "Opção B", "Opção C", "Opção D"],
-          "correctAnswerIndex": 0, // Índice da correta (0-3)
-          "explanation": "Breve explicação do porquê."
+          "question": "Pergunta?",
+          "options": ["A", "B", "C", "D"],
+          "correctAnswerIndex": 0,
+          "explanation": "Por que está correta."
         }
       ]
     }
@@ -144,56 +196,22 @@ export const generateLessonContent = async (level: number): Promise<DuoLesson> =
 
     const data = JSON.parse(cleanJSON(response.text || '{}'));
 
-    // Validação Robusta para forçar o catch em caso de dados inválidos
     if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
         throw new Error("Formato de aula inválido ou vazio retornado pela IA.");
     }
 
     return {
-      level: realLevel,
-      title: data.title || `Nível ${realLevel}`,
+      level: level,
+      title: data.title || topic,
       topic: data.topic || topic,
       questions: data.questions
     };
   } catch (e) {
-    console.error("Error generating lesson (Using Fallback):", e);
-    // Fallback static lesson if AI fails
+    console.error("Error generating lesson (Using Fallback for Level " + level + "):", e);
+    // Use the specific fallback for this level rotation to ensure variety
     return {
-      level: realLevel,
-      title: "Princípios do Pilates (Aula de Segurança)",
-      topic: "Fundamentos Essenciais",
-      questions: [
-        {
-          question: "Qual destes NÃO é um princípio do Pilates?",
-          options: ["Centralização", "Respiração", "Hipertrofia", "Controle"],
-          correctAnswerIndex: 2,
-          explanation: "Hipertrofia é um objetivo de musculação, não um princípio do método."
-        },
-        {
-          question: "Quem criou o método Pilates?",
-          options: ["Joseph Pilates", "Clara Pilates", "Romana Kryzanowska", "Lolita San Miguel"],
-          correctAnswerIndex: 0,
-          explanation: "Joseph Hubertus Pilates foi o criador."
-        },
-        {
-          question: "O que é o 'Powerhouse'?",
-          options: ["Braços fortes", "Centro de força (Core)", "As pernas", "A mente"],
-          correctAnswerIndex: 1,
-          explanation: "Powerhouse refere-se ao centro de força abdominal e pélvico."
-        },
-        {
-          question: "Qual aparelho é conhecido como 'Cama'?",
-          options: ["Chair", "Barrel", "Reformer", "Cadillac"],
-          correctAnswerIndex: 3,
-          explanation: "O Cadillac parece uma cama com dossel."
-        },
-        {
-          question: "A respiração no Pilates deve ser:",
-          options: ["Livre", "Torácica Lateral", "Abdominal apenas", "Apneia"],
-          correctAnswerIndex: 1,
-          explanation: "Prioriza-se a respiração tridimensional (costelas)."
-        }
-      ]
+        ...fallbackLesson,
+        level: level // Ensure level matches requested
     };
   }
 };
