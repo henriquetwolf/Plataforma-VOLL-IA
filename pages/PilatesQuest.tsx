@@ -1,195 +1,248 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchUserProgress, generateLessonContent, advanceProgress, fetchStudioRanking } from '../services/duoService';
-import { DuoLesson, DuoUserProgress } from '../types';
+import { DuoUserProgress, DuoLesson } from '../types';
 import { DuoQuiz } from '../components/duo/DuoQuiz';
-import { recordGenerationUsage } from '../services/contentService';
 import { Button } from '../components/ui/Button';
-import { Trophy, Star, Map, Play, Lock, User, Crown, Flame } from 'lucide-react';
+import { Trophy, Sparkles, Map, Lock, Play, RotateCcw, Loader2, CheckCircle } from 'lucide-react';
 
 export const PilatesQuest: React.FC = () => {
   const { user } = useAuth();
   
+  // State
+  const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState<DuoUserProgress | null>(null);
   const [ranking, setRanking] = useState<DuoUserProgress[]>([]);
-  const [loading, setLoading] = useState(true);
-  
   const [mode, setMode] = useState<'map' | 'quiz'>('map');
   const [currentLesson, setCurrentLesson] = useState<DuoLesson | null>(null);
   const [loadingLesson, setLoadingLesson] = useState(false);
 
   useEffect(() => {
-    const load = async () => {
-        if (user?.id) {
-            const studioId = user.isInstructor ? user.studioId : user.id;
-            if (studioId) {
-                const [prog, rank] = await Promise.all([
-                    fetchUserProgress(user.id, studioId, user.name, user.isInstructor ? 'instructor' : 'owner'),
-                    fetchStudioRanking(studioId)
-                ]);
-                setProgress(prog);
-                setRanking(rank);
-            }
+    const init = async () => {
+      if (user?.id) {
+        // Identificar Studio ID corretamente para Donos (id) e Instrutores (studioId)
+        const studioId = user.isInstructor ? user.studioId : user.id;
+        const role = user.isOwner ? 'owner' : 'instructor';
+        
+        if (studioId) {
+          try {
+            const [userProg, rank] = await Promise.all([
+              fetchUserProgress(user.id, studioId, user.name, role),
+              fetchStudioRanking(studioId)
+            ]);
+            setProgress(userProg);
+            setRanking(rank);
+          } catch (error) {
+            console.error("Erro ao carregar dados do Quest:", error);
+          }
+        } else {
+            console.warn("Studio ID não encontrado para o usuário.");
         }
-        setLoading(false);
+      }
+      setLoading(false);
     };
-    load();
+    init();
   }, [user]);
 
   const handleStartLevel = async () => {
-    if (!progress) return;
+    if (!progress) {
+        alert("Erro ao carregar seu progresso. Por favor, recarregue a página.");
+        return;
+    }
     
+    // Verificação de Limite Diário (Regra 2)
+    const today = new Date().toISOString().split('T')[0];
+    if (progress.lastPlayedAt === today) {
+      alert("Você já completou sua aula de hoje! Volte amanhã para liberar o próximo nível e manter sua sequência.");
+      return;
+    }
+
     setLoadingLesson(true);
     try {
         const lesson = await generateLessonContent(progress.currentLevel);
         if (lesson && lesson.questions && lesson.questions.length > 0) {
             setCurrentLesson(lesson);
             setMode('quiz');
-            
-            // LOG USAGE
-            // Identificar Studio ID corretamente para Donos (id) e Instrutores (studioId)
-            const studioId = user?.isInstructor ? user.studioId : user?.id;
-            if (studioId) await recordGenerationUsage(studioId, 'quest');
-
         } else {
             alert("Erro ao gerar conteúdo da aula. Tente novamente.");
         }
-    } catch (e) {
-        alert("Erro de conexão com o gerador de aulas.");
+    } catch (error) {
+        console.error("Erro fatal ao iniciar aula:", error);
+        alert("Ocorreu um erro ao conectar com o servidor de aulas.");
     } finally {
         setLoadingLesson(false);
     }
   };
 
   const handleQuizComplete = async (score: number) => {
-    if (!progress) return;
+    if (!progress || !currentLesson) return;
     
-    const pointsGained = score * 5; // 5 points per correct answer
-    // Pass level threshold? (e.g. need 3/5 correct to advance)
-    const passed = score >= 3;
-
-    if (passed) {
-        const newProgress = await advanceProgress(progress, pointsGained);
-        setProgress(newProgress);
-        
-        // Refresh ranking
-        if (user?.studioId || user?.id) {
-             const studioId = user.isInstructor ? user.studioId : user.id;
-             if (studioId) {
-                 const rank = await fetchStudioRanking(studioId);
-                 setRanking(rank);
-             }
-        }
-        alert(`Parabéns! Você ganhou ${pointsGained} VOLLs e avançou para o Nível ${newProgress.currentLevel}!`);
-    } else {
-        alert(`Você fez ${score} pontos. Precisa de pelo menos 3 acertos para passar. Tente novamente!`);
-    }
+    // Atualiza independente do score (Regra: Atualizar automaticamente os pontos)
+    const pointsGained = score * 5;
     
+    // Success! Update DB and State
+    // advanceProgress vai atualizar o lastPlayedAt para hoje, bloqueando novas tentativas
+    const newProg = await advanceProgress(progress, pointsGained);
+    
+    setProgress(newProg);
+    
+    // Update local ranking view optimistically
+    const newRank = ranking.map(r => r.userId === user?.id ? newProg : r).sort((a,b) => b.totalVolls - a.totalVolls);
+    setRanking(newRank);
+    
+    // Return to map quietly
     setMode('map');
     setCurrentLesson(null);
   };
 
-  if (loading) return <div className="text-center p-12">Carregando Quest...</div>;
+  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin h-8 w-8 text-brand-600"/></div>;
+
+  if (mode === 'quiz' && currentLesson) {
+    return (
+      <div className="fixed inset-0 z-50 bg-white dark:bg-slate-900 overflow-auto animate-in fade-in">
+        <div className="max-w-2xl mx-auto p-6 h-full flex flex-col">
+          <DuoQuiz 
+            lesson={currentLesson} 
+            onCancel={() => setMode('map')}
+            onComplete={handleQuizComplete}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in pb-12">
-        {mode === 'map' && progress && (
-            <>
-                {/* Header Stats */}
-                <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-xl border border-yellow-200 dark:border-yellow-800 flex flex-col items-center">
-                        <div className="text-yellow-600 dark:text-yellow-400 font-bold flex items-center gap-2">
-                            <Star className="w-5 h-5 fill-yellow-500" /> Nível
-                        </div>
-                        <span className="text-3xl font-black text-slate-800 dark:text-white">{progress.currentLevel}</span>
+    <div className="max-w-6xl mx-auto p-4 space-y-8 animate-in fade-in pb-12">
+      <div className="flex items-center gap-4 mb-4">
+        <div className="bg-gradient-to-br from-green-400 to-emerald-600 p-3 rounded-2xl shadow-lg shadow-green-200">
+          <Trophy className="text-white w-8 h-8" />
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Pilates Quest</h1>
+          <p className="text-slate-500">Educação diária gamificada.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* MAP AREA */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* Stats Bar */}
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex justify-between items-center">
+             <div className="flex items-center gap-2">
+               <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center">
+                 <Sparkles className="w-6 h-6 text-brand-600" />
+               </div>
+               <div>
+                 <p className="text-xs text-slate-500 font-bold uppercase">Total VOLLs</p>
+                 <p className="font-bold text-xl">{progress?.totalVolls || 0}</p>
+               </div>
+             </div>
+             <div className="text-right">
+                <p className="text-xs text-slate-500 font-bold uppercase">Sequência</p>
+                <p className="font-bold text-xl text-orange-500">🔥 {progress?.streak || 0} dias</p>
+             </div>
+          </div>
+
+          {/* Path */}
+          <div className="relative flex flex-col items-center py-8">
+             <div className="absolute top-0 bottom-0 w-2 bg-slate-100 dark:bg-slate-800 rounded-full -z-10"></div>
+             
+             {/* Dynamic Levels rendering (Simulating infinity) */}
+             {[0, 1, 2].map((offset) => {
+               const levelNum = (progress?.currentLevel || 1) + offset;
+               const isCurrent = offset === 0;
+               const isLocked = offset > 0;
+               
+               // Check if current level is already played today
+               const today = new Date().toISOString().split('T')[0];
+               const playedToday = isCurrent && progress?.lastPlayedAt === today;
+               
+               return (
+                 <div key={levelNum} className="mb-12 relative group">
+                    <button
+                      onClick={isCurrent ? handleStartLevel : undefined}
+                      disabled={isLocked || loadingLesson || playedToday}
+                      className={`w-20 h-20 rounded-full flex items-center justify-center border-b-4 transition-all transform active:scale-95 active:border-b-0 ${
+                        isCurrent 
+                          ? (playedToday 
+                              ? 'bg-green-100 border-green-200 text-green-600 cursor-default' // Visual de concluído
+                              : 'bg-green-500 border-green-700 text-white shadow-lg shadow-green-200 hover:brightness-110 cursor-pointer')
+                          : 'bg-slate-200 border-slate-300 text-slate-400 cursor-not-allowed'
+                      }`}
+                    >
+                      {loadingLesson && isCurrent ? (
+                        <Loader2 className="animate-spin w-8 h-8" />
+                      ) : isLocked ? (
+                        <Lock className="w-8 h-8" />
+                      ) : playedToday ? (
+                        <CheckCircle className="w-10 h-10" />
+                      ) : (
+                        <Play className="w-8 h-8 fill-current" />
+                      )}
+                    </button>
+                    
+                    <div className="absolute top-4 left-24 bg-white dark:bg-slate-800 px-3 py-2 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 w-48">
+                       <h3 className="font-bold text-sm text-slate-800 dark:text-white">Nível {levelNum}</h3>
+                       <p className="text-xs text-slate-500">
+                           {loadingLesson && isCurrent 
+                             ? 'Gerando Aula...' 
+                             : isCurrent 
+                               ? (playedToday ? 'Aula concluída!' : 'Sua aula de hoje') 
+                               : 'Bloqueado'}
+                       </p>
                     </div>
-                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-800 flex flex-col items-center">
-                        <div className="text-blue-600 dark:text-blue-400 font-bold flex items-center gap-2">
-                            <Trophy className="w-5 h-5" /> VOLLs
-                        </div>
-                        <span className="text-3xl font-black text-slate-800 dark:text-white">{progress.totalVolls}</span>
-                    </div>
-                    <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border border-orange-200 dark:border-orange-800 flex flex-col items-center">
-                        <div className="text-orange-600 dark:text-orange-400 font-bold flex items-center gap-2">
-                            <Flame className="w-5 h-5 fill-orange-500" /> Ofensiva
-                        </div>
-                        <span className="text-3xl font-black text-slate-800 dark:text-white">{progress.streak} dias</span>
-                    </div>
+                 </div>
+               );
+             })}
+             
+             <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-slate-300">
+               <span className="text-2xl">...</span>
+             </div>
+          </div>
+        </div>
+
+        {/* RANKING SIDEBAR */}
+        <div className="lg:col-span-1">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden sticky top-6">
+            <div className="p-4 bg-brand-50 dark:bg-brand-900/20 border-b border-brand-100 dark:border-brand-800 flex justify-between items-center">
+              <h3 className="font-bold text-brand-800 dark:text-brand-300">Ranking do Studio</h3>
+              <Trophy className="w-5 h-5 text-brand-600" />
+            </div>
+            
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {ranking.map((r, index) => (
+                <div key={r.userId} className={`p-4 flex items-center gap-3 ${r.userId === user?.id ? 'bg-yellow-50 dark:bg-yellow-900/10' : ''}`}>
+                  <div className={`w-8 h-8 flex items-center justify-center font-bold rounded-full ${
+                    index === 0 ? 'bg-yellow-400 text-white' : 
+                    index === 1 ? 'bg-slate-300 text-white' :
+                    index === 2 ? 'bg-orange-300 text-white' :
+                    'text-slate-500'
+                  }`}>
+                    {index + 1}
+                  </div>
+                  <div className="flex-1">
+                    <p className={`font-bold text-sm ${r.userId === user?.id ? 'text-brand-700' : 'text-slate-700 dark:text-slate-200'}`}>
+                      {r.userName} {r.userId === user?.id && '(Você)'}
+                    </p>
+                    <p className="text-xs text-slate-400 capitalize">{r.userRole === 'owner' ? 'Dono' : 'Instrutor'}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-sm">{r.totalVolls} VOLLs</p>
+                  </div>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {/* Map Area */}
-                    <div className="md:col-span-2 bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden min-h-[400px] flex flex-col items-center justify-center">
-                        <div className="absolute inset-0 opacity-5 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]"></div>
-                        
-                        {/* Path Visualization (Simplified) */}
-                        <div className="relative z-10 flex flex-col items-center gap-8">
-                            <div className="w-20 h-20 rounded-full bg-slate-100 dark:bg-slate-800 border-4 border-slate-200 dark:border-slate-700 flex items-center justify-center grayscale opacity-50">
-                                <Lock className="w-8 h-8 text-slate-400" />
-                                <span className="absolute -bottom-6 text-xs font-bold text-slate-400">Nível {progress.currentLevel + 1}</span>
-                            </div>
-                            
-                            <div className="h-12 w-2 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
-
-                            <button 
-                                onClick={handleStartLevel}
-                                disabled={loadingLesson}
-                                className="w-24 h-24 rounded-full bg-brand-500 hover:bg-brand-600 text-white shadow-[0_8px_0_rgb(13,148,136)] active:shadow-none active:translate-y-[8px] transition-all flex items-center justify-center relative group"
-                            >
-                                {loadingLesson ? (
-                                    <span className="animate-spin text-2xl">⏳</span>
-                                ) : (
-                                    <Play className="w-10 h-10 fill-white ml-1 group-hover:scale-110 transition-transform" />
-                                )}
-                                <span className="absolute -bottom-8 text-sm font-bold text-brand-600 dark:text-brand-400 whitespace-nowrap bg-white dark:bg-slate-900 px-3 py-1 rounded-full shadow-sm border border-slate-100 dark:border-slate-800">
-                                    Nível {progress.currentLevel}
-                                </span>
-                            </button>
-
-                            <div className="h-12 w-2 bg-brand-200 dark:bg-brand-900/50 rounded-full"></div>
-
-                            <div className="w-16 h-16 rounded-full bg-green-500 text-white flex items-center justify-center font-bold text-xl shadow-md border-4 border-green-200 dark:border-green-900">
-                                <CheckCircle className="w-8 h-8" />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Ranking Area */}
-                    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-full">
-                        <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                            <Crown className="w-5 h-5 text-yellow-500" /> Ranking do Studio
-                        </h3>
-                        <div className="flex-1 overflow-y-auto space-y-2 pr-2">
-                            {ranking.map((r, i) => (
-                                <div key={r.userId} className={`flex items-center gap-3 p-3 rounded-xl border ${r.userId === user?.id ? 'bg-brand-50 border-brand-200 dark:bg-brand-900/20 dark:border-brand-800' : 'bg-slate-50 border-slate-100 dark:bg-slate-800 dark:border-slate-700'}`}>
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${i === 0 ? 'bg-yellow-400 text-white' : i === 1 ? 'bg-slate-300 text-white' : i === 2 ? 'bg-orange-300 text-white' : 'bg-transparent text-slate-400'}`}>
-                                        {i + 1}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-bold text-sm text-slate-900 dark:text-white truncate">{r.userName}</p>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400">Nível {r.currentLevel}</p>
-                                    </div>
-                                    <div className="font-bold text-brand-600 dark:text-brand-400 text-sm">
-                                        {r.totalVolls} XP
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+              ))}
+              
+              {ranking.length === 0 && (
+                <div className="p-8 text-center text-slate-500 text-sm">
+                  Seja o primeiro a jogar!
                 </div>
-            </>
-        )}
+              )}
+            </div>
+          </div>
+        </div>
 
-        {mode === 'quiz' && currentLesson && (
-            <DuoQuiz 
-                lesson={currentLesson}
-                onComplete={handleQuizComplete}
-                onCancel={() => { setMode('map'); setCurrentLesson(null); }}
-            />
-        )}
+      </div>
     </div>
   );
 };
-
-// Missing Icon CheckCircle import fallback (if not in lucide imports above)
-import { CheckCircle } from 'lucide-react';
