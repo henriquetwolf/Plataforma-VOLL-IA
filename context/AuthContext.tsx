@@ -1,5 +1,3 @@
-
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, AuthState, AppRoute, StudioProfile } from '../types';
 import { supabase } from '../services/supabase';
@@ -22,6 +20,9 @@ interface AuthContextType extends AuthState {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Super Admin Email Hardcoded para Bootstrapping
+const SUPER_ADMIN_EMAIL = 'henriquetwolf@gmail.com';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<AuthState>({
@@ -165,7 +166,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // SEGURANÇA CRÍTICA: Bloqueio por Expiração
-      if (profile && checkExpiration(profile)) {
+      // Admins (hardcoded ou via DB) ignoram expiração
+      const isSuperAdmin = sessionUser.email === SUPER_ADMIN_EMAIL;
+      const isAdmin = profile?.isAdmin || isSuperAdmin;
+
+      if (profile && !isAdmin && checkExpiration(profile)) {
           console.warn(`Acesso negado: Plano do Studio expirou em ${profile.planExpirationDate}.`);
           await supabase.auth.signOut();
           setState({ user: null, isAuthenticated: false, isLoading: false });
@@ -186,7 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: sessionUser.email || '',
           name: profile?.ownerName || sessionUser.user_metadata?.name || 'Dono do Studio',
           password: '',
-          isAdmin: profile?.isAdmin || false,
+          isAdmin: isAdmin, // Força true para o email hardcoded
           isInstructor: false,
           isStudent: false,
           isOwner: true,
