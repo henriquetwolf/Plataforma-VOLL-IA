@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { DuoLesson, DuoQuestion } from '../../types';
+import { DuoLesson } from '../../types';
 import { Button } from '../ui/Button';
-import { CheckCircle, XCircle, ArrowRight, Trophy, AlertTriangle, RefreshCw } from 'lucide-react';
+import { CheckCircle, XCircle, ArrowRight, Trophy, Star, ThumbsUp, AlertTriangle } from 'lucide-react';
 
 interface Props {
   lesson: DuoLesson;
@@ -19,13 +19,12 @@ export const DuoQuiz: React.FC<Props> = ({ lesson, onComplete, onCancel }) => {
 
   const currentQuestion = lesson.questions?.[currentQIndex];
 
-  // UI de Erro caso não haja questão (Defensivo)
+  // UI de Erro caso não haja questão
   if (!currentQuestion) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center h-full min-h-[400px]">
         <AlertTriangle className="w-16 h-16 text-red-500 mb-4" />
         <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Erro ao carregar aula</h2>
-        <p className="text-slate-500 mb-6">Não foi possível carregar as questões. Tente novamente.</p>
         <Button onClick={onCancel} variant="outline">
           Voltar ao Mapa
         </Button>
@@ -62,60 +61,46 @@ export const DuoQuiz: React.FC<Props> = ({ lesson, onComplete, onCancel }) => {
     onComplete(score);
   };
 
-  const handleRetry = () => {
-    setCurrentQIndex(0);
-    setSelectedOption(null);
-    setIsAnswered(false);
-    setIsCorrect(false);
-    setScore(0);
-    setShowResult(false);
-  };
-
   if (showResult) {
     const totalQuestions = lesson.questions?.length || 0;
-    const passed = score === totalQuestions; // Regra: Só passa se acertar tudo
     const points = score * 5;
+    const percentage = totalQuestions > 0 ? (score / totalQuestions) * 100 : 0;
+
+    let title = "Bom esforço!";
+    let icon = <ThumbsUp size={64} />;
+    let colorClass = "bg-blue-100 text-blue-500";
+
+    if (percentage === 100) {
+        title = "Perfeito!";
+        icon = <Trophy size={64} />;
+        colorClass = "bg-yellow-100 text-yellow-500";
+    } else if (percentage >= 50) {
+        title = "Aula Concluída!";
+        icon = <Star size={64} />;
+        colorClass = "bg-green-100 text-green-500";
+    }
 
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center animate-in fade-in h-full min-h-[400px]">
         
-        {passed && (
-            <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-6 animate-in slide-in-from-top-4">
-                Aula Finalizada!
-            </h2>
-        )}
+        <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-6 animate-in slide-in-from-top-4">
+            {title}
+        </h2>
 
-        <div className={`w-32 h-32 rounded-full flex items-center justify-center mb-8 ${passed ? 'bg-yellow-100 text-yellow-500' : 'bg-red-100 text-red-500'}`}>
-          {passed ? <Trophy size={64} /> : <AlertTriangle size={64} />}
+        <div className={`w-32 h-32 rounded-full flex items-center justify-center mb-8 ${colorClass} shadow-lg`}>
+          {icon}
         </div>
         
-        {passed ? (
-            <div className="w-full max-w-xs animate-in slide-in-from-bottom-4">
-                <p className="text-slate-600 dark:text-slate-300 mb-2 font-medium">
-                    Você completou o desafio com sucesso!
-                </p>
-                <p className="text-4xl font-bold text-brand-600 mb-8">+{points} VOLLs</p>
-                
-                <Button onClick={finishQuiz} className="bg-green-600 hover:bg-green-700 w-full py-4 text-xl font-bold shadow-lg shadow-green-200 transform hover:scale-105 transition-all">
-                    RESGATAR PONTOS
-                </Button>
-            </div>
-        ) : (
-            <div className="flex flex-col gap-4 w-full max-w-xs">
-              <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Tente Novamente!</h2>
-              <p className="text-slate-500 mb-4 text-sm">
-                Para liberar o próximo nível, você precisa acertar todas as questões.
-                <br/>
-                <span className="font-bold">Acertos: {score}/{totalQuestions}</span>
-              </p>
-              <Button onClick={handleRetry} className="w-full bg-brand-600 hover:bg-brand-700">
-                <RefreshCw className="w-4 h-4 mr-2"/> Reiniciar Aula
-              </Button>
-              <Button variant="ghost" onClick={onCancel} className="text-slate-400">
-                Sair
-              </Button>
-            </div>
-        )}
+        <div className="w-full max-w-xs animate-in slide-in-from-bottom-4">
+            <p className="text-slate-600 dark:text-slate-300 mb-2 font-medium">
+                Você acertou {score} de {totalQuestions} questões.
+            </p>
+            <p className="text-4xl font-bold text-brand-600 mb-8">+{points} VOLLs</p>
+            
+            <Button onClick={finishQuiz} className="bg-green-600 hover:bg-green-700 w-full py-4 text-xl font-bold shadow-lg shadow-green-200 transform hover:scale-105 transition-all">
+                RESGATAR PONTOS
+            </Button>
+        </div>
       </div>
     );
   }

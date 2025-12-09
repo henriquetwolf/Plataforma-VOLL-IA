@@ -77,17 +77,18 @@ export const PilatesQuest: React.FC = () => {
   const handleQuizComplete = async (score: number) => {
     if (!progress || !currentLesson) return;
     
-    const totalQuestions = currentLesson.questions?.length || 5;
+    // Atualiza independente do score (Regra: Atualizar automaticamente os pontos)
+    const pointsGained = score * 5;
     
-    // Só avança se acertar TUDO (Regra 3)
-    if (score === totalQuestions) {
-      // Success! Update DB and State
-      const newProg = await advanceProgress(progress, score * 5);
-      setProgress(newProg);
-      // Update local ranking view optimistically
-      const newRank = ranking.map(r => r.userId === user?.id ? newProg : r).sort((a,b) => b.totalVolls - a.totalVolls);
-      setRanking(newRank);
-    }
+    // Success! Update DB and State
+    // advanceProgress vai atualizar o lastPlayedAt para hoje, bloqueando novas tentativas
+    const newProg = await advanceProgress(progress, pointsGained);
+    
+    setProgress(newProg);
+    
+    // Update local ranking view optimistically
+    const newRank = ranking.map(r => r.userId === user?.id ? newProg : r).sort((a,b) => b.totalVolls - a.totalVolls);
+    setRanking(newRank);
     
     // Return to map quietly
     setMode('map');
