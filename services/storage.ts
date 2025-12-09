@@ -334,19 +334,31 @@ export const fetchGlobalAdmins = async (): Promise<StudioProfile[]> => {
 
 export const toggleUserStatus = async (userId: string, isActive: boolean): Promise<{ success: boolean; error?: string }> => {
   try {
-    // Atualiza APENAS o campo is_active para evitar sobrescrever outros dados
-    const { error, data } = await supabase
+    // 1. Atualiza o status do Dono
+    const { error } = await supabase
       .from('studio_profiles')
       .update({ is_active: isActive })
-      .eq('user_id', userId)
-      .select(); 
+      .eq('user_id', userId);
 
     if (error) {
       return { success: false, error: error.message };
     }
 
-    if (!data || data.length === 0) {
-      return { success: false, error: "Registro não encontrado ou bloqueado por RLS." };
+    // 2. CASCATA: Se estiver desativando (bloqueando), bloqueia também a equipe e alunos
+    if (!isActive) {
+        // Desativar Instrutores vinculados a este studio
+        // (Isso impede o login deles no AuthContext)
+        await supabase
+            .from('instructors')
+            .update({ active: false })
+            .eq('studio_user_id', userId);
+
+        // Revogar acesso de Alunos vinculados a este studio
+        // (Remove o auth_user_id, impedindo login)
+        await supabase
+            .from('students')
+            .update({ auth_user_id: null })
+            .eq('user_id', userId);
     }
 
     return { success: true };
@@ -357,15 +369,24 @@ export const toggleUserStatus = async (userId: string, isActive: boolean): Promi
 
 export const deleteStudioProfile = async (userId: string): Promise<{ success: boolean; error?: string }> => {
   try {
-    // Tenta deletar o usuário COMPLETAMENTE (Auth + Perfil via Cascade ou RPC)
+    // Tenta deletar o usuário COMPLETAMENTE via RPC (Que apaga tudo: Auth, Studio, Alunos, Instrutores)
     // Isso libera o email para ser usado novamente.
-    // Requer a função 'delete_user_completely' no Supabase.
+    // Requer a função 'delete_user_completely' no Supabase atualizada.
     const { error: rpcError } = await supabase.rpc('delete_user_completely', { target_id: userId });
 
     if (rpcError) {
-        console.warn("RPC delete_user_completely falhou (função pode não existir). Tentando delete simples.", rpcError);
+        console.warn("RPC delete_user_completely falhou. Tentando exclusão manual em cascata no Frontend.", rpcError);
         
-        // Fallback: Deleta apenas o perfil (O email continuará preso no Auth se a RPC não existir)
+        // FALLBACK: Deleta dependências manualmente antes de deletar o perfil
+        // Isso garante que os dados sumam, mesmo que os logins dos alunos/instrutores fiquem órfãos no Auth
+        
+        // 1. Deletar Instrutores (Dados)
+        await supabase.from('instructors').delete().eq('studio_user_id', userId);
+        
+        // 2. Deletar Alunos (Dados)
+        await supabase.from('students').delete().eq('user_id', userId);
+        
+        // 3. Deletar Perfil do Studio
         const { error } = await supabase
           .from('studio_profiles')
           .delete()
@@ -375,7 +396,6 @@ export const deleteStudioProfile = async (userId: string): Promise<{ success: bo
           return { success: false, error: error.message };
         }
         
-        // Retorna sucesso (interface atualiza), mas loga o aviso
         return { success: true }; 
     }
     
