@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { fetchPartners, fetchStudioPartners, createStudioPartner, updateStudioPartner, deleteStudioPartner, uploadPartnerImage } from '../../services/partnerService';
@@ -42,12 +43,15 @@ export const StudentPartners: React.FC = () => {
         const globalData = await fetchPartners();
         setPartners(globalData);
 
-        if (user?.studioId) {
-            const localData = await fetchStudioPartners(user.studioId);
+        // Carrega parceiros exclusivos se houver um ID de studio associado (Dono, Instrutor ou Aluno)
+        const targetStudioId = user?.studioId || (user?.isOwner ? user.id : null);
+        
+        if (targetStudioId) {
+            const localData = await fetchStudioPartners(targetStudioId);
             setStudioPartners(localData);
         }
     } catch (e) {
-        console.error(e);
+        console.error("Erro ao carregar parceiros:", e);
     }
     setLoading(false);
   };
@@ -151,8 +155,8 @@ export const StudentPartners: React.FC = () => {
     <div className="max-w-6xl mx-auto p-4 space-y-8 animate-in fade-in pb-12">
       
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="flex items-center gap-4 w-full md:w-auto">
             <Link to={backLink} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
             <ArrowLeft className="w-6 h-6 text-slate-600 dark:text-slate-400"/>
             </Link>
@@ -198,7 +202,7 @@ export const StudentPartners: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-slate-500">Carregando parceiros...</div>
+        <div className="text-center py-12 text-slate-500"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-brand-600"/> Carregando parceiros...</div>
       ) : (
         <div className="space-y-12">
             
@@ -211,22 +215,12 @@ export const StudentPartners: React.FC = () => {
                     
                     {studioPartners.length === 0 ? (
                         <div className="p-8 bg-slate-50 dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-center text-slate-500">
-                            Nenhum parceiro exclusivo cadastrado ainda.
+                            Nenhum parceiro exclusivo cadastrado ainda. Clique em "Novo Parceiro" para adicionar.
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {studioPartners.map(partner => (
                                 <div key={partner.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-brand-200 dark:border-brand-900 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group relative">
-                                    {user?.isOwner && (
-                                        <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => handleEditPartner(partner)} className="bg-white/90 p-2 rounded-full text-brand-600 hover:bg-brand-50 shadow-sm border border-slate-100">
-                                                <Pencil className="w-4 h-4" />
-                                            </button>
-                                            <button onClick={() => handleDeletePartner(partner.id)} className="bg-white/90 p-2 rounded-full text-red-500 hover:bg-red-50 shadow-sm border border-slate-100">
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    )}
                                     <div className="h-40 bg-slate-100 dark:bg-slate-800 relative">
                                         {partner.imageUrl ? (
                                             <img src={partner.imageUrl} alt={partner.name} className="w-full h-full object-cover" />
@@ -238,6 +232,18 @@ export const StudentPartners: React.FC = () => {
                                         <div className="absolute top-3 left-3 bg-brand-600 text-white font-bold px-3 py-1 rounded-full text-sm shadow-md">
                                             {partner.discountValue}
                                         </div>
+                                        
+                                        {/* Botões de Ação para o Dono (Sempre visíveis ou hover) */}
+                                        {user?.isOwner && (
+                                            <div className="absolute top-2 right-2 z-10 flex gap-1">
+                                                <button onClick={() => handleEditPartner(partner)} className="bg-white p-2 rounded-full text-brand-600 hover:bg-brand-50 shadow-md border border-slate-100" title="Editar">
+                                                    <Pencil className="w-4 h-4" />
+                                                </button>
+                                                <button onClick={() => handleDeletePartner(partner.id)} className="bg-white p-2 rounded-full text-red-500 hover:bg-red-50 shadow-md border border-slate-100" title="Excluir">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="p-6">
                                         <h3 className="font-bold text-xl text-slate-900 dark:text-white mb-2">{partner.name}</h3>
