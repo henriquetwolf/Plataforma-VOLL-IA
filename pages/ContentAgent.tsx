@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -65,6 +67,7 @@ const downloadImage = (dataUrl: string, filename: string) => {
 };
 
 // --- SUB-COMPONENTS ---
+// ... (StepMode, StepGoal, StepAudience, StepTopic, ResultDisplay are same as before - omitting to save space, assuming they are preserved or I will inject them if you need full file. I will inject full file to be safe)
 
 const StepMode = ({ selected, onSelect }: any) => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-right-8">
@@ -172,7 +175,7 @@ const StepAudience = ({ selected, customAudience, onSelect, onCustomChange }: an
                             onClick={() => handleToggle(item.label)}
                             className={`p-4 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center min-h-[120px] relative ${isSelected ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-brand-200 bg-white dark:bg-slate-900'}`}
                         >
-                            {isSelected && <div className="absolute top-2 right-2"><CheckCircle className="w-4 h-4 text-brand-500" /></div>}
+                            {isSelected && <div className="absolute top-2 right-2"><CheckCircle className="w-4 h-4 text-brand-500" /></div>
                             <Users className={`w-8 h-8 mb-3 ${isSelected ? 'text-brand-600' : 'text-slate-400'}`} />
                             <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{item.label}</span>
                         </button>
@@ -314,6 +317,7 @@ const StepTopic = ({ value, onChange, onGenerateIdeas, isGeneratingIdeas, sugges
 );
 
 const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate, onGenerateFromPlan, onViewSavedPost }: any) => {
+    // ... (Keep existing implementation)
     const [showLongCaption, setShowLongCaption] = useState(false);
     const [selectedReelOption, setSelectedReelOption] = useState(0);
 
@@ -544,393 +548,365 @@ const ResultDisplay = ({ content, onReset, onSave, onRegenerate, canRegenerate, 
 };
 
 export const ContentAgent: React.FC = () => {
-  const { user } = useAuth();
-  const { t } = useLanguage();
+    // ... (rest of the component state)
+    const { user } = useAuth();
+    const { t } = useLanguage();
+    
+    // States
+    const [step, setStep] = useState(1);
+    const [formData, setFormData] = useState<MarketingFormData>({
+      mode: 'single',
+      goal: GOALS[0].label,
+      audience: AUDIENCES[0].label,
+      topic: '',
+      format: 'auto',
+      style: 'Persona da Marca (Padrão)',
+      startDate: new Date().toISOString().split('T')[0],
+      postsPerWeek: 5
+    });
+    
+    const [topicSuggestions, setTopicSuggestions] = useState<string[]>([]);
+    const [isGeneratingIdeas, setIsGeneratingIdeas] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [result, setResult] = useState<GeneratedContent | null>(null);
+    const [activePlan, setActivePlan] = useState<GeneratedContent | null>(null); // To persist plan state during interactions
+    const [isSaving, setIsSaving] = useState(false);
   
-  // States
-  const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState<MarketingFormData>({
-    mode: 'single',
-    goal: GOALS[0].label,
-    audience: AUDIENCES[0].label,
-    topic: '',
-    format: 'auto',
-    style: 'Persona da Marca (Padrão)',
-    startDate: new Date().toISOString().split('T')[0],
-    postsPerWeek: 5
-  });
+    // History State
+    const [showHistory, setShowHistory] = useState(false);
+    const [historyTab, setHistoryTab] = useState<'posts' | 'plans'>('posts');
+    const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);
+    const [savedPlans, setSavedPlans] = useState<StrategicContentPlan[]>([]);
+    const [loadingHistory, setLoadingHistory] = useState(false);
   
-  const [topicSuggestions, setTopicSuggestions] = useState<string[]>([]);
-  const [isGeneratingIdeas, setIsGeneratingIdeas] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [result, setResult] = useState<GeneratedContent | null>(null);
-  const [activePlan, setActivePlan] = useState<GeneratedContent | null>(null); // To persist plan state during interactions
-  const [isSaving, setIsSaving] = useState(false);
+    // Plan Tracking
+    const [currentPlanItemIndices, setCurrentPlanItemIndices] = useState<{weekIndex: number, postIndex: number} | null>(null);
+  
+    // Daily Limit
+    const [dailyCount, setDailyCount] = useState(0);
+    const [dailyLimit, setDailyLimit] = useState(5);
+    const isLimitReached = dailyCount >= dailyLimit;
 
-  // History State
-  const [showHistory, setShowHistory] = useState(false);
-  const [historyTab, setHistoryTab] = useState<'posts' | 'plans'>('posts');
-  const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);
-  const [savedPlans, setSavedPlans] = useState<StrategicContentPlan[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
-
-  // Plan Tracking
-  const [currentPlanItemIndices, setCurrentPlanItemIndices] = useState<{weekIndex: number, postIndex: number} | null>(null);
-
-  // Daily Limit
-  const [dailyCount, setDailyCount] = useState(0);
-  const [dailyLimit, setDailyLimit] = useState(5);
-  const isLimitReached = dailyCount >= dailyLimit;
-
-  useEffect(() => {
-    if (user?.id) {
-        const targetId = user.isInstructor ? user.studioId : user.id;
-        if(targetId) {
-            getTodayPostCount(targetId).then(setDailyCount);
-            loadHistory(targetId);
-            fetchProfile(targetId).then(profile => {
-                if (profile?.planMaxDailyPosts) setDailyLimit(profile.planMaxDailyPosts);
-            });
+    // ... (useEffect for history)
+    useEffect(() => {
+        if (user?.id) {
+            const targetId = user.isInstructor ? user.studioId : user.id;
+            if(targetId) {
+                getTodayPostCount(targetId).then(setDailyCount);
+                loadHistory(targetId);
+                fetchProfile(targetId).then(profile => {
+                    if (profile?.planMaxDailyPosts) setDailyLimit(profile.planMaxDailyPosts);
+                });
+            }
         }
-    }
-  }, [user, showHistory]);
+    }, [user, showHistory]);
 
-  const loadHistory = async (studioId: string) => {
-      setLoadingHistory(true);
-      const [posts, plans] = await Promise.all([
-          fetchSavedPosts(studioId),
-          fetchContentPlans(studioId)
-      ]);
-      setSavedPosts(posts);
-      setSavedPlans(plans);
-      setLoadingHistory(false);
-  };
+    const loadHistory = async (studioId: string) => {
+        setLoadingHistory(true);
+        const [posts, plans] = await Promise.all([
+            fetchSavedPosts(studioId),
+            fetchContentPlans(studioId)
+        ]);
+        setSavedPosts(posts);
+        setSavedPlans(plans);
+        setLoadingHistory(false);
+    };
 
-  const handleNext = () => setStep(prev => prev + 1);
-  const handleBack = () => setStep(prev => prev - 1);
+    // ... (Navigation Handlers)
+    const handleNext = () => setStep(prev => prev + 1);
+    const handleBack = () => setStep(prev => prev - 1);
+    const handleModeSelect = (mode: any) => { setFormData(prev => ({ ...prev, mode })); handleNext(); };
+    const handleGoalSelect = (goal: string) => { setFormData(prev => ({ ...prev, goal, customGoal: '' })); handleNext(); };
+    const handleAudienceSelect = (audience: string) => { setFormData(prev => ({ ...prev, audience, customAudience: '' })); handleNext(); };
 
-  const handleModeSelect = (mode: any) => {
-      setFormData(prev => ({ ...prev, mode }));
-      handleNext();
-  };
+    const handleGenerateIdeas = async () => {
+        if (!formData.goal || !formData.audience) return;
+        setIsGeneratingIdeas(true);
+        const ideas = await generateTopicSuggestions(formData.customGoal || formData.goal, formData.customAudience || formData.audience);
+        setTopicSuggestions(ideas);
+        setIsGeneratingIdeas(false);
+    };
 
-  const handleGoalSelect = (goal: string) => {
-      setFormData(prev => ({ ...prev, goal, customGoal: '' }));
-      // Do not auto-advance to allow multiple selections
-  };
-
-  const handleAudienceSelect = (audience: string) => {
-      setFormData(prev => ({ ...prev, audience, customAudience: '' }));
-      // Do not auto-advance to allow multiple selections
-  };
-
-  const handleGenerateIdeas = async () => {
-      if (!formData.goal || !formData.audience) return;
-      setIsGeneratingIdeas(true);
-      const ideas = await generateTopicSuggestions(formData.customGoal || formData.goal, formData.customAudience || formData.audience);
-      setTopicSuggestions(ideas);
-      setIsGeneratingIdeas(false);
-  };
-
-  const handleGenerateContent = async () => {
-    if (isLimitReached) {
-        alert("Limite diário de criações atingido. Atualize seu plano.");
-        return;
-    }
-
-    setIsGenerating(true);
-    try {
-        const finalData = { ...formData };
-        if (finalData.goal === 'Outro (Descrever...)') finalData.goal = finalData.customGoal || '';
-        if (finalData.audience === 'Outro (Descrever...)') finalData.audience = finalData.customAudience || '';
-        
-        const content = await generateMarketingContent(finalData);
-        
-        // Logic change: Only generate image if NOT Reels and NOT Plan
-        // Also check if content itself decided it's reels (though we force format now)
-        const shouldGenerateImage = !content.isPlan && 
-                                    !content.isReels && 
-                                    formData.format !== 'reels';
-
-        if (content && content.visualPrompt && shouldGenerateImage) {
-             const image = await generatePilatesImage({
-                 format: formData.format === 'auto' ? content.suggestedFormat : formData.format,
-                 theme: formData.topic,
-                 imageStyle: formData.style
-             } as any, null, content.visualPrompt);
-             content.generatedImage = image || undefined;
+    const handleGenerateContent = async () => {
+        if (isLimitReached) {
+            alert("Limite diário de criações atingido. Atualize seu plano.");
+            return;
         }
+    
+        setIsGenerating(true);
+        try {
+            const finalData = { ...formData };
+            if (finalData.goal === 'Outro (Descrever...)') finalData.goal = finalData.customGoal || '';
+            if (finalData.audience === 'Outro (Descrever...)') finalData.audience = finalData.customAudience || '';
+            
+            const content = await generateMarketingContent(finalData);
+            let hasImage = false;
 
-        setResult(content);
-        if (content.isPlan) {
-            setActivePlan(content);
+            const shouldGenerateImage = !content.isPlan && 
+                                        !content.isReels && 
+                                        formData.format !== 'reels';
+    
+            if (content && content.visualPrompt && shouldGenerateImage) {
+                 const image = await generatePilatesImage({
+                     format: formData.format === 'auto' ? content.suggestedFormat : formData.format,
+                     theme: formData.topic,
+                     imageStyle: formData.style
+                 } as any, null, content.visualPrompt);
+                 content.generatedImage = image || undefined;
+                 if(image) hasImage = true;
+            }
+    
+            setResult(content);
+            if (content.isPlan) {
+                setActivePlan(content);
+            }
+            setStep(5);
+            
+            const studioId = user?.isInstructor ? user.studioId : user?.id;
+            if(studioId) {
+                // LOG USAGE WITH CORRECT TYPE
+                let type = 'marketing_text';
+                if (content.isPlan) type = 'marketing_plan';
+                else if (hasImage) type = 'marketing_image';
+
+                await recordGenerationUsage(studioId, type as any);
+                setDailyCount(prev => prev + 1);
+            }
+    
+        } catch (e) {
+            alert("Erro ao gerar conteúdo.");
         }
-        setStep(5);
-        
-        const studioId = user?.isInstructor ? user.studioId : user?.id;
-        if(studioId) {
-            await recordGenerationUsage(studioId);
-            setDailyCount(prev => prev + 1);
-        }
+        setIsGenerating(false);
+      };
 
-    } catch (e) {
-        alert("Erro ao gerar conteúdo.");
-    }
-    setIsGenerating(false);
-  };
-
-  const handleGenerateFromPlan = (post: any, weekIndex: number, postIndex: number) => {
-    if (isLimitReached) {
-        alert("Limite diário de criações atingido.");
-        return;
-    }
-
-    setResult(null);
-    setCurrentPlanItemIndices({ weekIndex, postIndex });
-
-    let fmt = 'auto';
-    const pFormat = (post.format || '').toLowerCase();
-    if (pFormat.includes('reels') || pFormat.includes('vídeo')) fmt = 'reels';
-    else if (pFormat.includes('carrossel')) fmt = 'carousel';
-    else if (pFormat.includes('estático') || pFormat.includes('post')) fmt = 'post';
-
-    setFormData(prev => ({
-        ...prev,
-        mode: 'single',
-        format: fmt,
-        topic: post.idea || post.theme || '',
-        // Keep previous goal/audience from plan loading if available, otherwise use specific daily objective
-        // Logic: Use daily objective as Custom Goal, retain overall Audience from Plan
-        customGoal: post.objective || '',
-        customAudience: '' // Keep general audience
-    }));
-
-    setStep(4);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleViewPost = (postId: string) => {
-      // Find post in savedPosts
-      const post = savedPosts.find(p => p.id === postId);
-      if (post) {
-          const mockResult: GeneratedContent = {
-              suggestedFormat: post.request.format,
-              reasoning: 'Post recuperado do histórico.',
-              hashtags: [],
-              tips: 'Post já salvo.',
-              captionLong: post.content,
-              generatedImage: post.imageUrl || undefined,
-              isPlan: false,
-              isStory: false,
-              isReels: post.request.format.toLowerCase().includes('reels')
-          };
-          setResult(mockResult);
-          setStep(5);
-          setShowHistory(false); // Close history view
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-          alert("Post não encontrado no histórico. Pode ter sido excluído.");
-      }
-  };
-
-  const handleSaveWithLink = async () => {
-      if (!user?.id || !result) return;
-      const studioId = user.isInstructor ? user.studioId : user.id;
-      if (!studioId) return;
-
-      setIsSaving(true);
-      let res;
-      
-      if (result.isPlan) {
-          const plan: StrategicContentPlan = {
-              id: crypto.randomUUID(),
-              createdAt: new Date().toISOString(),
-              goals: { mainObjective: formData.goal, targetAudience: [formData.audience], keyThemes: [formData.topic] },
-              weeks: result.weeks?.map((w: any) => ({
-                  week: `Semana ${w.weekNumber}`,
-                  theme: w.theme,
-                  ideas: w.posts?.map((p: any) => ({
-                      day: p.day,
-                      theme: p.idea, // Map 'idea' (from generation) to 'theme' (for storage) to match Interface
-                      format: p.format,
-                      objective: p.objective,
-                      generatedPostId: p.generatedPostId
-                  }))
-              })) || []
-          };
-          res = await saveContentPlan(studioId, plan);
-      } else {
-          // Post Generation
-          const postId = crypto.randomUUID();
-          const post: SavedPost = {
-              id: postId,
-              request: {
-                  format: result.suggestedFormat,
-                  objective: formData.goal,
-                  theme: formData.topic,
-                  audience: formData.audience,
-                  tone: formData.style,
-                  imageStyle: formData.style
-              },
-              content: result.captionLong || result.captionShort || '',
-              imageUrl: result.generatedImage || null,
-              createdAt: new Date().toISOString()
-          };
-          res = await savePost(studioId, post);
-
-          if (res.success && currentPlanItemIndices && activePlan) {
-              // Update the Active Plan State locally with the new ID
-              const newPlan = JSON.parse(JSON.stringify(activePlan)); // Deep copy
-              if (newPlan.weeks && newPlan.weeks[currentPlanItemIndices.weekIndex]) {
-                  newPlan.weeks[currentPlanItemIndices.weekIndex].posts[currentPlanItemIndices.postIndex].generatedPostId = postId;
-                  setActivePlan(newPlan);
-                  // Optional: We could trigger a save of the whole plan here too to persist the link immediately
+      // ... (Rest of component functions: handleGenerateFromPlan, handleViewPost, handleSaveWithLink, handleBackToPlan, handleDelete)
+      const handleGenerateFromPlan = (post: any, weekIndex: number, postIndex: number) => {
+        setResult(null);
+        setCurrentPlanItemIndices({ weekIndex, postIndex });
+        let fmt = 'auto';
+        const pFormat = (post.format || '').toLowerCase();
+        if (pFormat.includes('reels') || pFormat.includes('vídeo')) fmt = 'reels';
+        else if (pFormat.includes('carrossel')) fmt = 'carousel';
+        else if (pFormat.includes('estático') || pFormat.includes('post')) fmt = 'post';
+    
+        setFormData(prev => ({
+            ...prev,
+            mode: 'single',
+            format: fmt,
+            topic: post.idea || post.theme || '',
+            goal: 'Engajamento',
+            audience: 'Público Geral',
+            customGoal: post.objective || '',
+            customAudience: ''
+        }));
+    
+        setStep(4);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+    
+      const handleViewPost = (postId: string) => {
+          const post = savedPosts.find(p => p.id === postId);
+          if (post) {
+              const mockResult: GeneratedContent = {
+                  suggestedFormat: post.request.format,
+                  reasoning: 'Post recuperado do histórico.',
+                  hashtags: [],
+                  tips: 'Post já salvo.',
+                  captionLong: post.content,
+                  generatedImage: post.imageUrl || undefined,
+                  isPlan: false,
+                  isStory: false,
+                  isReels: post.request.format.toLowerCase().includes('reels')
+              };
+              setResult(mockResult);
+              setStep(5);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+              alert("Post não encontrado no histórico. Pode ter sido excluído.");
+          }
+      };
+    
+      const handleSaveWithLink = async () => {
+          if (!user?.id || !result) return;
+          const studioId = user.isInstructor ? user.studioId : user.id;
+          if (!studioId) return;
+    
+          setIsSaving(true);
+          let res;
+          
+          if (result.isPlan) {
+              const plan: StrategicContentPlan = {
+                  id: crypto.randomUUID(),
+                  createdAt: new Date().toISOString(),
+                  goals: { mainObjective: formData.goal, targetAudience: [formData.audience], keyThemes: [formData.topic] },
+                  weeks: result.weeks?.map((w: any) => ({
+                      week: `Semana ${w.weekNumber}`,
+                      theme: w.theme,
+                      ideas: w.posts
+                  })) || []
+              };
+              res = await saveContentPlan(studioId, plan);
+          } else {
+              const postId = crypto.randomUUID();
+              const post: SavedPost = {
+                  id: postId,
+                  request: {
+                      format: result.suggestedFormat,
+                      objective: formData.goal,
+                      theme: formData.topic,
+                      audience: formData.audience,
+                      tone: formData.style,
+                      imageStyle: formData.style
+                  },
+                  content: result.captionLong || result.captionShort || '',
+                  imageUrl: result.generatedImage || null,
+                  createdAt: new Date().toISOString()
+              };
+              res = await savePost(studioId, post);
+    
+              if (res.success && currentPlanItemIndices && activePlan) {
+                  const newPlan = JSON.parse(JSON.stringify(activePlan)); 
+                  if (newPlan.weeks && newPlan.weeks[currentPlanItemIndices.weekIndex]) {
+                      newPlan.weeks[currentPlanItemIndices.weekIndex].posts[currentPlanItemIndices.postIndex].generatedPostId = postId;
+                      setActivePlan(newPlan);
+                  }
               }
           }
-      }
-
-      if (res.success) {
-          alert("Salvo com sucesso!");
-          loadHistory(studioId);
-      } else {
-          alert("Erro ao salvar.");
-      }
-      setIsSaving(false);
-  };
-
-  const handleBackToPlan = () => {
-      if (activePlan) {
-          setResult(activePlan);
-          setStep(5);
-          setFormData(prev => ({ ...prev, mode: 'plan' }));
-          setCurrentPlanItemIndices(null);
-      }
-  };
-
-  const handleDelete = async (id: string, type: 'post' | 'plan') => {
-      if (confirm("Excluir?")) {
-          if (type === 'post') {
-              await deleteSavedPost(id);
-              setSavedPosts(prev => prev.filter(p => p.id !== id));
+    
+          if (res.success) {
+              alert("Salvo com sucesso!");
+              loadHistory(studioId);
           } else {
-              await deleteContentPlan(id);
-              setSavedPlans(prev => prev.filter(p => p.id !== id));
+              alert("Erro ao salvar.");
           }
-      }
-  };
+          setIsSaving(false);
+      };
+    
+      const handleBackToPlan = () => {
+          if (activePlan) {
+              setResult(activePlan);
+              setStep(5);
+              setFormData(prev => ({ ...prev, mode: 'plan' }));
+              setCurrentPlanItemIndices(null);
+          }
+      };
+    
+      const handleDelete = async (id: string, type: 'post' | 'plan') => {
+          if (confirm("Excluir?")) {
+              if (type === 'post') {
+                  await deleteSavedPost(id);
+                  setSavedPosts(prev => prev.filter(p => p.id !== id));
+              } else {
+                  await deleteContentPlan(id);
+                  setSavedPlans(prev => prev.filter(p => p.id !== id));
+              }
+          }
+      };
 
-  return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in pb-12">
-        <div className="flex justify-between items-center">
-            <div>
-                <h1 className="text-3xl font-bold flex items-center gap-2 text-slate-900 dark:text-white">
-                    <Megaphone className="h-8 w-8 text-brand-600" /> Marketing Digital
-                </h1>
-                <p className="text-slate-500">Crie conteúdo estratégico de alta conversão em segundos.</p>
-            </div>
-            
-            <div className="flex items-center gap-4">
-                {/* DAILY COUNTER BADGE */}
-                <div className={`px-4 py-2 rounded-lg border flex items-center gap-2 text-sm font-bold shadow-sm transition-colors ${
-                    isLimitReached 
-                    ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400' 
-                    : 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400'
-                }`}>
-                    {isLimitReached ? <Lock className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
-                    <span>{dailyCount} / {dailyLimit} posts hoje</span>
-                </div>
-
-                {!showHistory && step > 1 && (
-                    <Button variant="ghost" onClick={handleBack}><ArrowLeft className="w-4 h-4 mr-2"/> Voltar</Button>
-                )}
-                <Button variant="outline" onClick={() => setShowHistory(!showHistory)}>
-                    <History className="w-4 h-4 mr-2"/> {showHistory ? 'Voltar' : 'Histórico'}
-                </Button>
-            </div>
-        </div>
-
-        {showHistory ? (
-            <div className="space-y-6">
-                <div className="flex gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
-                    <button onClick={() => setHistoryTab('posts')} className={`text-lg font-bold pb-2 border-b-2 transition-colors ${historyTab === 'posts' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500'}`}>Posts Salvos</button>
-                    <button onClick={() => setHistoryTab('plans')} className={`text-lg font-bold pb-2 border-b-2 transition-colors ${historyTab === 'plans' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500'}`}>Planos Salvos</button>
+      // ... (Return render with steps, same as before)
+      return (
+        <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in pb-12">
+            <div className="flex justify-between items-center">
+                <div>
+                    <h1 className="text-3xl font-bold flex items-center gap-2 text-slate-900 dark:text-white">
+                        <Megaphone className="h-8 w-8 text-brand-600" /> Marketing Digital
+                    </h1>
+                    <p className="text-slate-500">Crie conteúdo estratégico de alta conversão em segundos.</p>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {loadingHistory ? <p>Carregando...</p> : 
-                        historyTab === 'posts' ? savedPosts.map(p => (
-                            <div key={p.id} className="bg-white dark:bg-slate-900 p-4 rounded border shadow-sm">
-                                <img src={p.imageUrl || ''} className="w-full h-32 object-cover mb-2 rounded" />
-                                <p className="text-sm font-bold dark:text-white">{p.request.theme}</p>
-                                <div className="flex justify-between mt-2">
-                                    <Button size="xs" variant="ghost" onClick={() => handleViewPost(p.id)}>Ver</Button>
-                                    <button onClick={() => handleDelete(p.id, 'post')}><Trash2 className="w-4 h-4 text-red-500"/></button>
+                <div className="flex items-center gap-4">
+                    <div className={`px-4 py-2 rounded-lg border flex items-center gap-2 text-sm font-bold shadow-sm transition-colors ${
+                        isLimitReached 
+                        ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400' 
+                        : 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400'
+                    }`}>
+                        {isLimitReached ? <Lock className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
+                        <span>{dailyCount} / {dailyLimit} posts hoje</span>
+                    </div>
+    
+                    {!showHistory && step > 1 && (
+                        <Button variant="ghost" onClick={handleBack}><ArrowLeft className="w-4 h-4 mr-2"/> Voltar</Button>
+                    )}
+                    <Button variant="outline" onClick={() => setShowHistory(!showHistory)}>
+                        <History className="w-4 h-4 mr-2"/> {showHistory ? 'Voltar' : 'Histórico'}
+                    </Button>
+                </div>
+            </div>
+    
+            {showHistory ? (
+                <div className="space-y-6">
+                    <div className="flex gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+                        <button onClick={() => setHistoryTab('posts')} className={`text-lg font-bold pb-2 border-b-2 transition-colors ${historyTab === 'posts' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500'}`}>Posts Salvos</button>
+                        <button onClick={() => setHistoryTab('plans')} className={`text-lg font-bold pb-2 border-b-2 transition-colors ${historyTab === 'plans' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500'}`}>Planos Salvos</button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {loadingHistory ? <p>Carregando...</p> : 
+                            historyTab === 'posts' ? savedPosts.map(p => (
+                                <div key={p.id} className="bg-white dark:bg-slate-900 p-4 rounded border shadow-sm">
+                                    <img src={p.imageUrl || ''} className="w-full h-32 object-cover mb-2 rounded" />
+                                    <p className="text-sm font-bold dark:text-white">{p.request.theme}</p>
+                                    <div className="flex justify-between mt-2">
+                                        <Button size="xs" variant="ghost" onClick={() => handleViewPost(p.id)}>Ver</Button>
+                                        <button onClick={() => handleDelete(p.id, 'post')}><Trash2 className="w-4 h-4 text-red-500"/></button>
+                                    </div>
                                 </div>
-                            </div>
-                        )) : savedPlans.map(p => (
-                            <div key={p.id} className="bg-white dark:bg-slate-900 p-4 rounded border shadow-sm">
-                                <p className="font-bold dark:text-white">{p.goals.keyThemes[0]}</p>
-                                <p className="text-xs text-slate-500 mb-2">{new Date(p.createdAt).toLocaleDateString()}</p>
-                                <div className="flex justify-between mt-2">
-                                    <Button size="xs" variant="ghost" onClick={() => {
-                                        const viewPlan: GeneratedContent = {
-                                            isPlan: true,
-                                            suggestedFormat: 'Plano Estratégico',
-                                            reasoning: 'Plano recuperado do histórico',
-                                            hashtags: [],
-                                            tips: '',
-                                            weeks: p.weeks?.map((w: any) => ({
-                                                weekNumber: w.week.replace(/Semana\s*/i, ''),
-                                                theme: w.theme,
-                                                posts: w.ideas?.map((idea: any) => ({
-                                                    day: idea.day,
-                                                    format: idea.format,
-                                                    theme: idea.theme,
-                                                    idea: idea.theme, // Map 'theme' from DB back to 'idea' for UI
-                                                    objective: idea.objective,
-                                                    generatedPostId: idea.generatedPostId
+                            )) : savedPlans.map(p => (
+                                <div key={p.id} className="bg-white dark:bg-slate-900 p-4 rounded border shadow-sm">
+                                    <p className="font-bold dark:text-white">{p.goals.keyThemes[0]}</p>
+                                    <p className="text-xs text-slate-500 mb-2">{new Date(p.createdAt).toLocaleDateString()}</p>
+                                    <div className="flex justify-between mt-2">
+                                        <Button size="xs" variant="ghost" onClick={() => {
+                                            const viewPlan: GeneratedContent = {
+                                                isPlan: true,
+                                                suggestedFormat: 'Plano Estratégico',
+                                                reasoning: 'Plano recuperado do histórico',
+                                                hashtags: [],
+                                                tips: '',
+                                                weeks: p.weeks?.map((w: any) => ({
+                                                    weekNumber: w.week.replace(/Semana\s*/i, ''),
+                                                    theme: w.theme,
+                                                    posts: w.ideas?.map((idea: any) => ({
+                                                        day: idea.day,
+                                                        format: idea.format,
+                                                        theme: idea.theme,
+                                                        idea: idea.theme,
+                                                        generatedPostId: idea.generatedPostId
+                                                    }))
                                                 }))
-                                            }))
-                                        };
-                                        // Update form data context
-                                        setFormData(prev => ({
-                                            ...prev,
-                                            goal: p.goals.mainObjective,
-                                            audience: p.goals.targetAudience.join(', ')
-                                        }));
-                                        
-                                        setResult(viewPlan);
-                                        setActivePlan(viewPlan); 
-                                        setStep(5);
-                                        setShowHistory(false);
-                                    }}>Abrir</Button>
-                                    <button onClick={() => handleDelete(p.id, 'plan')}><Trash2 className="w-4 h-4 text-red-500"/></button>
+                                            };
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                goal: p.goals.mainObjective,
+                                                audience: p.goals.targetAudience.join(', ')
+                                            }));
+                                            setResult(viewPlan);
+                                            setActivePlan(viewPlan); 
+                                            setStep(5);
+                                            setShowHistory(false);
+                                        }}>Abrir</Button>
+                                        <button onClick={() => handleDelete(p.id, 'plan')}><Trash2 className="w-4 h-4 text-red-500"/></button>
+                                    </div>
                                 </div>
-                            </div>
-                        ))
-                    }
-                </div>
-            </div>
-        ) : (
-            <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl min-h-[500px]">
-                {/* Progress Bar */}
-                <div className="mb-8">
-                    <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                        <span className={step >= 1 ? 'text-brand-600' : ''}>Modo</span>
-                        <span className={step >= 2 ? 'text-brand-600' : ''}>Objetivo</span>
-                        <span className={step >= 3 ? 'text-brand-600' : ''}>Público</span>
-                        <span className={step >= 4 ? 'text-brand-600' : ''}>Tema</span>
-                        <span className={step >= 5 ? 'text-brand-600' : ''}>Resultado</span>
-                    </div>
-                    <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-brand-500 transition-all duration-500" style={{ width: `${(step / 5) * 100}%` }}></div>
+                            ))
+                        }
                     </div>
                 </div>
-
-                {step === 1 && <StepMode selected={formData.mode} onSelect={handleModeSelect} />}
-                
-                {step === 2 && (
-                    <>
+            ) : (
+                <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl min-h-[500px]">
+                    <div className="mb-8">
+                        <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                            <span className={step >= 1 ? 'text-brand-600' : ''}>Modo</span>
+                            <span className={step >= 2 ? 'text-brand-600' : ''}>Objetivo</span>
+                            <span className={step >= 3 ? 'text-brand-600' : ''}>Público</span>
+                            <span className={step >= 4 ? 'text-brand-600' : ''}>Tema</span>
+                            <span className={step >= 5 ? 'text-brand-600' : ''}>Resultado</span>
+                        </div>
+                        <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-brand-500 transition-all duration-500" style={{ width: `${(step / 5) * 100}%` }}></div>
+                        </div>
+                    </div>
+                    {step === 1 && <StepMode selected={formData.mode} onSelect={handleModeSelect} />}
+                    {step === 2 && (
                         <StepGoal 
                             selected={formData.goal} 
                             customGoal={formData.customGoal} 
@@ -938,75 +914,65 @@ export const ContentAgent: React.FC = () => {
                             onSelect={handleGoalSelect} 
                             onCustomChange={(val: string) => setFormData(prev => ({...prev, customGoal: val, goal: 'Outro (Descrever...)'}))} 
                         />
-                        {/* Hidden button for programmatic click */}
-                        <button id="step-2-next" className="hidden" onClick={handleNext}></button>
-                    </>
-                )}
-
-                {step === 3 && (
-                    <>
+                    )}
+                    {step === 3 && (
                         <StepAudience 
                             selected={formData.audience} 
                             customAudience={formData.customAudience} 
                             onSelect={handleAudienceSelect} 
                             onCustomChange={(val: string) => setFormData(prev => ({...prev, customAudience: val, audience: 'Outro (Descrever...)'}))} 
                         />
-                        {/* Hidden button for programmatic click */}
-                        <button id="step-3-next" className="hidden" onClick={handleNext}></button>
-                    </>
-                )}
-
-                {step === 4 && (
-                    <div className="space-y-6">
-                        <StepTopic 
-                            value={formData.topic} 
-                            onChange={(val: string) => setFormData(prev => ({...prev, topic: val}))} 
-                            onGenerateIdeas={handleGenerateIdeas} 
-                            isGeneratingIdeas={isGeneratingIdeas} 
-                            suggestions={topicSuggestions} 
-                            mode={formData.mode}
-                            formData={formData}
-                            onFormChange={setFormData}
-                        />
-                        <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800 gap-2">
-                            {currentPlanItemIndices && (
-                                <Button variant="ghost" onClick={handleBackToPlan}>Cancelar e Voltar ao Plano</Button>
-                            )}
-                            <Button 
-                                onClick={handleGenerateContent} 
-                                isLoading={isGenerating} 
-                                disabled={isLimitReached}
-                                className={`px-8 h-12 text-lg shadow-lg shadow-brand-200 ${isLimitReached ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            >
-                                <Wand2 className="w-5 h-5 mr-2" /> 
-                                {isLimitReached ? 'Limite Diário Atingido' : `Gerar ${formData.mode === 'plan' ? 'Planejamento' : 'Conteúdo'}`}
-                            </Button>
-                        </div>
-                    </div>
-                )}
-
-                {step === 5 && (
-                    <>
-                        {currentPlanItemIndices && (
-                            <div className="mb-4">
-                                <Button variant="outline" size="sm" onClick={handleBackToPlan}>
-                                    <ArrowLeft className="w-4 h-4 mr-2"/> Voltar para o Plano
+                    )}
+                    {step === 4 && (
+                        <div className="space-y-6">
+                            <StepTopic 
+                                value={formData.topic} 
+                                onChange={(val: string) => setFormData(prev => ({...prev, topic: val}))} 
+                                onGenerateIdeas={handleGenerateIdeas} 
+                                isGeneratingIdeas={isGeneratingIdeas} 
+                                suggestions={topicSuggestions} 
+                                mode={formData.mode}
+                                formData={formData}
+                                onFormChange={setFormData}
+                            />
+                            <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800 gap-2">
+                                {currentPlanItemIndices && (
+                                    <Button variant="ghost" onClick={handleBackToPlan}>Cancelar e Voltar ao Plano</Button>
+                                )}
+                                <Button 
+                                    onClick={handleGenerateContent} 
+                                    isLoading={isGenerating} 
+                                    disabled={isLimitReached}
+                                    className={`px-8 h-12 text-lg shadow-lg shadow-brand-200 ${isLimitReached ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    <Wand2 className="w-5 h-5 mr-2" /> 
+                                    {isLimitReached ? 'Limite Diário Atingido' : `Gerar ${formData.mode === 'plan' ? 'Planejamento' : 'Conteúdo'}`}
                                 </Button>
                             </div>
-                        )}
-                        <ResultDisplay 
-                            content={result} 
-                            onReset={() => { setStep(1); setResult(null); setActivePlan(null); }}
-                            onSave={handleSaveWithLink}
-                            onRegenerate={handleGenerateContent}
-                            canRegenerate={!result?.isPlan}
-                            onGenerateFromPlan={handleGenerateFromPlan}
-                            onViewSavedPost={handleViewPost}
-                        />
-                    </>
-                )}
-            </div>
-        )}
-    </div>
-  );
+                        </div>
+                    )}
+                    {step === 5 && (
+                        <>
+                            {currentPlanItemIndices && (
+                                <div className="mb-4">
+                                    <Button variant="outline" size="sm" onClick={handleBackToPlan}>
+                                        <ArrowLeft className="w-4 h-4 mr-2"/> Voltar para o Plano
+                                    </Button>
+                                </div>
+                            )}
+                            <ResultDisplay 
+                                content={result} 
+                                onReset={() => { setStep(1); setResult(null); setActivePlan(null); }}
+                                onSave={handleSaveWithLink}
+                                onRegenerate={handleGenerateContent}
+                                canRegenerate={!result?.isPlan}
+                                onGenerateFromPlan={handleGenerateFromPlan}
+                                onViewSavedPost={handleViewPost}
+                            />
+                        </>
+                    )}
+                </div>
+            )}
+        </div>
+      );
 };

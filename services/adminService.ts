@@ -1,4 +1,3 @@
-
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase';
 import { createClient } from '@supabase/supabase-js';
 
@@ -23,16 +22,12 @@ export interface UserApiCost {
   studioName: string;
   ownerName: string;
   details: {
-    content: {
-      text: number;
-      image: number;
-      video: number;
-      drafts: number;
-    };
+    marketing: number; // Count of marketing calls
     rehab: number;
     finance: number;
     evaluation: number;
     suggestion: number;
+    other: number;
   };
   totalCost: number;
 }
@@ -164,108 +159,65 @@ export const fetchApiUsageStats = async (startDate?: string, endDate?: string): 
         return query;
     };
 
-    // 2. Fetch raw data with filters
-    const results = await Promise.allSettled([
-      applyFilter(supabase.from('content_generations').select('studio_id')), 
-      applyFilter(supabase.from('content_posts').select('studio_id, data')), 
-      applyFilter(supabase.from('rehab_lessons').select('user_id')),
-      applyFilter(supabase.from('evaluation_analyses').select('studio_id')),
-      applyFilter(supabase.from('financial_simulations').select('user_id')),
-      applyFilter(supabase.from('suggestion_action_plans').select('studio_id'))
-    ]);
+    // 2. Fetch Usage Logs (Source of Truth for Costs)
+    const { data: logs, error: logsError } = await applyFilter(supabase.from('content_generations').select('studio_id, agent_type'));
+
+    if (logsError) throw logsError;
 
     // 3. Process Data per Studio
     const usageMap = new Map<string, {
-        content: { totalGen: number; savedText: number; savedImg: number; savedVid: number };
+        marketing: number;
+        marketingImg: number;
         rehab: number;
         finance: number;
         evaluation: number;
         suggestion: number;
+        other: number;
     }>();
 
     const getStats = (id: string) => {
         if (!usageMap.has(id)) {
-            usageMap.set(id, {
-                content: { totalGen: 0, savedText: 0, savedImg: 0, savedVid: 0 },
-                rehab: 0,
-                finance: 0,
-                evaluation: 0,
-                suggestion: 0
-            });
+            usageMap.set(id, { marketing: 0, marketingImg: 0, rehab: 0, finance: 0, evaluation: 0, suggestion: 0, other: 0 });
         }
         return usageMap.get(id)!;
     };
 
-    // --- Content Generations (Log) ---
-    if (results[0].status === 'fulfilled' && results[0].value.data) {
-        results[0].value.data.forEach((row: any) => {
-            getStats(row.studio_id).content.totalGen++;
+    if (logs) {
+        logs.forEach((log: any) => {
+            const stats = getStats(log.studio_id);
+            const type = log.agent_type || 'marketing_text'; // Default legacy
+            
+            if (type === 'marketing_text' || type === 'marketing_plan') stats.marketing++;
+            else if (type === 'marketing_image') stats.marketingImg++;
+            else if (type === 'rehab') stats.rehab++;
+            else if (type === 'finance') stats.finance++;
+            else if (type === 'evaluation') stats.evaluation++;
+            else if (type === 'suggestion') stats.suggestion++;
+            else stats.other++;
         });
-    }
-
-    // --- Content Posts (Saved) ---
-    if (results[1].status === 'fulfilled' && results[1].value.data) {
-        results[1].value.data.forEach((row: any) => {
-            const stats = getStats(row.studio_id);
-            const data = row.data;
-            if (data.videoUrl) stats.content.savedVid++;
-            else if (data.imageUrl) stats.content.savedImg++;
-            else stats.content.savedText++;
-        });
-    }
-
-    // --- Rehab ---
-    if (results[2].status === 'fulfilled' && results[2].value.data) {
-        results[2].value.data.forEach((row: any) => getStats(row.user_id).rehab++);
-    }
-
-    // --- Evaluation Analysis ---
-    if (results[3].status === 'fulfilled' && results[3].value.data) {
-        results[3].value.data.forEach((row: any) => getStats(row.studio_id).evaluation++);
-    }
-
-    // --- Finance ---
-    if (results[4].status === 'fulfilled' && results[4].value.data) {
-        results[4].value.data.forEach((row: any) => getStats(row.user_id).finance++);
-    }
-
-    // --- Suggestions ---
-    if (results[5].status === 'fulfilled' && results[5].value.data) {
-        results[5].value.data.forEach((row: any) => getStats(row.studio_id).suggestion++);
     }
 
     // 4. Calculate Costs
-    // Estimated Costs (USD)
-    const COST_TEXT = 0.005; // Standard Text Prompt
-    const COST_IMG = 0.040;  // Image Generation
-    const COST_VID = 0.200;  // Video Generation (Veo)
-    const COST_COMPLEX = 0.010; // Rehab / Large Analysis
+    const COSTS = {
+        TEXT: 0.005,
+        IMG: 0.040,
+        COMPLEX: 0.010, // Rehab, Finance, etc.
+        SIMPLE: 0.005
+    };
 
     let totalGlobalCost = 0;
 
     const byUser: UserApiCost[] = studios.map(studio => {
       const stats = getStats(studio.user_id);
       
-      // Calculate Drafts (Total generations minus saved posts)
-      // We assume drafts are Text based for cost estimation to be conservative/realistic
-      // If date range is used, totalGen might be less than saved if data is inconsistent, so max(0, ...)
-      const totalSaved = stats.content.savedText + stats.content.savedImg + stats.content.savedVid;
-      const draftsCount = Math.max(0, stats.content.totalGen - totalSaved);
+      const costMarketing = (stats.marketing * COSTS.TEXT) + (stats.marketingImg * COSTS.IMG);
+      const costRehab = stats.rehab * COSTS.COMPLEX;
+      const costFinance = stats.finance * COSTS.COMPLEX;
+      const costEval = stats.evaluation * COSTS.COMPLEX;
+      const costSugg = stats.suggestion * COSTS.COMPLEX;
+      const costOther = stats.other * COSTS.SIMPLE;
 
-      // Cost Calculation
-      const costContent = 
-        (stats.content.savedText * COST_TEXT) +
-        (stats.content.savedImg * COST_IMG) +
-        (stats.content.savedVid * COST_VID) +
-        (draftsCount * COST_TEXT); // Drafts charged as text
-
-      const costAgents = 
-        (stats.rehab * COST_COMPLEX) +
-        (stats.finance * COST_COMPLEX) +
-        (stats.evaluation * COST_COMPLEX) +
-        (stats.suggestion * COST_COMPLEX);
-
-      const totalCost = costContent + costAgents;
+      const totalCost = costMarketing + costRehab + costFinance + costEval + costSugg + costOther;
       totalGlobalCost += totalCost;
 
       return {
@@ -273,16 +225,12 @@ export const fetchApiUsageStats = async (startDate?: string, endDate?: string): 
         studioName: studio.studio_name || 'Studio Sem Nome',
         ownerName: studio.owner_name || 'Desconhecido',
         details: {
-            content: {
-                text: stats.content.savedText,
-                image: stats.content.savedImg,
-                video: stats.content.savedVid,
-                drafts: draftsCount
-            },
+            marketing: stats.marketing + stats.marketingImg, // Total Marketing Interactions
             rehab: stats.rehab,
             finance: stats.finance,
             evaluation: stats.evaluation,
-            suggestion: stats.suggestion
+            suggestion: stats.suggestion,
+            other: stats.other
         },
         totalCost
       };

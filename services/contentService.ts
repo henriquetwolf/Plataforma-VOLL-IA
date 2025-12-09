@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase';
 import { StudioPersona, SavedPost, StrategicContentPlan } from '../types';
 
@@ -97,12 +96,31 @@ export const deleteSavedPost = async (postId: string) => {
 };
 
 // --- USAGE TRACKING (NEW) ---
-// Registra o uso independente se o post foi salvo ou deletado depois
+/*
+  SQL UPDATE REQUIRED:
+  ALTER TABLE content_generations ADD COLUMN IF NOT EXISTS agent_type text DEFAULT 'marketing_text';
+*/
 
-export const recordGenerationUsage = async (studioId: string) => {
+export type AgentType = 
+  | 'marketing_text' 
+  | 'marketing_image' 
+  | 'marketing_plan'
+  | 'rehab' 
+  | 'finance' 
+  | 'action' 
+  | 'newsletter' 
+  | 'evaluation' 
+  | 'suggestion'
+  | 'whatsapp'
+  | 'mission'
+  | 'quest';
+
+export const recordGenerationUsage = async (studioId: string, agentType: AgentType = 'marketing_text') => {
     try {
-        // Tabela simples de log: id, studio_id, created_at
-        await supabase.from('content_generations').insert({ studio_id: studioId });
+        await supabase.from('content_generations').insert({ 
+            studio_id: studioId,
+            agent_type: agentType
+        });
     } catch (e) {
         console.error("Error logging generation usage:", e);
     }
@@ -113,25 +131,19 @@ export const getTodayPostCount = async (studioId: string): Promise<number> => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
-        // 1. Tenta contar na tabela de logs (persistente mesmo se deletar post)
+        // Conta apenas gerações de marketing para o limite diário
         const { count: logCount, error: logError } = await supabase
             .from('content_generations')
             .select('*', { count: 'exact', head: true })
             .eq('studio_id', studioId)
+            .in('agent_type', ['marketing_text', 'marketing_image', 'marketing_plan'])
             .gte('created_at', today.toISOString());
 
         if (!logError && logCount !== null) {
             return logCount;
         }
-
-        // 2. Fallback: Conta posts salvos (se a tabela nova não existir ou der erro)
-        const { count } = await supabase
-            .from('content_posts')
-            .select('*', { count: 'exact', head: true })
-            .eq('studio_id', studioId)
-            .gte('created_at', today.toISOString());
         
-        return count || 0;
+        return 0;
     } catch (e) {
         console.error("Exception counting posts:", e);
         return 0;
