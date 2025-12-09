@@ -324,6 +324,18 @@ export interface SystemPartner {
   commission?: string;
 }
 
+export interface StudioPartner {
+  id: string;
+  studioId: string;
+  name: string;
+  description: string;
+  discountValue: string;
+  imageUrl?: string;
+  linkUrl?: string;
+  commission?: string;
+  createdAt: string;
+}
+
 export interface SubscriptionPlan {
   id: string;
   name: string;
