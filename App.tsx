@@ -42,8 +42,6 @@ import { StudentEvolutionPage } from './pages/StudentEvolution';
 import { StudentAssessmentPage } from './pages/StudentAssessment';
 import { AppRoute } from './types';
 
-const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
-
 // Guard for Owner Only Routes
 const OwnerRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -128,7 +126,8 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading, isAuthenticated } = useAuth();
   
   if (isLoading) return null;
-  if (!isAuthenticated || user?.email !== ADMIN_EMAIL) return <Navigate to={AppRoute.LOGIN} replace />;
+  // Check isAdmin flag instead of hardcoded email
+  if (!isAuthenticated || !user?.isAdmin) return <Navigate to={AppRoute.LOGIN} replace />;
 
   return <DashboardLayout>{children}</DashboardLayout>;
 };

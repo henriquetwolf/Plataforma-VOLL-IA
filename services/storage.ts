@@ -313,6 +313,26 @@ export const fetchAllProfiles = async (): Promise<{ data: StudioProfile[], error
   }
 };
 
+export const fetchGlobalAdmins = async (): Promise<StudioProfile[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('studio_profiles')
+      .select('*')
+      .eq('is_admin', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching global admins:', error);
+      return [];
+    }
+
+    return data.map(fromDBProfile);
+  } catch (err) {
+    console.error('Error in fetchGlobalAdmins:', err);
+    return [];
+  }
+};
+
 export const toggleUserStatus = async (userId: string, isActive: boolean): Promise<{ success: boolean; error?: string }> => {
   try {
     // Atualiza APENAS o campo is_active para evitar sobrescrever outros dados

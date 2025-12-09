@@ -1,4 +1,5 @@
 
+
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase';
 import { createClient } from '@supabase/supabase-js';
 
@@ -348,6 +349,59 @@ export const registerNewStudio = async (name: string, email: string, password: s
     }
     
     return { success: false, error: "Erro desconhecido na criação." };
+
+  } catch (e: any) {
+      return { success: false, error: e.message };
+  }
+};
+
+export const createGlobalAdmin = async (name: string, email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+        return { success: false, error: "Configuração do Supabase inválida." };
+    }
+
+    // Usar cliente temporário para não deslogar o admin atual
+    const tempClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+            detectSessionInUrl: false
+        }
+    });
+
+    const { data, error } = await tempClient.auth.signUp({
+        email,
+        password,
+        options: {
+            data: { name: name }
+        }
+    });
+
+    if (error) return { success: false, error: error.message };
+    
+    if (data.user) {
+        // Inserir perfil com flag de Admin
+        const { error: profileError } = await supabase
+            .from('studio_profiles')
+            .insert({
+                user_id: data.user.id,
+                owner_name: name,
+                email: email,
+                studio_name: 'Admin Global',
+                is_admin: true, // FLAG IMPORTANTE
+                is_active: true
+            });
+
+         if (profileError) {
+             console.error("Admin Profile creation error:", profileError);
+             return { success: false, error: "Usuário criado, mas erro ao definir como Admin: " + profileError.message };
+         }
+
+        return { success: true };
+    }
+    
+    return { success: false, error: "Erro desconhecido na criação do Admin." };
 
   } catch (e: any) {
       return { success: false, error: e.message };

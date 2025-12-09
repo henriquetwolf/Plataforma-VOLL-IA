@@ -1,34 +1,24 @@
 
 
-
-
-
-
-
-
-
-
-
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { fetchAllProfiles, toggleUserStatus, adminResetPassword, upsertProfile, fetchSubscriptionPlans, updateSubscriptionPlan, deleteStudioProfile } from '../services/storage';
+import { fetchAllProfiles, toggleUserStatus, adminResetPassword, upsertProfile, fetchSubscriptionPlans, updateSubscriptionPlan, deleteStudioProfile, fetchGlobalAdmins } from '../services/storage';
 import { fetchInstructors, toggleInstructorStatus, deleteInstructor } from '../services/instructorService';
 import { fetchStudents, revokeStudentAccess, deleteStudent } from '../services/studentService';
 import { uploadBannerImage, upsertBanner, fetchBannerByType, deleteBanner } from '../services/bannerService';
 import { fetchPartners, createPartner, updatePartner, deletePartner, uploadPartnerImage } from '../services/partnerService';
 import { fetchAllSuggestions } from '../services/suggestionService';
 import { generateSuggestionTrends } from '../services/geminiService';
-import { fetchAdminDashboardStats, fetchAdminTimelineStats, fetchApiUsageStats, registerNewStudio, AdminStats, TimelineDataPoint, UserApiCost } from '../services/adminService';
+import { fetchAdminDashboardStats, fetchAdminTimelineStats, fetchApiUsageStats, registerNewStudio, createGlobalAdmin, AdminStats, TimelineDataPoint, UserApiCost } from '../services/adminService';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2, MessageSquare, Sparkles, FileText, Download, BarChart3, PieChart as PieChartIcon, TrendingUp, Banknote, Video, Type, Image as ImageIcon, Activity, Calculator, Filter, UserPlus, Link as LinkIcon, ExternalLink, Tag, CalendarClock, Pencil } from 'lucide-react';
-import { SubscriptionPlan, SystemBanner, Suggestion, AppRoute, SystemPartner } from '../types';
+import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2, MessageSquare, Sparkles, FileText, Download, BarChart3, PieChart as PieChartIcon, TrendingUp, Banknote, Video, Type, Image as ImageIcon, Activity, Calculator, Filter, UserPlus, Link as LinkIcon, ExternalLink, Tag, CalendarClock, Pencil, Shield, Lock } from 'lucide-react';
+import { SubscriptionPlan, SystemBanner, Suggestion, AppRoute, SystemPartner, StudioProfile } from '../types';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
-
-const ADMIN_EMAIL = 'henriquetwolf@gmail.com';
+import { supabase } from '../services/supabase';
 
 interface AdminUserView {
   id: string; 
@@ -51,7 +41,7 @@ export const AdminPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'all' | 'owner' | 'instructor' | 'student' | 'suggestions' | 'costs' | 'partners'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'all' | 'owner' | 'instructor' | 'student' | 'suggestions' | 'costs' | 'partners' | 'admins'>('dashboard');
   
   // Dashboard Stats
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -114,36 +104,54 @@ export const AdminPanel: React.FC = () => {
   const [regPassword, setRegPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
 
+  // --- ADMIN MANAGEMENT STATES ---
+  const [globalAdmins, setGlobalAdmins] = useState<StudioProfile[]>([]);
+  const [showNewAdminModal, setShowNewAdminModal] = useState(false);
+  const [newAdminName, setNewAdminName] = useState('');
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
+  
+  // Change Own Password
+  const [myNewPassword, setMyNewPassword] = useState('');
+  const [myConfirmPassword, setMyConfirmPassword] = useState('');
+  const [isChangingMyPassword, setIsChangingMyPassword] = useState(false);
+
   const loadData = async () => {
     setLoading(true);
     setDbError(null);
     const usersList: AdminUserView[] = [];
 
     try {
-      // 0. Fetch Stats & Plans
+      // 0. Fetch Stats & Plans & Admins
       const statsData = await fetchAdminDashboardStats();
       setStats(statsData);
       const plansData = await fetchSubscriptionPlans();
       setPlans(plansData);
+      const adminsData = await fetchGlobalAdmins();
+      setGlobalAdmins(adminsData);
 
       // 1. Fetch Owners
       const { data: profiles, error: profileError } = await fetchAllProfiles();
       if (profileError) throw profileError;
       
       profiles.forEach(p => {
-        usersList.push({
-          id: p.id,
-          targetId: p.userId,
-          name: p.ownerName || 'Sem nome',
-          email: p.email || '-',
-          role: 'owner',
-          isActive: p.isActive,
-          contextInfo: p.studioName,
-          maxStudents: p.maxStudents,
-          planId: p.planId,
-          planName: p.planName || (p.planId ? 'Plano ID ' + p.planId : 'Sem Plano'),
-          planExpirationDate: p.planExpirationDate
-        });
+        // Exclude global admins from general owner list to avoid confusion (optional)
+        if (!p.isAdmin) {
+            usersList.push({
+                id: p.id,
+                targetId: p.userId,
+                name: p.ownerName || 'Sem nome',
+                email: p.email || '-',
+                role: 'owner',
+                isActive: p.isActive,
+                contextInfo: p.studioName,
+                maxStudents: p.maxStudents,
+                planId: p.planId,
+                planName: p.planName || (p.planId ? 'Plano ID ' + p.planId : 'Sem Plano'),
+                planExpirationDate: p.planExpirationDate
+            });
+        }
       });
 
       // 2. Fetch Instructors
@@ -538,6 +546,123 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
+  // --- ADMIN MANAGEMENT ACTIONS ---
+  const handleCreateAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if(!newAdminName || !newAdminEmail || !newAdminPassword) return;
+    if(newAdminPassword.length < 6) { alert("Senha muito curta."); return; }
+
+    setIsCreatingAdmin(true);
+    const res = await createGlobalAdmin(newAdminName, newAdminEmail, newAdminPassword);
+    
+    if(res.success) {
+        alert("Novo Admin Global criado com sucesso!");
+        setShowNewAdminModal(false);
+        setNewAdminName(''); setNewAdminEmail(''); setNewAdminPassword('');
+        // Reload admins
+        const admins = await fetchGlobalAdmins();
+        setGlobalAdmins(admins);
+    } else {
+        alert("Erro ao criar admin: " + res.error);
+    }
+    setIsCreatingAdmin(false);
+  };
+
+  const handleChangeMyPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if(myNewPassword.length < 6) { alert("A senha deve ter no mínimo 6 caracteres."); return; }
+    if(myNewPassword !== myConfirmPassword) { alert("As senhas não coincidem."); return; }
+
+    setIsChangingMyPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: myNewPassword });
+    
+    if(error) {
+        alert("Erro ao alterar senha: " + error.message);
+    } else {
+        alert("Senha alterada com sucesso!");
+        setMyNewPassword('');
+        setMyConfirmPassword('');
+    }
+    setIsChangingMyPassword(false);
+  };
+
+  // --- RENDERS ---
+
+  const AdminsView = () => (
+    <div className="space-y-8 animate-in fade-in">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* List of Admins */}
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
+                        <Shield className="w-5 h-5 text-purple-600"/> Admins Globais
+                    </h3>
+                    <Button size="sm" onClick={() => setShowNewAdminModal(true)}>
+                        <UserPlus className="w-4 h-4 mr-2"/> Novo Admin
+                    </Button>
+                </div>
+                
+                <div className="space-y-3">
+                    {globalAdmins.map(admin => (
+                        <div key={admin.id} className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg">
+                            <div>
+                                <p className="font-bold text-sm text-slate-900 dark:text-white">{admin.ownerName}</p>
+                                <p className="text-xs text-slate-500">{admin.email}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {admin.userId === user?.id && <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-1 rounded font-bold">Você</span>}
+                                {admin.userId !== user?.id && (
+                                    <Button size="xs" variant="ghost" onClick={() => {
+                                        setResetModalUser({ 
+                                            id: admin.id, 
+                                            targetId: admin.userId, 
+                                            name: admin.ownerName, 
+                                            email: admin.email || '', 
+                                            role: 'owner', 
+                                            isActive: true 
+                                        }); 
+                                        setNewPassword('');
+                                    }}>
+                                        <Key className="w-4 h-4"/>
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Change Own Password */}
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-6 flex items-center gap-2">
+                    <Lock className="w-5 h-5 text-slate-500"/> Alterar Minha Senha
+                </h3>
+                <form onSubmit={handleChangeMyPassword} className="space-y-4">
+                    <Input 
+                        label="Nova Senha" 
+                        type="password" 
+                        value={myNewPassword} 
+                        onChange={e => setMyNewPassword(e.target.value)} 
+                        placeholder="Mínimo 6 caracteres"
+                    />
+                    <Input 
+                        label="Confirmar Nova Senha" 
+                        type="password" 
+                        value={myConfirmPassword} 
+                        onChange={e => setMyConfirmPassword(e.target.value)} 
+                        placeholder="Repita a senha"
+                    />
+                    <div className="flex justify-end">
+                        <Button type="submit" isLoading={isChangingMyPassword} className="bg-slate-800 text-white hover:bg-slate-700">
+                            Atualizar Senha
+                        </Button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+  );
+
   const copySql = () => {
     const sql = `
 -- GRANT ACCESS FOR ADMIN DASHBOARD
@@ -547,35 +672,40 @@ alter table rehab_lessons enable row level security;
 alter table suggestions enable row level security;
 alter table system_partners enable row level security;
 
--- Admin needs global read access for dashboard stats
+-- Admin needs global read access for dashboard stats (Allow any admin)
+-- We check email or better, check studio_profiles.is_admin
+create or replace function is_global_admin() returns boolean as $$
+  select exists (
+    select 1 from studio_profiles
+    where user_id = auth.uid() and is_admin = true
+  );
+$$ language sql security definer;
+
+-- Apply to policies
 drop policy if exists "Admin view all posts" on content_posts;
-create policy "Admin view all posts" on content_posts for select to authenticated using (auth.jwt() ->> 'email' = '${ADMIN_EMAIL}');
+create policy "Admin view all posts" on content_posts for select to authenticated using (is_global_admin());
 
 drop policy if exists "Admin view all evaluations" on class_evaluations;
-create policy "Admin view all evaluations" on class_evaluations for select to authenticated using (auth.jwt() ->> 'email' = '${ADMIN_EMAIL}');
+create policy "Admin view all evaluations" on class_evaluations for select to authenticated using (is_global_admin());
 
 drop policy if exists "Admin view all lessons" on rehab_lessons;
-create policy "Admin view all lessons" on rehab_lessons for select to authenticated using (auth.jwt() ->> 'email' = '${ADMIN_EMAIL}');
+create policy "Admin view all lessons" on rehab_lessons for select to authenticated using (is_global_admin());
 
 drop policy if exists "Admin view all suggestions" on suggestions;
-create policy "Admin view all suggestions" on suggestions for select to authenticated using (auth.jwt() ->> 'email' = '${ADMIN_EMAIL}');
+create policy "Admin view all suggestions" on suggestions for select to authenticated using (is_global_admin());
 
 -- Partners public read, admin write
 drop policy if exists "Read partners" on system_partners;
 create policy "Read partners" on system_partners for select to authenticated using (true);
 
 drop policy if exists "Admin manage partners" on system_partners;
-create policy "Admin manage partners" on system_partners for all to authenticated using (auth.jwt() ->> 'email' = '${ADMIN_EMAIL}');
+create policy "Admin manage partners" on system_partners for all to authenticated using (is_global_admin());
 
--- Add Expiration Column
-alter table studio_profiles add column if not exists plan_expiration_date date;
-
--- Add Contact Info to Partners
-ALTER TABLE system_partners ADD COLUMN IF NOT EXISTS contact_name text;
-ALTER TABLE system_partners ADD COLUMN IF NOT EXISTS contact_phone text;
+-- Allow Admins to read all profiles
+create policy "Admins read all profiles" on studio_profiles for select to authenticated using (is_global_admin());
     `;
     navigator.clipboard.writeText(sql.trim());
-    alert('SQL copiado! Execute no Supabase SQL Editor para liberar as métricas e sugestões globais.');
+    alert('SQL copiado! Execute no Supabase SQL Editor para atualizar as políticas de acesso dos administradores.');
   };
 
   const filteredUsers = allUsers.filter(u => {
@@ -591,7 +721,7 @@ ALTER TABLE system_partners ADD COLUMN IF NOT EXISTS contact_phone text;
   const linkedInstructors = viewingOwner ? allUsers.filter(u => u.role === 'instructor' && u.contextInfo === viewingOwner.targetId) : [];
   const linkedStudents = viewingOwner ? allUsers.filter(u => u.role === 'student' && u.contextInfo === viewingOwner.targetId) : [];
 
-  if (user?.email !== ADMIN_EMAIL) {
+  if (!user?.isAdmin) {
     return <div className="p-12 text-center text-red-600">Acesso Restrito</div>;
   }
 
@@ -1096,6 +1226,12 @@ ALTER TABLE system_partners ADD COLUMN IF NOT EXISTS contact_phone text;
           <BarChart3 className="h-4 w-4"/> {t('admin_tab_dashboard')}
         </button>
         <button 
+          onClick={() => setActiveTab('admins')} 
+          className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'admins' ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`}
+        >
+          <Shield className="h-4 w-4"/> Administradores
+        </button>
+        <button 
           onClick={() => setActiveTab('costs')} 
           className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'costs' ? 'bg-white shadow text-emerald-600' : 'text-slate-500'}`}
         >
@@ -1141,6 +1277,8 @@ ALTER TABLE system_partners ADD COLUMN IF NOT EXISTS contact_phone text;
 
       {activeTab === 'dashboard' && <DashboardView />}
       
+      {activeTab === 'admins' && <AdminsView />}
+
       {activeTab === 'costs' && <ApiCostView />}
 
       {activeTab === 'partners' && <PartnersView />}
@@ -1201,7 +1339,7 @@ ALTER TABLE system_partners ADD COLUMN IF NOT EXISTS contact_phone text;
       )}
 
       {/* Users Table */}
-      {activeTab !== 'dashboard' && activeTab !== 'suggestions' && activeTab !== 'costs' && activeTab !== 'partners' && (
+      {activeTab !== 'dashboard' && activeTab !== 'suggestions' && activeTab !== 'costs' && activeTab !== 'partners' && activeTab !== 'admins' && (
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
           <div className="relative max-w-md">
@@ -1615,6 +1753,29 @@ ALTER TABLE system_partners ADD COLUMN IF NOT EXISTS contact_phone text;
                     <div className="flex justify-end gap-2 pt-2">
                         <Button type="button" variant="ghost" onClick={() => setShowRegisterModal(false)}>Cancelar</Button>
                         <Button type="submit" isLoading={isRegistering}>Cadastrar</Button>
+                    </div>
+                </form>
+            </div>
+        </div>
+      )}
+
+      {/* Create Admin Modal */}
+      {showNewAdminModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <Shield className="w-5 h-5 text-purple-600"/> Novo Admin Global
+                    </h3>
+                    <button onClick={() => setShowNewAdminModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+                </div>
+                <form onSubmit={handleCreateAdmin} className="space-y-4">
+                    <Input label="Nome" value={newAdminName} onChange={e => setNewAdminName(e.target.value)} required />
+                    <Input label="Email" type="email" value={newAdminEmail} onChange={e => setNewAdminEmail(e.target.value)} required />
+                    <Input label="Senha" type="password" value={newAdminPassword} onChange={e => setNewAdminPassword(e.target.value)} required placeholder="Mínimo 6 caracteres" />
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button type="button" variant="ghost" onClick={() => setShowNewAdminModal(false)}>Cancelar</Button>
+                        <Button type="submit" isLoading={isCreatingAdmin}>Criar Admin</Button>
                     </div>
                 </form>
             </div>
