@@ -7,7 +7,7 @@ import { AppRoute, StudioProfile } from '../types';
 import { 
   Users, Sparkles, Compass, ArrowRight, Building2, Calculator, 
   Banknote, Activity, MessageSquare, Newspaper, Wand2, Star, 
-  BookUser, TrendingUp, Layers, LineChart, ClipboardList, User, MessageCircle, FileText, Bell, CheckCircle, Rocket, Trophy, GraduationCap
+  BookUser, TrendingUp, Layers, LineChart, ClipboardList, User, MessageCircle, FileText, Bell, CheckCircle, Rocket, Trophy, GraduationCap, Tag
 } from 'lucide-react';
 import { fetchProfile } from '../services/storage';
 import { fetchDashboardNotifications, DashboardNotification, dismissNotificationLocal } from '../services/notificationService';
@@ -357,12 +357,12 @@ export const Dashboard: React.FC = () => {
         </div>
       </section>
 
-      {/* ETAPA 4: EDUCAÇÃO */}
+      {/* ETAPA 4: COMUNIDADE E EDUCAÇÃO */}
       <section>
         <StepHeader 
           step="4" 
-          title="Educação" 
-          description="Desenvolvimento técnico e teórico."
+          title="Comunidade e Educação" 
+          description="Desenvolvimento técnico e benefícios exclusivos."
           colorClass="border-yellow-500"
           icon={GraduationCap}
         />
@@ -374,6 +374,13 @@ export const Dashboard: React.FC = () => {
             icon={Trophy}
             color="bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400"
             isAi
+          />
+          <ActionCard 
+            to={AppRoute.STUDENT_PARTNERS}
+            title="Parceiros e Descontos"
+            desc="Clube de benefícios e parcerias exclusivas."
+            icon={Tag}
+            color="bg-pink-50 text-pink-600 dark:bg-pink-900/20 dark:text-pink-400"
           />
         </div>
       </section>
