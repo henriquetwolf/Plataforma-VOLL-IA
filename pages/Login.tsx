@@ -31,7 +31,8 @@ export const Login: React.FC = () => {
       const result = await login(email, password);
       
       if (result.success && result.user) {
-         if (result.user.email === 'henriquetwolf@gmail.com') {
+         // Verifica a flag isAdmin (que inclui o hardcoded e os admins do banco)
+         if (result.user.isAdmin) {
              navigate(AppRoute.ADMIN);
              return;
          }
