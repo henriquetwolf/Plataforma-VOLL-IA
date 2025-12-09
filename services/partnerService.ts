@@ -1,5 +1,3 @@
-
-
 import { supabase } from './supabase';
 import { SystemPartner, StudioPartner } from '../types';
 
@@ -220,6 +218,32 @@ export const createStudioPartner = async (
         link_url: linkUrl,
         commission: commission
       });
+
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+};
+
+export const updateStudioPartner = async (
+  id: string,
+  updates: Partial<StudioPartner>
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // Mapeia do formato do App (camelCase) para o DB (snake_case)
+    const payload: any = {};
+    if (updates.name !== undefined) payload.name = updates.name;
+    if (updates.description !== undefined) payload.description = updates.description;
+    if (updates.discountValue !== undefined) payload.discount_value = updates.discountValue;
+    if (updates.imageUrl !== undefined) payload.image_url = updates.imageUrl;
+    if (updates.linkUrl !== undefined) payload.link_url = updates.linkUrl;
+    if (updates.commission !== undefined) payload.commission = updates.commission;
+
+    const { error } = await supabase
+      .from('studio_partners')
+      .update(payload)
+      .eq('id', id);
 
     if (error) return { success: false, error: error.message };
     return { success: true };

@@ -1,12 +1,10 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { fetchPartners, fetchStudioPartners, createStudioPartner, deleteStudioPartner, uploadPartnerImage } from '../../services/partnerService';
+import { fetchPartners, fetchStudioPartners, createStudioPartner, updateStudioPartner, deleteStudioPartner, uploadPartnerImage } from '../../services/partnerService';
 import { SystemPartner, StudioPartner, AppRoute } from '../../types';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { ArrowLeft, Tag, Copy, ExternalLink, Ticket, CheckCircle2, DollarSign, Plus, Trash2, X, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { ArrowLeft, Tag, Copy, ExternalLink, Ticket, CheckCircle2, DollarSign, Plus, Trash2, X, Image as ImageIcon, Loader2, Pencil } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const StudentPartners: React.FC = () => {
@@ -19,6 +17,7 @@ export const StudentPartners: React.FC = () => {
   // Modal State
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingPartner, setEditingPartner] = useState<StudioPartner | null>(null);
   
   // Form State
   const [newName, setNewName] = useState('');
@@ -59,7 +58,28 @@ export const StudentPartners: React.FC = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleAddPartner = async (e: React.FormEvent) => {
+  const resetForm = () => {
+    setNewName(''); 
+    setNewDesc(''); 
+    setNewDiscount(''); 
+    setNewLink(''); 
+    setNewCommission(''); 
+    setNewImage(null);
+    setEditingPartner(null);
+    setShowAddModal(false);
+  };
+
+  const handleEditPartner = (partner: StudioPartner) => {
+    setEditingPartner(partner);
+    setNewName(partner.name);
+    setNewDesc(partner.description);
+    setNewDiscount(partner.discountValue);
+    setNewLink(partner.linkUrl || '');
+    setNewCommission(partner.commission || '');
+    setShowAddModal(true);
+  };
+
+  const handleAddOrUpdatePartner = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!user?.id || !user.isOwner) return;
       if (!newName || !newDiscount) {
@@ -68,19 +88,40 @@ export const StudentPartners: React.FC = () => {
       }
 
       setIsSubmitting(true);
-      let imageUrl = '';
+      
+      // Upload da imagem apenas se houver um novo arquivo
+      let imageUrl = editingPartner?.imageUrl; // Mantém a antiga se não trocar
       
       if (newImage) {
           const uploaded = await uploadPartnerImage(newImage);
           if (uploaded) imageUrl = uploaded;
       }
 
-      const result = await createStudioPartner(user.id, newName, newDesc, newDiscount, imageUrl, newLink, newCommission);
+      // Sanitizar URL
+      let formattedLink = newLink.trim();
+      if (formattedLink && !formattedLink.startsWith('http://') && !formattedLink.startsWith('https://')) {
+          formattedLink = `https://${formattedLink}`;
+      }
+
+      let result;
+      if (editingPartner) {
+          // Update
+          result = await updateStudioPartner(editingPartner.id, {
+              name: newName,
+              description: newDesc,
+              discountValue: newDiscount,
+              imageUrl: imageUrl, // Se newImage for null, imageUrl terá a URL antiga ou a nova
+              linkUrl: formattedLink,
+              commission: newCommission
+          });
+      } else {
+          // Create
+          result = await createStudioPartner(user.id, newName, newDesc, newDiscount, imageUrl, formattedLink, newCommission);
+      }
       
       if (result.success) {
-          alert("Parceiro exclusivo criado!");
-          setShowAddModal(false);
-          setNewName(''); setNewDesc(''); setNewDiscount(''); setNewLink(''); setNewCommission(''); setNewImage(null);
+          alert(editingPartner ? "Parceiro atualizado!" : "Parceiro exclusivo criado!");
+          resetForm();
           loadData();
       } else {
           alert("Erro: " + result.error);
@@ -116,7 +157,7 @@ export const StudentPartners: React.FC = () => {
             </div>
         </div>
         {user?.isOwner && (
-            <Button onClick={() => setShowAddModal(true)}>
+            <Button onClick={() => { resetForm(); setShowAddModal(true); }}>
                 <Plus className="w-4 h-4 mr-2" /> Novo Parceiro Exclusivo
             </Button>
         )}
@@ -170,9 +211,14 @@ export const StudentPartners: React.FC = () => {
                             {studioPartners.map(partner => (
                                 <div key={partner.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-brand-200 dark:border-brand-900 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group relative">
                                     {user?.isOwner && (
-                                        <button onClick={() => handleDeletePartner(partner.id)} className="absolute top-2 right-2 z-10 bg-white/80 p-2 rounded-full text-red-500 hover:bg-red-50 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => handleEditPartner(partner)} className="bg-white/90 p-2 rounded-full text-brand-600 hover:bg-brand-50 shadow-sm border border-slate-100">
+                                                <Pencil className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => handleDeletePartner(partner.id)} className="bg-white/90 p-2 rounded-full text-red-500 hover:bg-red-50 shadow-sm border border-slate-100">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     )}
                                     <div className="h-40 bg-slate-100 dark:bg-slate-800 relative">
                                         {partner.imageUrl ? (
@@ -273,16 +319,18 @@ export const StudentPartners: React.FC = () => {
         </div>
       )}
 
-      {/* ADD PARTNER MODAL */}
+      {/* ADD/EDIT PARTNER MODAL */}
       {showAddModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
               <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 max-h-[90vh] overflow-y-auto">
                   <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-xl font-bold text-slate-900 dark:text-white">Cadastrar Parceiro Exclusivo</h3>
-                      <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+                      <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                          {editingPartner ? 'Editar Parceiro Exclusivo' : 'Cadastrar Parceiro Exclusivo'}
+                      </h3>
+                      <button onClick={resetForm} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
                   </div>
                   
-                  <form onSubmit={handleAddPartner} className="space-y-4">
+                  <form onSubmit={handleAddOrUpdatePartner} className="space-y-4">
                       <div>
                           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nome do Parceiro *</label>
                           <Input value={newName} onChange={e => setNewName(e.target.value)} required placeholder="Ex: Restaurante Saudável" />
@@ -318,6 +366,11 @@ export const StudentPartners: React.FC = () => {
                               <label className="cursor-pointer bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 p-4 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center w-full">
                                   {newImage ? (
                                       <span className="text-green-600 font-bold flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Imagem Selecionada</span>
+                                  ) : editingPartner?.imageUrl ? (
+                                      <div className="flex flex-col items-center">
+                                          <img src={editingPartner.imageUrl} className="h-16 w-auto object-contain mb-2" alt="Atual"/>
+                                          <span className="text-xs text-slate-500">Clique para alterar</span>
+                                      </div>
                                   ) : (
                                       <span className="text-slate-500 flex items-center gap-2"><ImageIcon className="w-4 h-4"/> Clique para upload</span>
                                   )}
@@ -327,8 +380,10 @@ export const StudentPartners: React.FC = () => {
                       </div>
 
                       <div className="flex justify-end gap-2 pt-4">
-                          <Button type="button" variant="ghost" onClick={() => setShowAddModal(false)}>Cancelar</Button>
-                          <Button type="submit" isLoading={isSubmitting}>Cadastrar</Button>
+                          <Button type="button" variant="ghost" onClick={resetForm}>Cancelar</Button>
+                          <Button type="submit" isLoading={isSubmitting}>
+                              {editingPartner ? 'Salvar Alterações' : 'Cadastrar'}
+                          </Button>
                       </div>
                   </form>
               </div>
