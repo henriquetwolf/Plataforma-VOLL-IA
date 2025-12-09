@@ -3,6 +3,8 @@
 
 
 
+
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -16,7 +18,7 @@ import { generateSuggestionTrends } from '../services/geminiService';
 import { fetchAdminDashboardStats, fetchAdminTimelineStats, fetchApiUsageStats, registerNewStudio, AdminStats, TimelineDataPoint, UserApiCost } from '../services/adminService';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2, MessageSquare, Sparkles, FileText, Download, BarChart3, PieChart as PieChartIcon, TrendingUp, Banknote, Video, Type, Image as ImageIcon, Activity, Calculator, Filter, UserPlus, Link as LinkIcon, ExternalLink, Tag } from 'lucide-react';
+import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2, MessageSquare, Sparkles, FileText, Download, BarChart3, PieChart as PieChartIcon, TrendingUp, Banknote, Video, Type, Image as ImageIcon, Activity, Calculator, Filter, UserPlus, Link as LinkIcon, ExternalLink, Tag, CalendarClock } from 'lucide-react';
 import { SubscriptionPlan, SystemBanner, Suggestion, AppRoute, SystemPartner } from '../types';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -35,6 +37,7 @@ interface AdminUserView {
   maxStudents?: number;
   planId?: string;
   planName?: string;
+  planExpirationDate?: string;
 }
 
 export const AdminPanel: React.FC = () => {
@@ -60,6 +63,7 @@ export const AdminPanel: React.FC = () => {
   // Owner Drill Down View
   const [viewingOwner, setViewingOwner] = useState<AdminUserView | null>(null);
   const [ownerPlanId, setOwnerPlanId] = useState<string | undefined>(undefined);
+  const [ownerPlanExpiration, setOwnerPlanExpiration] = useState<string>('');
   const [savingPlan, setSavingPlan] = useState(false);
 
   // Plans Management
@@ -129,7 +133,8 @@ export const AdminPanel: React.FC = () => {
           contextInfo: p.studioName,
           maxStudents: p.maxStudents,
           planId: p.planId,
-          planName: p.planName || (p.planId ? 'Plano ID ' + p.planId : 'Sem Plano')
+          planName: p.planName || (p.planId ? 'Plano ID ' + p.planId : 'Sem Plano'),
+          planExpirationDate: p.planExpirationDate
         });
       });
 
@@ -264,18 +269,25 @@ export const AdminPanel: React.FC = () => {
   const openViewDetails = (owner: AdminUserView) => {
     setViewingOwner(owner);
     setOwnerPlanId(owner.planId);
+    setOwnerPlanExpiration(owner.planExpirationDate || '');
   };
 
   const handleSavePlanAssignment = async () => {
     if (!viewingOwner) return;
     setSavingPlan(true);
-    const result = await upsertProfile(viewingOwner.targetId, { planId: ownerPlanId });
+    
+    const updates: any = { planId: ownerPlanId };
+    // Only update if changed or empty
+    updates.planExpirationDate = ownerPlanExpiration || null;
+
+    const result = await upsertProfile(viewingOwner.targetId, updates);
+    
     if (result.success) {
       alert("Plano atualizado com sucesso!");
       const selectedPlan = plans.find(p => p.id === ownerPlanId);
       setAllUsers(prev => prev.map(u => 
         u.id === viewingOwner.id 
-          ? { ...u, planId: ownerPlanId, planName: selectedPlan?.name } 
+          ? { ...u, planId: ownerPlanId, planName: selectedPlan?.name, planExpirationDate: ownerPlanExpiration } 
           : u
       ));
     } else {
@@ -470,6 +482,9 @@ create policy "Read partners" on system_partners for select to authenticated usi
 
 drop policy if exists "Admin manage partners" on system_partners;
 create policy "Admin manage partners" on system_partners for all to authenticated using (auth.jwt() ->> 'email' = '${ADMIN_EMAIL}');
+
+-- Add Expiration Column
+alter table studio_profiles add column if not exists plan_expiration_date date;
     `;
     navigator.clipboard.writeText(sql.trim());
     alert('SQL copiado! Execute no Supabase SQL Editor para liberar as métricas e sugestões globais.');
@@ -1135,9 +1150,16 @@ create policy "Admin manage partners" on system_partners for all to authenticate
                     </td>
                     <td className="px-6 py-4 text-slate-600 dark:text-slate-300 text-xs">
                         {u.role === 'owner' ? (
-                            <span className="flex items-center gap-1 font-medium bg-yellow-50 text-yellow-800 px-2 py-1 rounded w-fit">
-                                <Crown className="w-3 h-3"/> {u.planName || 'Sem Plano'}
-                            </span>
+                            <div className="flex flex-col gap-1">
+                                <span className="flex items-center gap-1 font-medium bg-yellow-50 text-yellow-800 px-2 py-1 rounded w-fit">
+                                    <Crown className="w-3 h-3"/> {u.planName || 'Sem Plano'}
+                                </span>
+                                {u.planExpirationDate && (
+                                    <span className={`text-[10px] ${new Date(u.planExpirationDate) < new Date() ? 'text-red-500 font-bold' : 'text-slate-400'}`}>
+                                        Vence: {new Date(u.planExpirationDate).toLocaleDateString()}
+                                    </span>
+                                )}
+                            </div>
                         ) : (
                             <span className="opacity-70">{u.contextInfo}</span>
                         )}
@@ -1254,6 +1276,18 @@ create policy "Admin manage partners" on system_partners for all to authenticate
                                     <option value="">Sem Plano (Trial/Free)</option>
                                     {plans.map(p => <option key={p.id} value={p.id}>{p.name} (Max {p.maxStudents} alunos)</option>)}
                                 </select>
+                            </div>
+                            <div className="flex-1 w-full">
+                                <label className="block text-sm font-medium mb-1 text-slate-600 dark:text-slate-400">Data de Vencimento</label>
+                                <div className="relative">
+                                    <CalendarClock className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+                                    <input 
+                                        type="date" 
+                                        className="w-full pl-8 p-2 border rounded-lg bg-slate-50 dark:bg-slate-800 dark:border-slate-700 text-sm"
+                                        value={ownerPlanExpiration}
+                                        onChange={(e) => setOwnerPlanExpiration(e.target.value)}
+                                    />
+                                </div>
                             </div>
                             <Button onClick={handleSavePlanAssignment} isLoading={savingPlan}>Salvar Alteração</Button>
                         </div>

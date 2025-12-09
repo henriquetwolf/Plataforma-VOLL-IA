@@ -1,5 +1,7 @@
+
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, AuthState, AppRoute } from '../types';
+import { User, AuthState, AppRoute, StudioProfile } from '../types';
 import { supabase } from '../services/supabase';
 import { fetchProfile } from '../services/storage';
 import { getInstructorProfile } from '../services/instructorService';
@@ -28,6 +30,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading: true,
   });
 
+  const checkExpiration = (profile: StudioProfile) => {
+    if (profile.planExpirationDate) {
+        // Usa a data do sistema para comparar.
+        // A data de expiração é YYYY-MM-DD. Comparamos com YYYY-MM-DD atual.
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (todayStr > profile.planExpirationDate) {
+            return true;
+        }
+    }
+    return false;
+  };
+
   const loadUser = async (sessionUser: any): Promise<User | null> => {
     try {
       const metaRole = sessionUser.user_metadata?.role;
@@ -36,14 +50,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const student = await getStudentProfile(sessionUser.id);
       if (student) {
         // --- SEGURANÇA EM CASCATA: ALUNO ---
-        // Se o Studio dono da conta estiver desativado, o aluno não entra.
+        // Se o Studio dono da conta estiver desativado OU EXPIRADO, o aluno não entra.
         if (student.user_id) {
             const studioProfile = await fetchProfile(student.user_id);
-            if (studioProfile && studioProfile.isActive === false) {
-                console.warn(`Bloqueio de Segurança: O Studio deste aluno (${student.user_id}) está desativado.`);
-                await supabase.auth.signOut(); // KILL SESSION
-                setState({ user: null, isAuthenticated: false, isLoading: false });
-                return null;
+            
+            if (studioProfile) {
+                if (studioProfile.isActive === false) {
+                    console.warn(`Bloqueio de Segurança: O Studio deste aluno (${student.user_id}) está desativado.`);
+                    await supabase.auth.signOut(); // KILL SESSION
+                    setState({ user: null, isAuthenticated: false, isLoading: false });
+                    return null;
+                }
+                if (checkExpiration(studioProfile)) {
+                    console.warn(`Bloqueio de Segurança: O Plano do Studio deste aluno expirou em ${studioProfile.planExpirationDate}.`);
+                    await supabase.auth.signOut();
+                    setState({ user: null, isAuthenticated: false, isLoading: false });
+                    throw new Error("Plano do Studio expirado. Entre em contato com seu instrutor.");
+                }
             }
         }
         // ------------------------------------
@@ -93,15 +116,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         // --- SEGURANÇA EM CASCATA: INSTRUTOR ---
-        // Se o Studio contratante estiver desativado, o instrutor não entra.
+        // Se o Studio contratante estiver desativado OU EXPIRADO, o instrutor não entra.
         const parentStudioId = instructor?.studioUserId || sessionUser.user_metadata?.studio_id;
         if (parentStudioId) {
             const studioProfile = await fetchProfile(parentStudioId);
-            if (studioProfile && studioProfile.isActive === false) {
-                console.warn(`Bloqueio de Segurança: O Studio deste instrutor (${parentStudioId}) está desativado.`);
-                await supabase.auth.signOut(); // KILL SESSION
-                setState({ user: null, isAuthenticated: false, isLoading: false });
-                return null;
+            if (studioProfile) {
+                if (studioProfile.isActive === false) {
+                    console.warn(`Bloqueio de Segurança: O Studio deste instrutor (${parentStudioId}) está desativado.`);
+                    await supabase.auth.signOut(); // KILL SESSION
+                    setState({ user: null, isAuthenticated: false, isLoading: false });
+                    return null;
+                }
+                if (checkExpiration(studioProfile)) {
+                    console.warn(`Bloqueio de Segurança: O Plano do Studio expirou em ${studioProfile.planExpirationDate}.`);
+                    await supabase.auth.signOut();
+                    setState({ user: null, isAuthenticated: false, isLoading: false });
+                    throw new Error("Plano do Studio expirado. Entre em contato com o administrador.");
+                }
             }
         }
         // ------------------------------------
@@ -126,12 +157,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const profile = await fetchProfile(sessionUser.id);
       
       // SEGURANÇA CRÍTICA: Bloqueio explícito se isActive for falso
-      // Isso impede que um dono bloqueado consiga acessar mesmo que tente via login de instrutor (se falhar verificação acima)
       if (profile && profile.isActive === false) {
           console.warn("Acesso negado: Studio (Dono) desativado pelo Administrador.");
           await supabase.auth.signOut(); // KILL SESSION
           setState({ user: null, isAuthenticated: false, isLoading: false });
           return null;
+      }
+
+      // SEGURANÇA CRÍTICA: Bloqueio por Expiração
+      if (profile && checkExpiration(profile)) {
+          console.warn(`Acesso negado: Plano do Studio expirou em ${profile.planExpirationDate}.`);
+          await supabase.auth.signOut();
+          setState({ user: null, isAuthenticated: false, isLoading: false });
+          throw new Error("Seu plano expirou. Entre em contato com o suporte para renovar.");
       }
 
       // Verifica se é um usuário "orfão" com role errada
@@ -157,11 +195,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setState({ user: userObj, isAuthenticated: true, isLoading: false });
       return userObj;
 
-    } catch (e) {
+    } catch (e: any) {
       console.error("Erro no loadUser:", e);
       // Em caso de erro, desloga por segurança
       await supabase.auth.signOut();
       setState({ user: null, isAuthenticated: false, isLoading: false });
+      // Se for erro de plano expirado, propaga o erro para o login handle
+      if (e.message && e.message.includes("expirado")) {
+          throw e; 
+      }
       return null;
     }
   };
@@ -169,7 +211,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        loadUser(session.user);
+        loadUser(session.user).catch(() => {});
       } else {
         setState(prev => ({ ...prev, isLoading: false }));
       }
@@ -178,7 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
          if (session?.user) {
-            loadUser(session.user);
+            loadUser(session.user).catch(() => {});
          }
       } else if (event === 'SIGNED_OUT') {
         setState({
@@ -203,17 +245,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (data.session?.user) {
         // Força recarregamento do perfil para garantir status atualizado
-        const loadedUser = await loadUser(data.session.user);
-        
-        if (!loadedUser) {
-            // CRÍTICO: Se loadUser retornou null, significa que foi barrado pela segurança.
-            // Precisamos garantir que a sessão criada pelo signInWithPassword seja DESTRUÍDA IMEDIATAMENTE.
-            console.warn("Login bem sucedido no Auth, mas rejeitado pela política de segurança (bloqueio). Deslogando...");
-            await supabase.auth.signOut();
-            return { success: false, error: 'Acesso suspenso ou não autorizado. Entre em contato com o suporte.' };
+        try {
+            const loadedUser = await loadUser(data.session.user);
+            
+            if (!loadedUser) {
+                // Sessão foi morta dentro do loadUser
+                return { success: false, error: 'Acesso suspenso ou não autorizado.' };
+            }
+            
+            return { success: true, user: loadedUser };
+        } catch (loadError: any) {
+            // Captura erros específicos como Plano Expirado
+            return { success: false, error: loadError.message || 'Erro ao carregar perfil.' };
         }
-        
-        return { success: true, user: loadedUser };
       }
 
       return { success: true };

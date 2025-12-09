@@ -360,6 +360,7 @@ export interface StudioProfile {
   planName?: string; 
   planLimit?: number; 
   planMaxDailyPosts?: number; 
+  planExpirationDate?: string; // NOVO: Data de expiração do plano
   settings?: {
     sender_email?: string; 
     language?: 'pt'; // Enforced PT

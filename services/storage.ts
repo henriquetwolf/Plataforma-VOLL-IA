@@ -25,6 +25,7 @@ interface DBProfile {
   is_active?: boolean;
   max_students?: number; 
   plan_id?: string;
+  plan_expiration_date?: string; // Nova coluna
   settings?: any; // JSONB
   // Join fields
   subscription_plans?: {
@@ -44,10 +45,6 @@ const toDBProfile = (profile: Partial<StudioProfile>): Partial<DBProfile> => {
     whatsapp: profile.whatsapp,
     owner_cpf: profile.ownerCpf,
     owner_photo_url: profile.ownerPhotoUrl,
-    // Campos movidos para colunas reais, mas mantidos no settings por segurança/legado se necessário
-    // city: profile.city, 
-    // state: profile.state,
-    // cep: profile.cep
   };
 
   return {
@@ -67,7 +64,8 @@ const toDBProfile = (profile: Partial<StudioProfile>): Partial<DBProfile> => {
     brand_color: profile.brandColor,
     is_admin: profile.isAdmin,
     max_students: profile.maxStudents, 
-    plan_id: profile.planId, 
+    plan_id: profile.planId,
+    plan_expiration_date: profile.planExpirationDate,
     settings: settings
   };
 };
@@ -119,6 +117,7 @@ const fromDBProfile = (dbProfile: DBProfile): StudioProfile => {
     isActive: isActive, 
     maxStudents: dbProfile.max_students,
     planId: dbProfile.plan_id,
+    planExpirationDate: dbProfile.plan_expiration_date,
     planName: dbProfile.subscription_plans?.name,
     planLimit: dbProfile.subscription_plans?.max_students,
     planMaxDailyPosts: dbProfile.subscription_plans?.max_daily_posts,
