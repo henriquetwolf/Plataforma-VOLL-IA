@@ -50,10 +50,10 @@ export const PilatesQuest: React.FC = () => {
         return;
     }
     
-    // Verificação de Limite Diário
+    // Verificação de Limite Diário (Regra 2)
     const today = new Date().toISOString().split('T')[0];
     if (progress.lastPlayedAt === today) {
-      alert("Você já completou sua aula de hoje! Volte amanhã para manter a sequência.");
+      alert("Você já completou sua aula de hoje! Volte amanhã para liberar o próximo nível e manter sua sequência.");
       return;
     }
 
@@ -79,6 +79,7 @@ export const PilatesQuest: React.FC = () => {
     
     const totalQuestions = currentLesson.questions?.length || 5;
     
+    // Só avança se acertar TUDO (Regra 3)
     if (score === totalQuestions) {
       // Success! Update DB and State
       const newProg = await advanceProgress(progress, score * 5);
@@ -164,7 +165,7 @@ export const PilatesQuest: React.FC = () => {
                       className={`w-20 h-20 rounded-full flex items-center justify-center border-b-4 transition-all transform active:scale-95 active:border-b-0 ${
                         isCurrent 
                           ? (playedToday 
-                              ? 'bg-slate-200 border-slate-300 text-green-600 cursor-default' 
+                              ? 'bg-green-100 border-green-200 text-green-600 cursor-default' // Visual de concluído
                               : 'bg-green-500 border-green-700 text-white shadow-lg shadow-green-200 hover:brightness-110 cursor-pointer')
                           : 'bg-slate-200 border-slate-300 text-slate-400 cursor-not-allowed'
                       }`}
@@ -174,7 +175,7 @@ export const PilatesQuest: React.FC = () => {
                       ) : isLocked ? (
                         <Lock className="w-8 h-8" />
                       ) : playedToday ? (
-                        <CheckCircle className="w-8 h-8" />
+                        <CheckCircle className="w-10 h-10" />
                       ) : (
                         <Play className="w-8 h-8 fill-current" />
                       )}

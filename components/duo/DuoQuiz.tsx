@@ -73,7 +73,7 @@ export const DuoQuiz: React.FC<Props> = ({ lesson, onComplete, onCancel }) => {
 
   if (showResult) {
     const totalQuestions = lesson.questions?.length || 0;
-    const passed = score === totalQuestions;
+    const passed = score === totalQuestions; // Regra: Só passa se acertar tudo
     const points = score * 5;
 
     return (
@@ -91,17 +91,23 @@ export const DuoQuiz: React.FC<Props> = ({ lesson, onComplete, onCancel }) => {
         
         {passed ? (
             <div className="w-full max-w-xs animate-in slide-in-from-bottom-4">
-                <p className="text-slate-600 dark:text-slate-300 mb-6 font-medium">
+                <p className="text-slate-600 dark:text-slate-300 mb-2 font-medium">
                     Você completou o desafio com sucesso!
                 </p>
+                <p className="text-4xl font-bold text-brand-600 mb-8">+{points} VOLLs</p>
+                
                 <Button onClick={finishQuiz} className="bg-green-600 hover:bg-green-700 w-full py-4 text-xl font-bold shadow-lg shadow-green-200 transform hover:scale-105 transition-all">
-                    RESGATAR {points} VOLLs
+                    RESGATAR PONTOS
                 </Button>
             </div>
         ) : (
             <div className="flex flex-col gap-4 w-full max-w-xs">
               <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Tente Novamente!</h2>
-              <p className="text-slate-500 mb-4 text-sm">É necessário acertar todas as questões para passar de nível.</p>
+              <p className="text-slate-500 mb-4 text-sm">
+                Para liberar o próximo nível, você precisa acertar todas as questões.
+                <br/>
+                <span className="font-bold">Acertos: {score}/{totalQuestions}</span>
+              </p>
               <Button onClick={handleRetry} className="w-full bg-brand-600 hover:bg-brand-700">
                 <RefreshCw className="w-4 h-4 mr-2"/> Reiniciar Aula
               </Button>
