@@ -16,13 +16,13 @@ import { fetchAllProfiles, toggleUserStatus, adminResetPassword, upsertProfile, 
 import { fetchInstructors, toggleInstructorStatus, deleteInstructor } from '../services/instructorService';
 import { fetchStudents, revokeStudentAccess, deleteStudent } from '../services/studentService';
 import { uploadBannerImage, upsertBanner, fetchBannerByType, deleteBanner } from '../services/bannerService';
-import { fetchPartners, createPartner, deletePartner, uploadPartnerImage } from '../services/partnerService';
+import { fetchPartners, createPartner, updatePartner, deletePartner, uploadPartnerImage } from '../services/partnerService';
 import { fetchAllSuggestions } from '../services/suggestionService';
 import { generateSuggestionTrends } from '../services/geminiService';
 import { fetchAdminDashboardStats, fetchAdminTimelineStats, fetchApiUsageStats, registerNewStudio, AdminStats, TimelineDataPoint, UserApiCost } from '../services/adminService';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2, MessageSquare, Sparkles, FileText, Download, BarChart3, PieChart as PieChartIcon, TrendingUp, Banknote, Video, Type, Image as ImageIcon, Activity, Calculator, Filter, UserPlus, Link as LinkIcon, ExternalLink, Tag, CalendarClock } from 'lucide-react';
+import { ShieldAlert, UserCheck, UserX, Search, Mail, Building2, AlertTriangle, Copy, CheckCircle, Ban, BookUser, GraduationCap, LayoutDashboard, Database, Loader2, Image, Key, Eye, ArrowLeft, Save, Crown, Edit2, X, Upload, Trash2, MessageSquare, Sparkles, FileText, Download, BarChart3, PieChart as PieChartIcon, TrendingUp, Banknote, Video, Type, Image as ImageIcon, Activity, Calculator, Filter, UserPlus, Link as LinkIcon, ExternalLink, Tag, CalendarClock, Pencil } from 'lucide-react';
 import { SubscriptionPlan, SystemBanner, Suggestion, AppRoute, SystemPartner } from '../types';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -88,6 +88,8 @@ export const AdminPanel: React.FC = () => {
   // Partners Management
   const [partners, setPartners] = useState<SystemPartner[]>([]);
   const [showPartnerModal, setShowPartnerModal] = useState(false);
+  const [editingPartner, setEditingPartner] = useState<SystemPartner | null>(null);
+  
   const [newPartnerName, setNewPartnerName] = useState('');
   const [newPartnerDesc, setNewPartnerDesc] = useState('');
   const [newPartnerDiscount, setNewPartnerDiscount] = useState('');
@@ -387,7 +389,20 @@ export const AdminPanel: React.FC = () => {
   };
 
   // Partners Actions
-  const handleCreatePartner = async (e: React.FormEvent) => {
+  const handleEditPartner = (partner: SystemPartner) => {
+    setEditingPartner(partner);
+    setNewPartnerName(partner.name);
+    setNewPartnerDesc(partner.description);
+    setNewPartnerDiscount(partner.discountValue);
+    setNewPartnerLink(partner.linkUrl || '');
+    setNewPartnerCommission(partner.commission || '');
+    setNewPartnerContactName(partner.contactName || '');
+    setNewPartnerContactPhone(partner.contactPhone || '');
+    setPartnerImageFile(null);
+    setShowPartnerModal(true);
+  };
+
+  const handleSavePartner = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPartnerName || !newPartnerDesc || !newPartnerDiscount) {
         alert("Preencha os campos obrigatórios.");
@@ -395,31 +410,49 @@ export const AdminPanel: React.FC = () => {
     }
     setIsCreatingPartner(true);
     
-    let imageUrl = '';
+    let imageUrl = editingPartner?.imageUrl || '';
     if (partnerImageFile) {
         const uploaded = await uploadPartnerImage(partnerImageFile);
         if (uploaded) imageUrl = uploaded;
     }
 
-    const result = await createPartner(
-        newPartnerName, 
-        newPartnerDesc, 
-        newPartnerDiscount, 
-        imageUrl, 
-        newPartnerLink, 
-        newPartnerCommission,
-        newPartnerContactName,
-        newPartnerContactPhone
-    );
+    let result;
+    if (editingPartner) {
+        // Update
+        result = await updatePartner(editingPartner.id, {
+            name: newPartnerName,
+            description: newPartnerDesc,
+            discountValue: newPartnerDiscount,
+            imageUrl: imageUrl,
+            linkUrl: newPartnerLink,
+            commission: newPartnerCommission,
+            contactName: newPartnerContactName,
+            contactPhone: newPartnerContactPhone
+        });
+    } else {
+        // Create
+        result = await createPartner(
+            newPartnerName, 
+            newPartnerDesc, 
+            newPartnerDiscount, 
+            imageUrl, 
+            newPartnerLink, 
+            newPartnerCommission,
+            newPartnerContactName,
+            newPartnerContactPhone
+        );
+    }
+
     if (result.success) {
-        alert("Parceiro cadastrado!");
+        alert(editingPartner ? "Parceiro atualizado!" : "Parceiro cadastrado!");
         setNewPartnerName(''); setNewPartnerDesc(''); setNewPartnerDiscount(''); setNewPartnerLink(''); setNewPartnerCommission(''); setPartnerImageFile(null);
         setNewPartnerContactName(''); setNewPartnerContactPhone('');
+        setEditingPartner(null);
         setShowPartnerModal(false);
         const data = await fetchPartners();
         setPartners(data);
     } else {
-        alert("Erro ao criar parceiro: " + result.error);
+        alert("Erro: " + result.error);
     }
     setIsCreatingPartner(false);
   };
@@ -964,7 +997,12 @@ ALTER TABLE system_partners ADD COLUMN IF NOT EXISTS contact_phone text;
     <div className="space-y-6 animate-in fade-in">
         <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">Parceiros e Descontos</h2>
-            <Button onClick={() => setShowPartnerModal(true)}>
+            <Button onClick={() => {
+                setEditingPartner(null);
+                setNewPartnerName(''); setNewPartnerDesc(''); setNewPartnerDiscount(''); setNewPartnerLink(''); setNewPartnerCommission(''); setPartnerImageFile(null);
+                setNewPartnerContactName(''); setNewPartnerContactPhone('');
+                setShowPartnerModal(true);
+            }}>
                 <Tag className="w-4 h-4 mr-2" /> Novo Parceiro
             </Button>
         </div>
@@ -981,6 +1019,9 @@ ALTER TABLE system_partners ADD COLUMN IF NOT EXISTS contact_phone text;
                             </div>
                         )}
                         <div className="absolute top-2 right-2 flex gap-1">
+                            <button onClick={() => handleEditPartner(p)} className="p-1.5 bg-white/80 dark:bg-slate-900/80 rounded-full hover:text-brand-500 shadow-sm backdrop-blur-sm">
+                                <Pencil className="w-4 h-4" />
+                            </button>
                             <button onClick={() => handleDeletePartner(p.id)} className="p-1.5 bg-white/80 dark:bg-slate-900/80 rounded-full hover:text-red-500 shadow-sm backdrop-blur-sm">
                                 <Trash2 className="w-4 h-4" />
                             </button>
@@ -1527,10 +1568,12 @@ ALTER TABLE system_partners ADD COLUMN IF NOT EXISTS contact_phone text;
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6">
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">Cadastrar Parceiro</h3>
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                        {editingPartner ? 'Editar Parceiro' : 'Cadastrar Parceiro'}
+                    </h3>
                     <button onClick={() => setShowPartnerModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
                 </div>
-                <form onSubmit={handleCreatePartner} className="space-y-4">
+                <form onSubmit={handleSavePartner} className="space-y-4">
                     <Input label="Nome do Estabelecimento" value={newPartnerName} onChange={e => setNewPartnerName(e.target.value)} required placeholder="Ex: Farmácia Saúde" />
                     <Input label="Descrição da Promoção" value={newPartnerDesc} onChange={e => setNewPartnerDesc(e.target.value)} required placeholder="Ex: Desconto em suplementos..." />
                     <div className="grid grid-cols-2 gap-4">
@@ -1550,7 +1593,7 @@ ALTER TABLE system_partners ADD COLUMN IF NOT EXISTS contact_phone text;
                     </div>
                     <div className="flex justify-end gap-2 pt-4">
                         <Button type="button" variant="ghost" onClick={() => setShowPartnerModal(false)}>Cancelar</Button>
-                        <Button type="submit" isLoading={isCreatingPartner}>Cadastrar</Button>
+                        <Button type="submit" isLoading={isCreatingPartner}>{editingPartner ? 'Salvar Alterações' : 'Cadastrar'}</Button>
                     </div>
                 </form>
             </div>

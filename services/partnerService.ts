@@ -135,6 +135,33 @@ export const createPartner = async (
   }
 };
 
+export const updatePartner = async (
+  id: string,
+  updates: Partial<SystemPartner>
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const payload: any = {};
+    if (updates.name !== undefined) payload.name = updates.name;
+    if (updates.description !== undefined) payload.description = updates.description;
+    if (updates.discountValue !== undefined) payload.discount_value = updates.discountValue;
+    if (updates.imageUrl !== undefined) payload.image_url = updates.imageUrl;
+    if (updates.linkUrl !== undefined) payload.link_url = updates.linkUrl;
+    if (updates.commission !== undefined) payload.commission = updates.commission;
+    if (updates.contactName !== undefined) payload.contact_name = updates.contactName;
+    if (updates.contactPhone !== undefined) payload.contact_phone = updates.contactPhone;
+
+    const { error } = await supabase
+      .from('system_partners')
+      .update(payload)
+      .eq('id', id);
+
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+};
+
 export const deletePartner = async (id: string): Promise<{ success: boolean; error?: string }> => {
   try {
     const { error } = await supabase
