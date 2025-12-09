@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, AuthState, AppRoute, StudioProfile } from '../types';
 import { supabase } from '../services/supabase';
@@ -156,6 +157,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // 3. Verifica DONO (STUDIO)
       const profile = await fetchProfile(sessionUser.id);
+      const isSuperAdmin = sessionUser.email === SUPER_ADMIN_EMAIL;
+
+      // --- CRITICAL SECURITY FIX: ---
+      // Se não encontrou perfil E não é o Super Admin, significa que o usuário foi excluído
+      // do banco de dados (tabela studio_profiles), mas ainda existe no Auth.
+      // Devemos bloquear o acesso imediatamente.
+      if (!profile && !isSuperAdmin) {
+          console.warn("Acesso negado: Perfil de estúdio não encontrado (Usuário excluído ou corrompido).");
+          await supabase.auth.signOut(); // KILL SESSION
+          setState({ user: null, isAuthenticated: false, isLoading: false });
+          // Retorna erro para o login handler exibir na tela
+          throw new Error("Usuário não encontrado. Entre em contato com o suporte.");
+      }
       
       // SEGURANÇA CRÍTICA: Bloqueio explícito se isActive for falso
       if (profile && profile.isActive === false) {
@@ -166,8 +180,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // SEGURANÇA CRÍTICA: Bloqueio por Expiração
-      // Admins (hardcoded ou via DB) ignoram expiração
-      const isSuperAdmin = sessionUser.email === SUPER_ADMIN_EMAIL;
       const isAdmin = profile?.isAdmin || isSuperAdmin;
 
       if (profile && !isAdmin && checkExpiration(profile)) {
@@ -177,7 +189,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           throw new Error("Seu plano expirou. Entre em contato com o suporte para renovar.");
       }
 
-      // Verifica se é um usuário "orfão" com role errada
+      // Verifica se é um usuário "orfão" com role errada (segurança adicional)
       if (!profile && (metaRole === 'student' || metaRole === 'instructor')) {
           console.warn(`Acesso negado: Usuário orfão com role '${metaRole}'.`);
           await supabase.auth.signOut();
@@ -205,11 +217,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Em caso de erro, desloga por segurança
       await supabase.auth.signOut();
       setState({ user: null, isAuthenticated: false, isLoading: false });
-      // Se for erro de plano expirado, propaga o erro para o login handle
-      if (e.message && e.message.includes("expirado")) {
-          throw e; 
-      }
-      return null;
+      // Propaga o erro para ser exibido no toast/alerta do login
+      throw e; 
     }
   };
 
@@ -255,12 +264,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             
             if (!loadedUser) {
                 // Sessão foi morta dentro do loadUser
-                return { success: false, error: 'Acesso suspenso ou não autorizado.' };
+                return { success: false, error: 'Acesso suspenso ou usuário não encontrado.' };
             }
             
             return { success: true, user: loadedUser };
         } catch (loadError: any) {
-            // Captura erros específicos como Plano Expirado
+            // Captura erros específicos como Plano Expirado ou Usuário Excluído
             return { success: false, error: loadError.message || 'Erro ao carregar perfil.' };
         }
       }
