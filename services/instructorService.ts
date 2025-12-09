@@ -271,6 +271,19 @@ export const toggleInstructorStatus = async (id: string, isActive: boolean): Pro
 export const deleteInstructor = async (id: string): Promise<{ success: boolean; error?: string }> => {
   try {
     console.log(`Tentando excluir instrutor ${id}...`);
+    
+    // 1. Buscar o auth_user_id antes de deletar
+    const { data: instructor } = await supabase.from('instructors').select('auth_user_id').eq('id', id).single();
+
+    // 2. Se tiver login, tenta deletar via RPC (Hard Delete)
+    if (instructor?.auth_user_id) {
+        const { error: rpcError } = await supabase.rpc('delete_user_completely', { target_id: instructor.auth_user_id });
+        // Se sucesso no RPC, o delete da tabela já ocorreu via cascade (se configurado) ou ocorreu no auth
+        // Se RPC falhar (não existe), segue para delete normal
+        if (!rpcError) return { success: true };
+    }
+
+    // 3. Fallback: Exclui da tabela (Soft delete / Email preso)
     const { error } = await supabase
       .from('instructors')
       .delete()

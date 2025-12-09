@@ -205,8 +205,8 @@ export const createStudentWithAutoAuth = async (
       cep: sanitize(student.cep),
       birth_date: sanitize(student.birthDate),
       goals: sanitize(student.goals),
-      emergency_contact_name: sanitize(student.emergencyContactName),
-      emergency_contact_phone: sanitize(student.emergencyContactPhone)
+      emergency_contact_name: sanitize(student.emergency_contact_name),
+      emergency_contact_phone: sanitize(student.emergency_contact_phone)
     };
 
     const { error: dbError } = await supabase
@@ -392,20 +392,20 @@ export const updateStudent = async (studentId: string, updates: Partial<Student>
 
 export const deleteStudent = async (studentId: string): Promise<ServiceResponse> => {
   try {
-    // 1. Remover registros dependentes para evitar erro de Foreign Key
-    // Exclui planos de reabilitação vinculados
+    // 1. Tenta pegar o auth_user_id para exclusão completa (RPC)
+    const { data: student } = await supabase.from('students').select('auth_user_id').eq('id', studentId).single();
+
+    if (student?.auth_user_id) {
+        const { error: rpcError } = await supabase.rpc('delete_user_completely', { target_id: student.auth_user_id });
+        if (!rpcError) return { success: true };
+    }
+
+    // Fallback: Delete normal (exclui dependências primeiro)
     await supabase.from('rehab_lessons').delete().eq('student_id', studentId);
-    
-    // Exclui evoluções do aluno
     await supabase.from('student_evolutions').delete().eq('student_id', studentId);
-    
-    // Exclui sugestões
     await supabase.from('suggestions').delete().eq('student_id', studentId);
-    
-    // Exclui avaliações de aula
     await supabase.from('class_evaluations').delete().eq('student_id', studentId);
 
-    // 2. Excluir o aluno
     const { error } = await supabase
       .from('students')
       .delete()

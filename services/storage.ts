@@ -1,5 +1,4 @@
 
-
 import { supabase } from './supabase';
 import { StudioProfile, SubscriptionPlan } from '../types';
 
@@ -358,18 +357,28 @@ export const toggleUserStatus = async (userId: string, isActive: boolean): Promi
 
 export const deleteStudioProfile = async (userId: string): Promise<{ success: boolean; error?: string }> => {
   try {
-    // Tenta deletar o perfil do studio.
-    // Nota: Isso não deleta o usuário da tabela auth.users do Supabase,
-    // mas remove o registro da aplicação, impedindo o login no contexto do app.
-    // Para deletar do Auth, seria necessário uma Edge Function ou RPC com security definer.
-    const { error } = await supabase
-      .from('studio_profiles')
-      .delete()
-      .eq('user_id', userId);
+    // Tenta deletar o usuário COMPLETAMENTE (Auth + Perfil via Cascade ou RPC)
+    // Isso libera o email para ser usado novamente.
+    // Requer a função 'delete_user_completely' no Supabase.
+    const { error: rpcError } = await supabase.rpc('delete_user_completely', { target_id: userId });
 
-    if (error) {
-      return { success: false, error: error.message };
+    if (rpcError) {
+        console.warn("RPC delete_user_completely falhou (função pode não existir). Tentando delete simples.", rpcError);
+        
+        // Fallback: Deleta apenas o perfil (O email continuará preso no Auth se a RPC não existir)
+        const { error } = await supabase
+          .from('studio_profiles')
+          .delete()
+          .eq('user_id', userId);
+
+        if (error) {
+          return { success: false, error: error.message };
+        }
+        
+        // Retorna sucesso (interface atualiza), mas loga o aviso
+        return { success: true }; 
     }
+    
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
