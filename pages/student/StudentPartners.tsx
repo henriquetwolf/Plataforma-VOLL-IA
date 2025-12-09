@@ -4,7 +4,7 @@ import { fetchPartners, fetchStudioPartners, createStudioPartner, updateStudioPa
 import { SystemPartner, StudioPartner, AppRoute } from '../../types';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { ArrowLeft, Tag, Copy, ExternalLink, Ticket, CheckCircle2, DollarSign, Plus, Trash2, X, Image as ImageIcon, Loader2, Pencil } from 'lucide-react';
+import { ArrowLeft, Tag, Copy, ExternalLink, Ticket, CheckCircle2, DollarSign, Plus, Trash2, X, Image as ImageIcon, Loader2, Pencil, MessageCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const StudentPartners: React.FC = () => {
@@ -133,6 +133,13 @@ export const StudentPartners: React.FC = () => {
       if (!confirm("Excluir este parceiro exclusivo?")) return;
       await deleteStudioPartner(id);
       loadData();
+  };
+
+  const handleContactPartner = (partner: SystemPartner) => {
+      if (!partner.contactPhone) return;
+      const message = `Olá ${partner.contactName || 'Parceiro'}, sou usuário da Plataforma VOLL IA e gostaria de solicitar o cadastro do cupom de desconto do meu Studio: ${couponCode}.`;
+      const url = `https://wa.me/${partner.contactPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+      window.open(url, '_blank');
   };
 
   // Determine back link based on role
@@ -300,6 +307,24 @@ export const StudentPartners: React.FC = () => {
                                             <span className="inline-flex items-center gap-1.5 text-xs font-bold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded border border-green-200 dark:border-green-800">
                                                 <DollarSign className="w-3 h-3" /> Comissão para o Studio: {partner.commission}
                                             </span>
+                                        </div>
+                                    )}
+
+                                    {/* OWNER SPECIFIC: CONTACT INFO FOR PARTNERSHIP SETUP */}
+                                    {user?.isOwner && partner.contactName && partner.contactPhone && (
+                                        <div className="mb-4 bg-green-50 dark:bg-green-900/10 p-3 rounded-lg border border-green-100 dark:border-green-800">
+                                            <p className="text-xs font-bold text-green-800 dark:text-green-300 mb-2 uppercase">Área do Dono</p>
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">Contato: {partner.contactName}</p>
+                                                </div>
+                                                <button 
+                                                    onClick={() => handleContactPartner(partner)}
+                                                    className="bg-[#25D366] hover:bg-[#128C7E] text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm transition-colors"
+                                                >
+                                                    <MessageCircle className="w-3 h-3" /> Falar no Whats
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
 

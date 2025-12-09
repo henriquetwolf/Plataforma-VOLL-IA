@@ -322,6 +322,8 @@ export interface SystemPartner {
   active: boolean;
   createdAt?: string;
   commission?: string;
+  contactName?: string;
+  contactPhone?: string;
 }
 
 export interface StudioPartner {

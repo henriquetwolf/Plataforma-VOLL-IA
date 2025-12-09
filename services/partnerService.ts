@@ -14,8 +14,14 @@ import { SystemPartner, StudioPartner } from '../types';
     link_url text,
     active boolean default true,
     commission text,
+    contact_name text,
+    contact_phone text,
     created_at timestamptz default now()
   );
+  
+  -- Atualização para adicionar colunas se tabela já existe:
+  -- ALTER TABLE system_partners ADD COLUMN IF NOT EXISTS contact_name text;
+  -- ALTER TABLE system_partners ADD COLUMN IF NOT EXISTS contact_phone text;
 
   -- Tabela de Parceiros do Studio (Local)
   create table if not exists studio_partners (
@@ -85,7 +91,9 @@ export const fetchPartners = async (): Promise<SystemPartner[]> => {
       linkUrl: item.link_url,
       active: item.active,
       createdAt: item.created_at,
-      commission: item.commission
+      commission: item.commission,
+      contactName: item.contact_name,
+      contactPhone: item.contact_phone
     }));
   } catch (err) {
     console.error("Fetch Partner Exception:", err);
@@ -99,7 +107,9 @@ export const createPartner = async (
   discountValue: string,
   imageUrl?: string,
   linkUrl?: string,
-  commission?: string
+  commission?: string,
+  contactName?: string,
+  contactPhone?: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     const { error } = await supabase
@@ -111,6 +121,8 @@ export const createPartner = async (
         image_url: imageUrl,
         link_url: linkUrl,
         commission: commission,
+        contact_name: contactName,
+        contact_phone: contactPhone,
         active: true
       });
 

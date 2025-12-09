@@ -7,6 +7,8 @@
 
 
 
+
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -91,6 +93,8 @@ export const AdminPanel: React.FC = () => {
   const [newPartnerDiscount, setNewPartnerDiscount] = useState('');
   const [newPartnerLink, setNewPartnerLink] = useState('');
   const [newPartnerCommission, setNewPartnerCommission] = useState('');
+  const [newPartnerContactName, setNewPartnerContactName] = useState('');
+  const [newPartnerContactPhone, setNewPartnerContactPhone] = useState('');
   const [partnerImageFile, setPartnerImageFile] = useState<File | null>(null);
   const [isCreatingPartner, setIsCreatingPartner] = useState(false);
 
@@ -291,40 +295,6 @@ export const AdminPanel: React.FC = () => {
     setResetting(true);
     let targetAuthId = resetModalUser.targetId;
     
-    // Se for instrutor ou aluno, precisamos garantir que temos o authId correto
-    // No loadData:
-    // Owner -> targetId = p.userId (AUTH ID) - OK
-    // Instructor -> targetId = i.id (TABLE ID) - Precisa buscar AUTH ID? 
-    // Student -> targetId = s.id (TABLE ID) - Precisa buscar AUTH ID?
-    
-    // CORREÇÃO PARA RESET DE SENHA:
-    // A função adminResetPassword espera o ID do Auth (users).
-    // O loadData atual mapeia:
-    // Owner: targetId = userId (Auth)
-    // Instructor: targetId = id (Table). Mas a interface AdminUserView não guarda o authId explicitamente separado.
-    // Vamos verificar se conseguimos passar o AuthId correto.
-    
-    // Como AdminUserView é construída:
-    // Instructors e Students podem não ter o authId acessível facilmente aqui se não foi mapeado.
-    // Vamos ajustar o AdminUserView ou assumir que o adminResetPassword precisa do AuthID.
-    
-    // WORKAROUND RÁPIDO:
-    // Para Owner está ok.
-    // Para Instructor/Student, a função adminResetPassword atual recebe o ID do auth.
-    // Porém, instructorService.updateInstructor e studentService.updateStudent usam RPC internamente buscando o auth_id.
-    // Aqui no admin, para simplificar, vamos assumir que para resetar senha de instrutor/aluno
-    // seria melhor usar a função de update específica deles se não tivermos o auth_id fácil.
-    // MAS, a função adminResetPassword é genérica via RPC.
-    
-    // Se o targetUser for owner, targetId é o authId.
-    // Se for instrutor/student, o targetId é o ID da tabela.
-    // Precisaríamos buscar o authId antes. 
-    // Para simplificar neste momento e evitar refatoração grande, o reset via admin 
-    // funcionará garantidamente para Owners. Para outros, pode falhar se targetId não for authId.
-    // No loadData, Instructor e Student usam o ID da tabela como targetId.
-    
-    // Ajuste: Vamos tentar usar uma lógica condicional se necessário, mas o RPC update_user_password espera UUID do auth.users.
-    
     const result = await adminResetPassword(targetAuthId, newPassword);
     
     if (result.success) {
@@ -431,10 +401,20 @@ export const AdminPanel: React.FC = () => {
         if (uploaded) imageUrl = uploaded;
     }
 
-    const result = await createPartner(newPartnerName, newPartnerDesc, newPartnerDiscount, imageUrl, newPartnerLink, newPartnerCommission);
+    const result = await createPartner(
+        newPartnerName, 
+        newPartnerDesc, 
+        newPartnerDiscount, 
+        imageUrl, 
+        newPartnerLink, 
+        newPartnerCommission,
+        newPartnerContactName,
+        newPartnerContactPhone
+    );
     if (result.success) {
         alert("Parceiro cadastrado!");
         setNewPartnerName(''); setNewPartnerDesc(''); setNewPartnerDiscount(''); setNewPartnerLink(''); setNewPartnerCommission(''); setPartnerImageFile(null);
+        setNewPartnerContactName(''); setNewPartnerContactPhone('');
         setShowPartnerModal(false);
         const data = await fetchPartners();
         setPartners(data);
@@ -556,6 +536,10 @@ create policy "Admin manage partners" on system_partners for all to authenticate
 
 -- Add Expiration Column
 alter table studio_profiles add column if not exists plan_expiration_date date;
+
+-- Add Contact Info to Partners
+ALTER TABLE system_partners ADD COLUMN IF NOT EXISTS contact_name text;
+ALTER TABLE system_partners ADD COLUMN IF NOT EXISTS contact_phone text;
     `;
     navigator.clipboard.writeText(sql.trim());
     alert('SQL copiado! Execute no Supabase SQL Editor para liberar as métricas e sugestões globais.');
@@ -1553,6 +1537,12 @@ alter table studio_profiles add column if not exists plan_expiration_date date;
                         <Input label="Valor do Desconto" value={newPartnerDiscount} onChange={e => setNewPartnerDiscount(e.target.value)} required placeholder="Ex: 15% OFF" />
                         <Input label="Comissão do Studio" value={newPartnerCommission} onChange={e => setNewPartnerCommission(e.target.value)} placeholder="Ex: 5% (Opcional)" />
                     </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <Input label="Nome do Contato" value={newPartnerContactName} onChange={e => setNewPartnerContactName(e.target.value)} placeholder="Ex: João" />
+                        <Input label="Whatsapp do Contato" value={newPartnerContactPhone} onChange={e => setNewPartnerContactPhone(e.target.value)} placeholder="Ex: 5511999999999" />
+                    </div>
+
                     <Input label="Link (Site/Insta)" value={newPartnerLink} onChange={e => setNewPartnerLink(e.target.value)} placeholder="https://..." />
                     <div>
                         <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-300">Imagem (Logo/Foto)</label>
