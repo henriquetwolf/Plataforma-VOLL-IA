@@ -42,7 +42,7 @@ export const PilatesQuest: React.FC = () => {
   const handleStartLevel = async () => {
     if (!progress) return;
     
-    // Check daily limit
+    // Verificação de Limite Diário
     const today = new Date().toISOString().split('T')[0];
     if (progress.lastPlayedAt === today) {
       alert("Você já completou sua aula de hoje! Volte amanhã para manter a sequência.");
@@ -50,10 +50,20 @@ export const PilatesQuest: React.FC = () => {
     }
 
     setLoadingLesson(true);
-    const lesson = await generateLessonContent(progress.currentLevel);
-    setCurrentLesson(lesson);
-    setMode('quiz');
-    setLoadingLesson(false);
+    try {
+        const lesson = await generateLessonContent(progress.currentLevel);
+        if (lesson && lesson.questions && lesson.questions.length > 0) {
+            setCurrentLesson(lesson);
+            setMode('quiz');
+        } else {
+            alert("Erro ao gerar conteúdo da aula. Tente novamente.");
+        }
+    } catch (error) {
+        console.error("Erro fatal ao iniciar aula:", error);
+        alert("Ocorreu um erro ao conectar com o servidor de aulas.");
+    } finally {
+        setLoadingLesson(false);
+    }
   };
 
   const handleQuizComplete = async (score: number) => {
@@ -79,7 +89,7 @@ export const PilatesQuest: React.FC = () => {
 
   if (mode === 'quiz' && currentLesson) {
     return (
-      <div className="fixed inset-0 z-50 bg-white dark:bg-slate-900 overflow-auto">
+      <div className="fixed inset-0 z-50 bg-white dark:bg-slate-900 overflow-auto animate-in fade-in">
         <div className="max-w-2xl mx-auto p-6 h-full flex flex-col">
           <DuoQuiz 
             lesson={currentLesson} 
@@ -134,14 +144,20 @@ export const PilatesQuest: React.FC = () => {
                const isCurrent = offset === 0;
                const isLocked = offset > 0;
                
+               // Check if current level is already played today
+               const today = new Date().toISOString().split('T')[0];
+               const playedToday = isCurrent && progress?.lastPlayedAt === today;
+               
                return (
                  <div key={levelNum} className="mb-12 relative group">
                     <button
                       onClick={isCurrent ? handleStartLevel : undefined}
-                      disabled={isLocked || loadingLesson}
+                      disabled={isLocked || loadingLesson || playedToday}
                       className={`w-20 h-20 rounded-full flex items-center justify-center border-b-4 transition-all transform active:scale-95 active:border-b-0 ${
                         isCurrent 
-                          ? 'bg-green-500 border-green-700 text-white shadow-lg shadow-green-200 hover:brightness-110' 
+                          ? (playedToday 
+                              ? 'bg-slate-200 border-slate-300 text-green-600 cursor-default' 
+                              : 'bg-green-500 border-green-700 text-white shadow-lg shadow-green-200 hover:brightness-110')
                           : 'bg-slate-200 border-slate-300 text-slate-400 cursor-not-allowed'
                       }`}
                     >
@@ -149,6 +165,8 @@ export const PilatesQuest: React.FC = () => {
                         <Loader2 className="animate-spin w-8 h-8" />
                       ) : isLocked ? (
                         <Lock className="w-8 h-8" />
+                      ) : playedToday ? (
+                        <CheckCircle className="w-8 h-8" />
                       ) : (
                         <Play className="w-8 h-8 fill-current" />
                       )}
@@ -156,7 +174,13 @@ export const PilatesQuest: React.FC = () => {
                     
                     <div className="absolute top-4 left-24 bg-white dark:bg-slate-800 px-3 py-2 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 w-48">
                        <h3 className="font-bold text-sm text-slate-800 dark:text-white">Nível {levelNum}</h3>
-                       <p className="text-xs text-slate-500">{isCurrent ? 'Sua aula de hoje' : 'Bloqueado'}</p>
+                       <p className="text-xs text-slate-500">
+                           {loadingLesson && isCurrent 
+                             ? 'Gerando Aula...' 
+                             : isCurrent 
+                               ? (playedToday ? 'Aula concluída!' : 'Sua aula de hoje') 
+                               : 'Bloqueado'}
+                       </p>
                     </div>
                  </div>
                );
@@ -212,3 +236,4 @@ export const PilatesQuest: React.FC = () => {
     </div>
   );
 };
+import { CheckCircle } from 'lucide-react';

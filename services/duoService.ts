@@ -1,5 +1,4 @@
 
-
 import { supabase } from './supabase';
 import { GoogleGenAI, Type } from "@google/genai";
 import { DuoLesson, DuoUserProgress, DuoQuestion } from '../types';
@@ -139,28 +138,20 @@ export const generateLessonContent = async (level: number): Promise<DuoLesson> =
   const fallbackLesson = FALLBACK_LESSONS[(level - 1) % FALLBACK_LESSONS.length];
 
   const prompt = `
-    Crie um Quiz Educativo de Pilates (Estilo Duolingo) sobre o TEMA ESPECÍFICO: "${topic}".
-    Nível do Jogador: ${level}.
-    Gere EXATAMENTE 5 perguntas de múltipla escolha.
+    Crie um Quiz Educativo de Pilates (Estilo Duolingo) sobre o TEMA: "${topic}".
+    Nível: ${level}.
+    EXATAMENTE 5 perguntas.
     
-    IMPORTANTE:
-    - As perguntas DEVEM ser exclusivamente sobre "${topic}". Não faça perguntas genéricas se o tema for específico.
-    - Se o tema for Anatomia, pergunte sobre músculos/ossos.
-    - Se for História, pergunte sobre Joseph.
-    - Dê 4 opções de resposta para cada pergunta.
-    - Indique o índice da correta (0 a 3).
-    - Explicação curta e educativa.
-    
-    Retorne APENAS um JSON válido:
+    Retorne JSON puro:
     {
-      "title": "Título Divertido da Aula",
+      "title": "Título da Aula",
       "topic": "${topic}",
       "questions": [
         {
           "question": "Pergunta?",
           "options": ["A", "B", "C", "D"],
           "correctAnswerIndex": 0,
-          "explanation": "Por que está correta."
+          "explanation": "Explicação"
         }
       ]
     }
@@ -172,32 +163,14 @@ export const generateLessonContent = async (level: number): Promise<DuoLesson> =
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            topic: { type: Type.STRING },
-            questions: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  question: { type: Type.STRING },
-                  options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  correctAnswerIndex: { type: Type.INTEGER },
-                  explanation: { type: Type.STRING }
-                }
-              }
-            }
-          }
-        }
       }
     });
 
-    const data = JSON.parse(cleanJSON(response.text || '{}'));
+    const text = response.text || '{}';
+    const data = JSON.parse(cleanJSON(text));
 
     if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
-        throw new Error("Formato de aula inválido ou vazio retornado pela IA.");
+        throw new Error("Formato de aula inválido.");
     }
 
     return {
@@ -207,11 +180,11 @@ export const generateLessonContent = async (level: number): Promise<DuoLesson> =
       questions: data.questions
     };
   } catch (e) {
-    console.error("Error generating lesson (Using Fallback for Level " + level + "):", e);
-    // Use the specific fallback for this level rotation to ensure variety
+    console.error("Error generating lesson (Using Fallback):", e);
+    // Return fallback immediately to prevent user blockage
     return {
         ...fallbackLesson,
-        level: level // Ensure level matches requested
+        level: level 
     };
   }
 };
