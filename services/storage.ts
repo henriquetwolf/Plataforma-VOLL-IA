@@ -336,6 +336,26 @@ export const toggleUserStatus = async (userId: string, isActive: boolean): Promi
   }
 };
 
+export const deleteStudioProfile = async (userId: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // Tenta deletar o perfil do studio.
+    // Nota: Isso não deleta o usuário da tabela auth.users do Supabase,
+    // mas remove o registro da aplicação, impedindo o login no contexto do app.
+    // Para deletar do Auth, seria necessário uma Edge Function ou RPC com security definer.
+    const { error } = await supabase
+      .from('studio_profiles')
+      .delete()
+      .eq('user_id', userId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+};
+
 // Admin reset password feature
 export const adminResetPassword = async (targetUserId: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
   try {
