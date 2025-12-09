@@ -205,8 +205,8 @@ export const createStudentWithAutoAuth = async (
       cep: sanitize(student.cep),
       birth_date: sanitize(student.birthDate),
       goals: sanitize(student.goals),
-      emergency_contact_name: sanitize(student.emergency_contact_name),
-      emergency_contact_phone: sanitize(student.emergency_contact_phone)
+      emergency_contact_name: sanitize(student.emergencyContactName),
+      emergency_contact_phone: sanitize(student.emergencyContactPhone)
     };
 
     const { error: dbError } = await supabase
