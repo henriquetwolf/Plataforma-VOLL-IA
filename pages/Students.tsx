@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Student } from '../types';
+import { Student, StudentAssessment, StudentEvolution, SavedRehabLesson, ClassEvaluation, AppRoute } from '../types';
 import { 
   fetchStudents, 
   createStudentWithAutoAuth, 
@@ -10,15 +11,22 @@ import {
   createStudentWithAuth, 
   revokeStudentAccess 
 } from '../services/studentService';
+import { fetchAssessmentsByStudent } from '../services/assessmentService';
+import { fetchEvolutionsByStudent } from '../services/evolutionService';
+import { fetchRehabLessonsByStudent } from '../services/rehabService';
+import { fetchStudentEvaluations } from '../services/evaluationService';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { 
   LayoutGrid, List, Plus, X, Unlock, User, Camera, Loader2, 
-  Eye, Ban, Pencil, Trash2, Mail, Phone, Lock, Key, Search 
+  Eye, Ban, Pencil, Trash2, Mail, Phone, Lock, Key, Search,
+  ClipboardList, Activity, TrendingUp, Star, Calendar, FileText
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export const Students: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,10 +65,40 @@ export const Students: React.FC = () => {
 
   // Detail View State
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [studentDetailsTab, setStudentDetailsTab] = useState<'profile' | 'clinical' | 'classes'>('profile');
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [studentRelatedData, setStudentRelatedData] = useState<{
+    assessments: StudentAssessment[];
+    evolutions: StudentEvolution[];
+    rehab: SavedRehabLesson[];
+    evaluations: ClassEvaluation[];
+  }>({ assessments: [], evolutions: [], rehab: [], evaluations: [] });
 
   useEffect(() => {
     loadData();
   }, [user]);
+
+  // Carregar dados relacionados quando um aluno é selecionado
+  useEffect(() => {
+    const fetchRelated = async () => {
+        if (!selectedStudent) return;
+        setLoadingDetails(true);
+        try {
+            const [assessments, evolutions, rehab, evaluations] = await Promise.all([
+                fetchAssessmentsByStudent(selectedStudent.id),
+                fetchEvolutionsByStudent(selectedStudent.id),
+                fetchRehabLessonsByStudent(selectedStudent.id),
+                fetchStudentEvaluations(selectedStudent.id)
+            ]);
+            setStudentRelatedData({ assessments, evolutions, rehab, evaluations });
+        } catch (e) {
+            console.error("Erro ao carregar detalhes do aluno", e);
+        } finally {
+            setLoadingDetails(false);
+        }
+    };
+    fetchRelated();
+  }, [selectedStudent]);
 
   const loadData = async () => {
     if (user?.id) {
@@ -274,68 +312,227 @@ export const Students: React.FC = () => {
         </div>
       )}
 
+      {/* --- STUDENT DOSSIER MODAL --- */}
       {selectedStudent && !showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-xl shadow-2xl p-6 relative overflow-y-auto max-h-[90vh]">
-                <button onClick={() => setSelectedStudent(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X className="w-6 h-6" /></button>
-                <div className="flex flex-col items-center mb-6">
-                    {selectedStudent.photoUrl ? (
-                        <img src={selectedStudent.photoUrl} alt={selectedStudent.name} className="w-24 h-24 rounded-full object-cover mb-4 border-4 border-slate-100 dark:border-slate-800" />
-                    ) : (
-                        <div className="w-24 h-24 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 font-bold text-3xl mb-4">
-                            {selectedStudent.name.charAt(0)}
-                        </div>
-                    )}
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedStudent.name}</h2>
-                    <p className="text-slate-500">{selectedStudent.email}</p>
-                </div>
+            <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                 
-                <div className="space-y-4 text-sm">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded">
-                            <p className="text-xs text-slate-400 uppercase font-bold">Telefone</p>
-                            <p className="text-slate-800 dark:text-white">{selectedStudent.phone || '-'}</p>
-                        </div>
-                        <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded">
-                            <p className="text-xs text-slate-400 uppercase font-bold">CPF</p>
-                            <p className="text-slate-800 dark:text-white">{selectedStudent.cpf || '-'}</p>
+                {/* Header */}
+                <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start bg-slate-50 dark:bg-slate-950">
+                    <div className="flex items-center gap-4">
+                        {selectedStudent.photoUrl ? (
+                            <img src={selectedStudent.photoUrl} alt={selectedStudent.name} className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm" />
+                        ) : (
+                            <div className="w-16 h-16 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-400 font-bold text-2xl">
+                                {selectedStudent.name.charAt(0)}
+                            </div>
+                        )}
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedStudent.name}</h2>
+                            <p className="text-slate-500 text-sm flex items-center gap-2">
+                                {selectedStudent.email}
+                                {selectedStudent.authUserId ? 
+                                    <span className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Acesso App</span> : 
+                                    <span className="bg-slate-200 text-slate-500 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Sem Acesso</span>
+                                }
+                            </p>
                         </div>
                     </div>
-                    <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded">
-                        <p className="text-xs text-slate-400 uppercase font-bold">Endereço</p>
-                        <p className="text-slate-800 dark:text-white">{selectedStudent.address || '-'}</p>
-                        <p className="text-slate-800 dark:text-white">{selectedStudent.city} - {selectedStudent.state} ({selectedStudent.cep})</p>
-                    </div>
-                    {selectedStudent.goals && (
-                        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded border border-blue-100 dark:border-blue-900">
-                            <p className="text-xs text-blue-600 uppercase font-bold">Objetivos</p>
-                            <p className="text-blue-900 dark:text-blue-100">{selectedStudent.goals}</p>
-                        </div>
-                    )}
-                    {selectedStudent.observations && (
-                        <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded border border-yellow-100 dark:border-yellow-900">
-                            <p className="text-xs text-yellow-600 uppercase font-bold">Observações Clínicas</p>
-                            <p className="text-yellow-900 dark:text-yellow-100">{selectedStudent.observations}</p>
-                        </div>
-                    )}
-                    {selectedStudent.emergencyContactName && (
-                        <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-100 dark:border-red-900">
-                            <p className="text-xs text-red-600 uppercase font-bold">Emergência</p>
-                            <p className="text-red-900 dark:text-red-100">{selectedStudent.emergencyContactName} - {selectedStudent.emergencyContactPhone}</p>
-                        </div>
-                    )}
+                    <button onClick={() => setSelectedStudent(null)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors"><X className="w-6 h-6 text-slate-400" /></button>
                 </div>
-                
-                <div className="mt-6 flex gap-2">
-                    <Button onClick={() => { setSelectedStudent(null); openForm(selectedStudent); }} className="flex-1">
-                        <Pencil className="w-4 h-4 mr-2"/> Editar
-                    </Button>
+
+                {/* Tabs */}
+                <div className="flex border-b border-slate-100 dark:border-slate-800 px-6">
                     <button 
-                        onClick={() => { if(confirm('Excluir aluno?')) { deleteStudent(selectedStudent.id); setSelectedStudent(null); loadData(); } }}
-                        className="p-2 text-slate-400 hover:text-red-600 border rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
+                        onClick={() => setStudentDetailsTab('profile')} 
+                        className={`py-4 px-4 text-sm font-medium border-b-2 transition-colors ${studentDetailsTab === 'profile' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                     >
-                        <Trash2 className="w-5 h-5"/>
+                        Perfil & Dados
                     </button>
+                    <button 
+                        onClick={() => setStudentDetailsTab('clinical')} 
+                        className={`py-4 px-4 text-sm font-medium border-b-2 transition-colors ${studentDetailsTab === 'clinical' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                    >
+                        Histórico Clínico
+                    </button>
+                    <button 
+                        onClick={() => setStudentDetailsTab('classes')} 
+                        className={`py-4 px-4 text-sm font-medium border-b-2 transition-colors ${studentDetailsTab === 'classes' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                    >
+                        Aulas & Feedback
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 dark:bg-slate-900">
+                    {loadingDetails ? (
+                        <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-brand-600"/></div>
+                    ) : (
+                        <>
+                            {/* TAB: PROFILE */}
+                            {studentDetailsTab === 'profile' && (
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
+                                            <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-3 text-sm uppercase">Contato</h4>
+                                            <div className="space-y-2 text-sm">
+                                                <p><span className="text-slate-400">Telefone:</span> {selectedStudent.phone || '-'}</p>
+                                                <p><span className="text-slate-400">CPF:</span> {selectedStudent.cpf || '-'}</p>
+                                                <p><span className="text-slate-400">Endereço:</span> {selectedStudent.address || '-'}</p>
+                                                <p><span className="text-slate-400">Cidade:</span> {selectedStudent.city} - {selectedStudent.state}</p>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
+                                            <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-3 text-sm uppercase">Emergência</h4>
+                                            <div className="space-y-2 text-sm">
+                                                <p><span className="text-slate-400">Contato:</span> {selectedStudent.emergencyContactName || '-'}</p>
+                                                <p><span className="text-slate-400">Telefone:</span> {selectedStudent.emergencyContactPhone || '-'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
+                                        <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-3 text-sm uppercase">Objetivos & Observações</h4>
+                                        <div className="space-y-4">
+                                            {selectedStudent.goals && (
+                                                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 rounded-lg text-sm">
+                                                    <strong>Objetivos:</strong> {selectedStudent.goals}
+                                                </div>
+                                            )}
+                                            {selectedStudent.observations && (
+                                                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 rounded-lg text-sm">
+                                                    <strong>Obs. Clínicas:</strong> {selectedStudent.observations}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-3 justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
+                                        <Button variant="outline" onClick={() => { setSelectedStudent(null); openForm(selectedStudent); }}>
+                                            <Pencil className="w-4 h-4 mr-2"/> Editar Dados
+                                        </Button>
+                                        <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => { if(confirm('Excluir?')) { deleteStudent(selectedStudent.id); setSelectedStudent(null); loadData(); } }}>
+                                            <Trash2 className="w-4 h-4 mr-2"/> Excluir
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TAB: CLINICAL */}
+                            {studentDetailsTab === 'clinical' && (
+                                <div className="space-y-8">
+                                    {/* AVALIAÇÕES FÍSICAS */}
+                                    <div>
+                                        <h3 className="font-bold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
+                                            <ClipboardList className="w-5 h-5 text-brand-600"/> Avaliações Físicas
+                                        </h3>
+                                        {studentRelatedData.assessments.length === 0 ? (
+                                            <div className="p-4 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-center text-slate-400 text-sm">
+                                                Nenhuma avaliação registrada.
+                                                <div className="mt-2"><Button size="sm" variant="outline" onClick={() => navigate(AppRoute.STUDENT_ASSESSMENT)}>Nova Avaliação</Button></div>
+                                            </div>
+                                        ) : (
+                                            <div className="grid gap-3">
+                                                {studentRelatedData.assessments.map(a => (
+                                                    <div key={a.id} className="bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                                                        <div>
+                                                            <p className="font-bold text-slate-800 dark:text-white">{a.title}</p>
+                                                            <p className="text-xs text-slate-500">{new Date(a.createdAt).toLocaleDateString()} • {a.type === 'simple' ? 'Padrão' : 'Personalizada'}</p>
+                                                        </div>
+                                                        <Button size="sm" variant="ghost" onClick={() => navigate(AppRoute.STUDENT_ASSESSMENT)}>Ver</Button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* EVOLUÇÃO */}
+                                    <div>
+                                        <h3 className="font-bold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
+                                            <TrendingUp className="w-5 h-5 text-orange-600"/> Evolução Diária
+                                        </h3>
+                                        {studentRelatedData.evolutions.length === 0 ? (
+                                            <div className="p-4 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-center text-slate-400 text-sm">
+                                                Nenhum registro de evolução.
+                                                <div className="mt-2"><Button size="sm" variant="outline" onClick={() => navigate(AppRoute.EVOLUTION)}>Registrar</Button></div>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                                {studentRelatedData.evolutions.map(e => (
+                                                    <div key={e.id} className="text-sm border-l-2 border-orange-200 pl-4 py-2">
+                                                        <div className="flex justify-between">
+                                                            <span className="font-bold text-slate-700 dark:text-slate-300">{new Date(e.date).toLocaleDateString()}</span>
+                                                            <span className="text-xs text-slate-400">{e.instructorName}</span>
+                                                        </div>
+                                                        {e.pain && <span className="text-[10px] bg-red-100 text-red-800 px-1 rounded mr-1">Dor</span>}
+                                                        {e.limitation && <span className="text-[10px] bg-orange-100 text-orange-800 px-1 rounded">Limitação</span>}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* PLANOS DE AULA / REHAB */}
+                                    <div>
+                                        <h3 className="font-bold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
+                                            <Activity className="w-5 h-5 text-blue-600"/> Planos de Aula (Reabilitação)
+                                        </h3>
+                                        {studentRelatedData.rehab.length === 0 ? (
+                                            <p className="text-sm text-slate-400 italic">Nenhum plano de aula salvo.</p>
+                                        ) : (
+                                            <div className="grid gap-3">
+                                                {studentRelatedData.rehab.map(r => (
+                                                    <div key={r.id} className="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                                                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{r.pathologyName}</span>
+                                                        <span className="text-xs text-slate-500">{new Date(r.createdAt).toLocaleDateString()}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TAB: CLASSES / FEEDBACK */}
+                            {studentDetailsTab === 'classes' && (
+                                <div>
+                                    <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                                        <Star className="w-5 h-5 text-yellow-500"/> Feedback de Aulas
+                                    </h3>
+                                    {studentRelatedData.evaluations.length === 0 ? (
+                                        <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                                            <p className="text-slate-500">O aluno ainda não avaliou nenhuma aula.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {studentRelatedData.evaluations.map(eva => (
+                                                <div key={eva.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <div className="flex gap-1">
+                                                            {[1, 2, 3, 4, 5].map(star => (
+                                                                <Star key={star} className={`w-4 h-4 ${star <= eva.rating ? 'fill-yellow-400 text-yellow-400' : 'text-slate-200'}`} />
+                                                            ))}
+                                                        </div>
+                                                        <span className="text-xs text-slate-400">{new Date(eva.classDate).toLocaleDateString()}</span>
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 mb-2">Instrutor: {eva.instructorName}</p>
+                                                    <div className="flex gap-2 text-xs mb-2">
+                                                        <span className="bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">Sensação: {eva.feeling}</span>
+                                                        <span className="bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">Ritmo: {eva.pace}</span>
+                                                    </div>
+                                                    {eva.suggestions && (
+                                                        <p className="text-sm text-slate-600 dark:text-slate-300 italic bg-slate-50 dark:bg-slate-900/50 p-2 rounded">
+                                                            "{eva.suggestions}"
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
             </div>
         </div>
