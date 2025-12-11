@@ -2,17 +2,16 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { ShieldCheck } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { AppRoute } from '../types';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [loginMode, setLoginMode] = useState<'studio' | 'admin' | 'instructor' | 'student'>('studio');
   
   const { login, isLoading } = useAuth();
   const { t } = useLanguage();
@@ -31,24 +30,19 @@ export const Login: React.FC = () => {
       const result = await login(email, password);
       
       if (result.success && result.user) {
-         // Verifica a flag isAdmin (que inclui o hardcoded e os admins do banco)
+         // Redirecionamento Automático baseado na Role identificada no Backend/AuthContext
          if (result.user.isAdmin) {
              navigate(AppRoute.ADMIN);
-             return;
-         }
-         if (result.user.isStudent) {
-             navigate(AppRoute.STUDENT_DASHBOARD);
-             return;
-         }
-         if (result.user.isInstructor) {
+         } else if (result.user.isInstructor) {
              navigate(AppRoute.INSTRUCTOR_DASHBOARD);
-             return;
-         }
-         if (result.user.isOwner) {
+         } else if (result.user.isStudent) {
+             navigate(AppRoute.STUDENT_DASHBOARD);
+         } else if (result.user.isOwner) {
              navigate(AppRoute.DASHBOARD);
-             return;
+         } else {
+             // Fallback de segurança
+             navigate(AppRoute.DASHBOARD);
          }
-         navigate(AppRoute.DASHBOARD);
       } else {
          setError(result.error || t('login_error'));
       }
@@ -60,45 +54,59 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-500 ${loginMode === 'admin' ? 'bg-slate-900' : 'bg-slate-50'}`}>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 transition-colors duration-500">
       <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-xl shadow-slate-200/50 relative overflow-hidden">
         
-        {loginMode === 'admin' && <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-purple-500 to-indigo-600" />}
-        {loginMode === 'instructor' && <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-400 to-cyan-500" />}
-        {loginMode === 'student' && <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-green-400 to-teal-500" />}
+        {/* Barra de destaque superior */}
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-brand-500 via-cyan-500 to-brand-600" />
 
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-slate-900">
-            {loginMode === 'admin' ? t('admin_panel') : loginMode === 'instructor' ? t('instructor_portal') : loginMode === 'student' ? t('student_area') : t('welcome_platform')}
+        <div className="text-center mb-8 mt-2">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-50 text-brand-600 mb-4 shadow-sm border border-brand-100">
+            <Sparkles className="h-7 w-7" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+            Plataforma VOLL IA
           </h1>
-          <p className="text-slate-500 mt-2 text-sm">
-            {loginMode === 'student' ? t('access_area') : t('login_subtitle')}
+          <p className="text-slate-500 mt-2 text-sm max-w-xs mx-auto">
+            Acesse sua conta para gerenciar, ensinar ou treinar.
           </p>
         </div>
 
-        {/* Tabs de Modo (Visual Only now) */}
-        <div className="flex p-1 bg-slate-100 rounded-lg mb-6">
-          <button onClick={() => { setLoginMode('studio'); setError(''); }} className={`flex-1 py-2 text-xs font-medium rounded-md transition-all ${loginMode === 'studio' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}>Studio</button>
-          <button onClick={() => { setLoginMode('instructor'); setError(''); }} className={`flex-1 py-2 text-xs font-medium rounded-md transition-all ${loginMode === 'instructor' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}>{t('instructor')}</button>
-          <button onClick={() => { setLoginMode('student'); setError(''); }} className={`flex-1 py-2 text-xs font-medium rounded-md transition-all ${loginMode === 'student' ? 'bg-white shadow text-green-600' : 'text-slate-500'}`}>{t('student')}</button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input label={t('email_label')} type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <Input label={t('password_label')} type="password" placeholder="******" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <Input 
+            label={t('email_label')} 
+            type="email" 
+            placeholder="seu@email.com" 
+            value={email} 
+            onChange={(e) => setEmail(e.target.value)} 
+            autoFocus
+          />
           
-          {error && <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 animate-in fade-in">{error}</div>}
+          <div className="space-y-1">
+            <Input 
+                label={t('password_label')} 
+                type="password" 
+                placeholder="******" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+            />
+            {/* Opcional: Link de esqueci a senha poderia vir aqui */}
+          </div>
+          
+          {error && (
+            <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 animate-in fade-in flex items-center justify-center">
+                {error}
+            </div>
+          )}
 
-          <Button type="submit" className={`w-full transition-all ${loginMode === 'student' ? 'bg-green-600 hover:bg-green-700' : ''}`} isLoading={isLoading}>
+          <Button 
+            type="submit" 
+            className="w-full bg-brand-600 hover:bg-brand-700 text-white h-11 text-base font-medium shadow-lg shadow-brand-200" 
+            isLoading={isLoading}
+          >
             {t('enter_button')}
           </Button>
         </form>
-
-        {loginMode === 'studio' && (
-          <div className="mt-6 pt-6 border-t border-slate-100 text-center">
-             <button onClick={() => setLoginMode('admin')} className="text-xs text-slate-400 hover:text-slate-600 mt-4 flex items-center justify-center gap-1 mx-auto"><ShieldCheck className="h-3 w-3"/> Admin</button>
-          </div>
-        )}
       </div>
     </div>
   );
