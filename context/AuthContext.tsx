@@ -159,19 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const profile = await fetchProfile(sessionUser.id);
       const isSuperAdmin = sessionUser.email === SUPER_ADMIN_EMAIL;
 
-      // --- CRITICAL SECURITY FIX: ---
-      // Se não encontrou perfil E não é o Super Admin, significa que o usuário foi excluído
-      // do banco de dados (tabela studio_profiles), mas ainda existe no Auth.
-      // Devemos bloquear o acesso imediatamente.
-      if (!profile && !isSuperAdmin) {
-          console.warn("Acesso negado: Perfil de estúdio não encontrado (Usuário excluído ou corrompido).");
-          await supabase.auth.signOut(); // KILL SESSION
-          setState({ user: null, isAuthenticated: false, isLoading: false });
-          // Retorna erro para o login handler exibir na tela
-          throw new Error("Usuário não encontrado. Entre em contato com o suporte.");
-      }
-      
-      // SEGURANÇA CRÍTICA: Bloqueio explícito se isActive for falso
+      // SEGURANÇA CRÍTICA: Bloqueio explícito se isActive for falso (usuário banido ou desativado manualmente)
       if (profile && profile.isActive === false) {
           console.warn("Acesso negado: Studio (Dono) desativado pelo Administrador.");
           await supabase.auth.signOut(); // KILL SESSION
@@ -179,6 +167,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return null;
       }
 
+      // Se não tem perfil, permitimos logar temporariamente (Fluxo de Cadastro Novo)
+      // Isso corrige o erro onde o usuário criava a conta mas era deslogado antes de criar o perfil
+      
       // SEGURANÇA CRÍTICA: Bloqueio por Expiração
       const isAdmin = profile?.isAdmin || isSuperAdmin;
 
@@ -203,7 +194,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: sessionUser.email || '',
           name: profile?.ownerName || sessionUser.user_metadata?.name || 'Dono do Studio',
           password: '',
-          isAdmin: isAdmin, // Força true para o email hardcoded
+          isAdmin: isAdmin, 
           isInstructor: false,
           isStudent: false,
           isOwner: true,

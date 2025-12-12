@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
@@ -53,8 +54,9 @@ export const Register: React.FC = () => {
             await upsertProfile(userId, {
               ownerName: name,
               email: email, 
-              studioName: '',
-              specialties: []
+              studioName: 'Meu Studio', // Nome padrão para evitar erros
+              specialties: [],
+              isActive: true // GARANTE QUE O USUÁRIO NASÇA ATIVO
             });
             navigate(AppRoute.PROFILE);
           }
